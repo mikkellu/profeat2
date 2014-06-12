@@ -1,0 +1,28 @@
+name:                profeat
+version:             0.1.0.0
+synopsis:            A feature modelling language
+author:              Philipp Chrszon
+maintainer:          Philipp.Chrszon@mailbox.tu-dresden.de
+build-type:          Simple
+cabal-version:       >=1.8
+
+library
+  -- exposed-modules:
+  hs-source-dirs:      src
+  build-depends:       base >=4.6 && <5
+  ghc-options:         -Wall
+
+executable profeat
+  main-is:             Main.hs
+  build-depends:       base >=4.6 && <5,
+                       profeat
+  hs-source-dirs:      src
+  ghc-options:         -Wall
+
+test-suite profeat-tests
+  type:                exitcode-stdio-1.0
+  main-is:             Tests.hs
+  -- other-modules:
+  hs-source-dirs:      tests
+  build-depends:       base >=4.3 && <5,
+                       profeat
