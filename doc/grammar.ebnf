@@ -1,0 +1,149 @@
+model = { definition } ;
+
+definition = feature_def
+           | controller_def
+           | module_def
+           | global_def
+           | const_def
+           | formula_def
+           ;
+
+(* Features *)
+
+feature_def = 'feature', ident_symbol,
+              decomposition, ';', { constraint },
+              [ 'modules', module_list ], { cost_block },
+              'endfeature' ;
+
+module_list = module_inst, { module_inst }, ';' ;
+module_inst = ident_symbol, [ arg_list ] ;
+
+decomposition = 'allOf'    , feature_list
+              | 'oneOf'    , feature_list
+              | 'someOf'   , feature_list
+              | range, 'of', feature_list
+              ;
+
+constraint = 'constraint', constraint_expr ;
+
+feature_list = feature, { feature } ;
+feature      = [ 'optional' ], ident_symbol, [ '[', expr, ']' ] ;
+
+cost_block = 'costs', '"', ident_symbol, '"', cost_list, 'endcosts' ;
+cost_list  = cost, { cost } ;
+cost       = '[', [ action ], ']', expr, ':', expr, ';' ;
+
+(* Modules and Controller *)
+
+controller_def = 'controller', module_body, 'endcontroller' ;
+
+module_def = 'module', ident_symbol, [ param_list ],
+             [ export_list ], module_body
+             'endmodule' ;
+
+module_body = { var_decl }, stmt_list ;
+
+export_list = 'provides', ident_symbol, { ',', ident_symbol }, ';' ;
+
+stmt_list = stmt, [ stmt_list ]
+          | for_loop, stmt_list, 'endfor'
+          ;
+stmt = '[', action, ']', expr, '->', ('true' | update_list), ';' ;
+
+update_list = update, [ '+', update_list ]
+            | for_loop, update_list, 'endfor'
+            ;
+update = [ 'true' | expr, ':' ], ('true' | assignment_list) ;
+
+assignment_list = assignment, [ '&', assignment_list ]
+                | for_loop, assignment_list, 'endfor'
+                ;
+assignment = '(', ident_symbol, "'", '=', expr, ')'
+           | 'activate', '(', name, ')'
+           | 'deactivate', '(', name, ')'
+           ;
+
+(* Globals, Constants, Formulas, Labels *)
+
+global_def  = 'global', var_decl ;
+const_def   = 'const', const_type, '=', expr, ';' ;
+formula_def = 'formula', [ param_list ], ident_symbol, '=', expr, ';' ;
+
+(* Variables and Types *)
+
+var_decl = ident_symbol, var_type, [ 'init', expr ], ';' ;
+
+var_type      = compound_type | simple_type ;
+compound_type = 'array', range, 'of', simple_type ;
+simple_type   = 'bool' | range ;
+
+const_type = 'bool' | 'int' | 'double' ;
+
+(* Identifiers *)
+
+action = 'initialize'
+       | 'activate'
+       | 'deactivate'
+       | name
+       ;
+
+name      = ident_symbol, [ qualifier ] ;
+qualifier = '.', name
+          | '[', expr, ']'
+          | '#', expr
+          ;
+
+(* Templates *)
+
+for_loop = 'for', ident_symbol, 'in', range ;
+
+(* Expressions *)
+
+constraint_expr = ? expressions over constraint_term ? ;
+constraint_term = 'true' | 'false'
+                | name
+                | for_loop, constraint_expr, 'endfor'
+                ;
+
+(* Operators for constraint_expr, highest to lowest precedence
+    ! (unary)
+    =>, <=>
+    &
+    |
+*)
+
+expr = ? expressions over term ? ;
+term = 'id' (* module id *)
+     | '...' (* placeholder for for-loops *)
+     | function_call
+     | name
+     | decimal_symbol
+     | integer_symbol
+     | 'true' | 'false'
+     | expr, '?', expr, ':', expr
+     | for_loop, expr, 'endfor'
+     ;
+
+function_call = function, arg_list ;
+function      = 'min' | 'max' | 'floor' | 'ceil' | 'pow' | 'mod' | 'log'
+              | 'activated' ;
+
+(* Operators for expr, highest to lowest precedence
+    - (unary)
+    *, /
+    +, -
+    =, !=, <, >, <=, >=,
+    ! (unary)
+    =>, <=>
+    &
+    |
+*)
+
+(* Misc *)
+
+range = '[', expr, '..', expr, ']' ;
+
+param_list = '(', { ident_symbol }, ')' ;
+
+arg_list = '(', expr, { ',', expr }, ')' ;
+
