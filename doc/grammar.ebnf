@@ -10,7 +10,7 @@ definition = feature_def
 
 (* Features *)
 
-feature_def = 'feature', ident_symbol,
+feature_def = 'feature', ident_symbol, [ param_list ],
               decomposition, ';', { constraint },
               [ 'modules', module_list ], { cost_block },
               'endfeature' ;
@@ -27,7 +27,7 @@ decomposition = 'allOf'    , feature_list
 constraint = 'constraint', constraint_expr ;
 
 feature_list = feature, { feature } ;
-feature      = [ 'optional' ], ident_symbol, [ '[', expr, ']' ] ;
+feature      = [ 'optional' ], ident_symbol, [ arg_list ], [ '[', expr, ']' ] ;
 
 cost_block = 'costs', '"', ident_symbol, '"', cost_list, 'endcosts' ;
 cost_list  = cost, { cost } ;
@@ -126,7 +126,9 @@ term = 'id' (* module id *)
 
 function_call = function, arg_list ;
 function      = 'min' | 'max' | 'floor' | 'ceil' | 'pow' | 'mod' | 'log'
-              | 'activated' ;
+              | 'activated'
+              | ident_symbol
+              ;
 
 (* Operators for expr, highest to lowest precedence
     - (unary)
