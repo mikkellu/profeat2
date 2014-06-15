@@ -1,5 +1,5 @@
 name:                profeat
-version:             0.3.0
+version:             0.4.0
 synopsis:            A feature modelling language
 author:              Philipp Chrszon
 maintainer:          Philipp.Chrszon@mailbox.tu-dresden.de
@@ -9,6 +9,7 @@ cabal-version:       >=1.8
 library
   exposed-modules:     Control.Monad.Either,
                        Control.Monad.Either.Class
+                       Error,
                        SrcLoc,
                        Syntax,
                        Syntax.Operators
