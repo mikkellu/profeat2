@@ -1,5 +1,5 @@
 name:                profeat
-version:             0.1.0.0
+version:             0.2.0
 synopsis:            A feature modelling language
 author:              Philipp Chrszon
 maintainer:          Philipp.Chrszon@mailbox.tu-dresden.de
@@ -7,9 +7,13 @@ build-type:          Simple
 cabal-version:       >=1.8
 
 library
-  -- exposed-modules:
+  exposed-modules:     SrcLoc,
+                       Syntax,
+                       Syntax.Operators
   hs-source-dirs:      src
-  build-depends:       base >=4.6 && <5
+  build-depends:       base >=4.6 && <5,
+                       text >=0.11.3,
+                       wl-pprint-text >=1.1
   ghc-options:         -Wall
 
 executable profeat
