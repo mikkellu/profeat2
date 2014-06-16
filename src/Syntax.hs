@@ -27,8 +27,10 @@ module Syntax
   , Update(..)
   , Assign(..)
   , Expr(..)
+  , Repeatable(..)
+  , Some(..)
   , ForLoop(..)
-  , Looped(..)
+  , Function(..)
   , Name(..)
   , Range
 
@@ -57,7 +59,6 @@ module Syntax
   , LAssign
   , LExpr
   , LForLoop
-  , LLooped
   , LName
   , LRange
   ) where
@@ -125,7 +126,7 @@ data Module a = Module
 
 data ModuleBody a = ModuleBody
   { modVars     :: [VarDecl a]
-  , modStmts    :: [Looped Stmt a]
+  , modStmts    :: Repeatable Stmt a
   , modAnnot    :: !a
   } deriving (Eq, Functor, Show)
 
@@ -173,7 +174,7 @@ data Formula a = Formula
 data Stmt a = Stmt
   { stmtAction :: ActionLabel a
   , stmtGuard  :: Expr a
-  , stmtUpdate :: [Looped Update a]
+  , stmtUpdate :: Repeatable Update a
   , stmtAnnot  :: !a
   } deriving (Eq, Functor, Show)
 
@@ -187,7 +188,7 @@ data ActionLabel a
 
 data Update a = Update
   { updProb   :: Maybe (Expr a)
-  , updAssign :: [Looped Assign a]
+  , updAssign :: Repeatable Assign a
   , updAnnot  :: !a
   } deriving (Eq, Functor, Show)
 
@@ -210,17 +211,19 @@ data Expr a
   | MissingExpr !a
   deriving (Eq, Functor, Show)
 
+newtype Repeatable b a = Repeatable [Some b a] deriving (Eq, Functor, Show)
+
+data Some b a
+  = One (b a)
+  | Many (ForLoop (Repeatable b) a)
+  deriving (Eq, Functor, Show)
+
 data ForLoop b a = ForLoop
   { forVar   :: !Ident
   , forRange :: Range a
   , forBody  :: b a
   , forAnnot :: !a
   } deriving (Eq, Functor, Show)
-
-data Looped b a
-  = Single (b a)
-  | Looped (ForLoop b a)
-  deriving (Eq, Functor, Show)
 
 data Function
   = FuncMin
@@ -278,7 +281,6 @@ type LUpdate          = Update SrcLoc
 type LAssign          = Assign SrcLoc
 type LExpr            = Expr SrcLoc
 type LForLoop b       = ForLoop b SrcLoc
-type LLooped b        = Looped b SrcLoc
 type LName            = Name SrcLoc
 type LRange           = Range SrcLoc
 
@@ -356,7 +358,7 @@ instance Pretty (Module a) where
 instance Pretty (ModuleBody a) where
     pretty (ModuleBody decls stmts _) =
         vsep (map pretty decls) <> line <> line <>
-        vsep (prettyLooped False line empty stmts)
+        prettyRepeatable False (<$>) empty stmts
 
 instance Pretty (VarDecl a) where
     pretty (VarDecl ident vt e _) =
@@ -395,7 +397,7 @@ instance Pretty (Formula a) where
 instance Pretty (Stmt a) where
     pretty (Stmt action grd upds _) = hang 4 $
         brackets (pretty action) <+> pretty grd <+> "->" </>
-        fillSep (prettyLooped True "+" "true" upds) <> semi
+        prettyRepeatable True (\l r -> l <+> "+" <+> r) "true" upds <> semi
 
 instance Pretty (ActionLabel a) where
     pretty action = brackets $ case action of
@@ -406,8 +408,8 @@ instance Pretty (ActionLabel a) where
         NoAction        -> empty
 
 instance Pretty (Update a) where
-    pretty (Update e asgns _) =
-        prob e <> align (fillSep $ prettyLooped True "&" "true" asgns)
+    pretty (Update e asgns _) = prob e <>
+        align (prettyRepeatable True (\l r -> l <+> "&" <+> r) "true" asgns)
       where
         prob = maybe empty ((<> colon) . pretty)
 
@@ -432,7 +434,7 @@ prettyExpr prec e = case e of
     CondExpr cond te ee _ -> parens' (prec > 0) $
         prettyExpr 1 cond <+> char '?' <+>
         prettyExpr 1 te <+> colon <+> prettyExpr 1 ee
-    LoopExpr loop _       -> prettyLoop True loop
+    LoopExpr loop _       -> prettyLoop pretty True loop
     FuncExpr func args _  ->
         pretty func <> parens (align . cat . punctuate comma $ map pretty args)
     NameExpr n _          -> pretty n
@@ -445,22 +447,27 @@ prettyExpr prec e = case e of
     parens' True  = parens
     parens' False = id
 
-prettyLooped :: (Pretty (b a)) => Bool -> Doc -> Doc -> [Looped b a] -> [Doc]
-prettyLooped inline sep' empty' xs
-  | null xs   = [empty']
-  | otherwise = punctuate (space <> sep') $ map pp xs
+prettyRepeatable :: (Pretty (b a))
+                 => Bool
+                 -> (Doc -> Doc -> Doc)
+                 -> Doc
+                 -> Repeatable b a
+                 -> Doc
+prettyRepeatable inline sep' empty' (Repeatable xs) = case xs of
+    [] -> empty'
+    _  -> foldr1 sep' $ map ppSome xs
   where
-    pp (Single x)    = pretty x
-    pp (Looped loop) = prettyLoop inline loop
+    ppSome (One x)     = pretty x
+    ppSome (Many loop) =
+        prettyLoop (prettyRepeatable inline sep' empty') inline loop
 
-
-prettyLoop :: (Pretty (b a)) => Bool -> ForLoop b a -> Doc
-prettyLoop inline (ForLoop v range body _) =
+prettyLoop :: (b a -> Doc) -> Bool -> ForLoop b a -> Doc
+prettyLoop pp inline (ForLoop v range body _) =
     let opening = "for" <+> text v <+> "in" <+> prettyRange range
         closing = "endfor"
     in if inline
-          then opening <+> pretty body <+> closing
-          else opening <> line <> nest 4 (pretty body) <> line <> closing
+          then opening <+> pp body <+> closing
+          else opening <> line <> nest 4 (pp body) <> line <> closing
 
 instance Pretty Function where
     pretty func = case func of
