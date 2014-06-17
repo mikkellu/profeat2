@@ -202,7 +202,9 @@ decompOp =  AllOf  <$  reserved "allOf"
         <?> "decomposition operator"
 
 featureRef :: Parser LFeatureRef
-featureRef = FeatureRef <$> option False (True <$ reserved "optional") <*> inst
+featureRef = FeatureRef <$> option False (True <$ reserved "optional")
+                        <*> inst
+                        <*> optionMaybe (brackets expr)
 
 inst :: Parser LInstance
 inst = loc $ Instance <$> identifier <*> option [] args

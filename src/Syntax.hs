@@ -111,7 +111,11 @@ data DecompOp a
   | Group (Range a)
   deriving (Eq, Functor, Show)
 
-data FeatureRef a = FeatureRef !Bool (Instance a) deriving (Eq, Functor, Show)
+data FeatureRef a = FeatureRef
+  { frOptional :: !Bool
+  , frInstance :: Instance a
+  , frCount    :: Maybe (Expr a)
+  } deriving (Eq, Functor, Show)
 
 data Instance a = Instance !Ident [Expr a] !a deriving (Eq, Functor, Show)
 
@@ -347,11 +351,12 @@ instance Pretty (DecompOp a) where
         Group range -> prettyRange range
 
 instance Pretty (FeatureRef a) where
-    pretty (FeatureRef optional inst) =
-        (if optional then "optional" else empty) <+> pretty inst
+    pretty (FeatureRef optional inst cnt) =
+        (if optional then "optional" else empty) <+>
+        pretty inst <> maybe empty (brackets . pretty) cnt
 
 instance Pretty (Instance a) where
-    pretty (Instance ident args _) = text ident <> tupled (map pretty args)
+    pretty (Instance ident args _) = text ident <> prettyArgs args
 
 instance Pretty (Rewards a) where
     pretty (Rewards ident rws) =
