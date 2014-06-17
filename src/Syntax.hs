@@ -237,6 +237,22 @@ data Expr a
   | MissingExpr !a
   deriving (Eq, Functor, Show)
 
+instance Plated (Expr a) where
+    plate f e = case e of
+        BinaryExpr binOp lhs rhs a ->
+            BinaryExpr binOp <$> f lhs <*> f rhs <*> pure a
+        UnaryExpr unOp e' a        -> UnaryExpr unOp <$> f e' <*> pure a
+        CondExpr cond te ee a      ->
+            CondExpr <$> f cond <*> f te <*> f ee <*> pure a
+        LoopExpr loop a            -> LoopExpr <$> exprs f loop <*> pure a
+        FuncExpr func args a       ->
+            FuncExpr func <$> traverse f args <*> pure a
+        NameExpr name a            -> NameExpr <$> exprs f name <*> pure a
+        _                          -> pure e
+
+instance HasExprs Expr where
+    exprs f = f
+
 newtype Repeatable b a = Repeatable [Some b a] deriving (Eq, Functor, Show)
 
 instance (HasExprs b) => HasExprs (Repeatable b) where
