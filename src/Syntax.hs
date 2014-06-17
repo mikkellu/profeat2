@@ -34,6 +34,7 @@ module Syntax
   , ForLoop(..)
   , Function(..)
   , Name(..)
+  , BaseName(..)
   , Range
 
   , exprAnnot
@@ -67,6 +68,7 @@ module Syntax
   , LSome
   , LForLoop
   , LName
+  , LBaseName
   , LRange
   ) where
 
@@ -250,11 +252,12 @@ data Function
   deriving (Eq, Show)
 
 data Name a
-  = Name !Ident !a
-  | Member (Name a) !Ident !a
+  = Name (BaseName a)
+  | Member (Name a) (BaseName a)
   | Index  (Name a) (Expr a)
-  | Concat (Name a) (Expr a)
   deriving (Eq, Functor, Show)
+
+data BaseName a = BaseName !Ident [Expr a] !a deriving (Eq, Functor, Show)
 
 type Range a = (Expr a, Expr a)
 
@@ -308,6 +311,7 @@ type LRepeatable b    = Repeatable b SrcLoc
 type LSome b          = Some b SrcLoc
 type LForLoop b       = ForLoop b SrcLoc
 type LName            = Name SrcLoc
+type LBaseName        = BaseName SrcLoc
 type LRange           = Range SrcLoc
 
 instance Pretty (Model a) where
@@ -510,10 +514,13 @@ instance Pretty Function where
 
 instance Pretty (Name a) where
     pretty n = case n of
-        Name ident _      -> text ident
-        Member n' ident _ -> pretty n' <> dot <> text ident
-        Index n' e        -> pretty n' <> brackets (pretty e)
-        Concat n' e       -> pretty n' <> char '#' <> pretty e
+        Name name      -> pretty name
+        Member n' name -> pretty n' <> dot <> pretty name
+        Index n' e     -> pretty n' <> brackets (pretty e)
+
+instance Pretty (BaseName a) where
+    pretty (BaseName ident concats _) =
+        text ident <> hcat (map ((char '#' <>) . pretty) concats)
 
 prettyArgs :: (Pretty a) => [a] -> Doc
 prettyArgs [] = empty

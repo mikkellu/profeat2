@@ -368,13 +368,15 @@ function = choice
     ] <?> "function call"
 
 name :: Parser LName
-name = foldl' (flip ($)) <$> loc (Name <$> identifier) <*> many qualifier
+name = foldl' (flip ($)) <$> (Name <$> baseName) <*> many qualifier
   where
     qualifier = choice
-        [ dot *> loc ((\ident l n -> Member n ident l) <$> identifier)
+        [ dot *> (flip Member <$> baseName)
         , flip Index <$> brackets expr
-        , flip Concat <$> (reservedOp "#" *> expr)
         ] <?> "qualifier"
+
+baseName :: Parser LBaseName
+baseName = loc $ BaseName <$> identifier <*> many (reservedOp "#" *> expr)
 
 args :: Parser [LExpr]
 args = parens (commaSep expr)
