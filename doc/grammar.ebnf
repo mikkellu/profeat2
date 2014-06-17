@@ -136,9 +136,9 @@ function      = 'min' | 'max' | 'floor' | 'ceil' | 'pow' | 'mod' | 'log'
     +, -
     =, !=, <, >, <=, >=,
     ! (unary)
-    =>, <=>
     &
     |
+    =>, <=>
 *)
 
 (* Misc *)

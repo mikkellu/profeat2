@@ -9,6 +9,7 @@ module Syntax
   , Definition(..)
   , Feature(..)
   , Decomposition(..)
+  , DecompOp(..)
   , FeatureRef(..)
   , Instance(..)
   , Rewards(..)
@@ -21,6 +22,7 @@ module Syntax
   , CompoundVarType(..)
   , SimpleVarType(..)
   , Constant(..)
+  , ConstType(..)
   , Formula(..)
   , Stmt(..)
   , ActionLabel(..)
@@ -35,11 +37,14 @@ module Syntax
   , Range
 
   , exprAnnot
+  , unaryExpr
+  , binaryExpr
 
   , LModel
   , LDefinition
   , LFeature
   , LDecomposition
+  , LDecompOp
   , LFeatureRef
   , LInstance
   , LRewards
@@ -58,6 +63,8 @@ module Syntax
   , LUpdate
   , LAssign
   , LExpr
+  , LRepeatable
+  , LSome
   , LForLoop
   , LName
   , LRange
@@ -87,15 +94,17 @@ data Definition a
 data Feature a = Feature
   { featIdent       :: !Ident
   , featParams      :: [Ident]
-  , featDecomp      :: Decomposition a
-  , featChildren    :: [FeatureRef a]
+  , featDecomp      :: Maybe (Decomposition a)
   , featConstraints :: [Expr a]
   , featModules     :: [Instance a]
   , featRewards     :: [Rewards a]
   , featAnnot       :: !a
   } deriving (Eq, Functor, Show)
 
-data Decomposition a
+data Decomposition a = Decomposition (DecompOp a) [FeatureRef a] !a
+                     deriving (Eq, Functor, Show)
+
+data DecompOp a
   = AllOf
   | OneOf
   | SomeOf
@@ -138,8 +147,8 @@ data VarDecl a = VarDecl
   } deriving (Eq, Functor, Show)
 
 data VarType a
-  = CompoundVarType (CompoundVarType a) !a
-  | SimpleVarType   (SimpleVarType a) !a
+  = CompoundVarType (CompoundVarType a)
+  | SimpleVarType   (SimpleVarType a)
   deriving (Eq, Functor, Show)
 
 data CompoundVarType a
@@ -193,7 +202,7 @@ data Update a = Update
   } deriving (Eq, Functor, Show)
 
 data Assign a
-  = Assign !Ident (Expr a) !a
+  = Assign (Name a) (Expr a) !a
   | Activate (Name a) !a
   | Deavtivate (Name a) !a
   deriving (Eq, Functor, Show)
@@ -258,10 +267,21 @@ exprAnnot e = case e of
     BoolExpr _ a       -> a
     MissingExpr a      -> a
 
+-- | Smart constructor for 'BinaryExpr' which attaches the annotation of
+-- the left inner expression @l@ to the newly created expression.
+binaryExpr :: BinOp -> Expr a -> Expr a -> Expr a
+binaryExpr binOp lhs rhs = BinaryExpr binOp lhs rhs (exprAnnot lhs)
+
+-- | Smart constructor for 'UnaryExpr' which attaches the annotation of the
+-- inner expression @e@ to the newly created expression.
+unaryExpr :: UnOp -> Expr a -> Expr a
+unaryExpr unOp e = UnaryExpr unOp e (exprAnnot e)
+
 type LModel           = Model SrcLoc
 type LDefinition      = Definition SrcLoc
 type LFeature         = Feature SrcLoc
 type LDecomposition   = Decomposition SrcLoc
+type LDecompOp        = DecompOp SrcLoc
 type LFeatureRef      = FeatureRef SrcLoc
 type LInstance        = Instance SrcLoc
 type LRewards         = Rewards SrcLoc
@@ -280,6 +300,8 @@ type LActionLabel     = ActionLabel SrcLoc
 type LUpdate          = Update SrcLoc
 type LAssign          = Assign SrcLoc
 type LExpr            = Expr SrcLoc
+type LRepeatable b    = Repeatable b SrcLoc
+type LSome b          = Some b SrcLoc
 type LForLoop b       = ForLoop b SrcLoc
 type LName            = Name SrcLoc
 type LRange           = Range SrcLoc
@@ -297,16 +319,13 @@ instance Pretty (Definition a) where
         FormulaDef  f   -> pretty f
 
 instance Pretty (Feature a) where
-    pretty (Feature ident params decomp children constrs mods rws _) =
+    pretty (Feature ident params decomp constrs mods rws _) =
         "feature" <+> text ident <> tupled (map text params) <> line <>
         indent 4 body <> line <> "endfeature"
       where
-        body = decompList <> line <> constrList <> line <> line <>
+        body = pretty decomp <> line <> constrList <> line <> line <>
                modList <> line <> line <>
                vsep (map pretty rws)
-        decompList =
-            pretty decomp <+>
-            hang 4 (fillSep . punctuate comma $ map pretty children) <> semi
         constrList = vsep (map prettyConstraint constrs)
         modList
           | null mods = empty
@@ -317,6 +336,10 @@ prettyConstraint :: Expr a -> Doc
 prettyConstraint e = "constraint" <+> pretty e <> semi
 
 instance Pretty (Decomposition a) where
+    pretty (Decomposition decompOp children _) = pretty decompOp <+>
+        hang 4 (fillSep . punctuate comma $ map pretty children) <> semi
+
+instance Pretty (DecompOp a) where
     pretty decomp = case decomp of
         AllOf       -> "allOf"
         OneOf       -> "oneOf"
@@ -367,8 +390,8 @@ instance Pretty (VarDecl a) where
 
 instance Pretty (VarType a) where
     pretty vt = case vt of
-        CompoundVarType cvt _ -> pretty cvt
-        SimpleVarType svt   _ -> pretty svt
+        CompoundVarType cvt -> pretty cvt
+        SimpleVarType svt   -> pretty svt
 
 instance Pretty (CompoundVarType a) where
     pretty (ArrayVarType range svt) =
@@ -400,7 +423,7 @@ instance Pretty (Stmt a) where
         prettyRepeatable True (\l r -> l <+> "+" <+> r) "true" upds <> semi
 
 instance Pretty (ActionLabel a) where
-    pretty action = brackets $ case action of
+    pretty action = case action of
         ActInitialize _ -> "initialize"
         ActActivate _   -> "activate"
         ActDeactivate _ -> "deactivate"
@@ -415,7 +438,7 @@ instance Pretty (Update a) where
 
 instance Pretty (Assign a) where
     pretty (Assign name e _) =
-            parens (text name <> squote <+> equals <+> pretty e)
+        parens (pretty name <> squote <+> equals <+> pretty e)
     pretty (Activate n _)   = "activate" <> parens (pretty n)
     pretty (Deavtivate n _) = "deactivate" <> parens (pretty n)
 

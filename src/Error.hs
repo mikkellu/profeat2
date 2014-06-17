@@ -16,7 +16,7 @@ import SrcLoc
 
 -- | Represents translation errors. It provides an error description and the
 -- source location.
-data Error = Error !SrcLoc !ErrorDesc
+data Error = Error !SrcLoc !ErrorDesc deriving (Show)
 
 instance Pretty Error where
     pretty (Error l desc) = pretty l <> colon <> line <> pretty desc
@@ -27,6 +27,7 @@ throw l = left . Error l
 
 data ErrorDesc
   = SyntaxError !Text
+  deriving (Show)
 
 instance Pretty ErrorDesc where
     pretty desc = case desc of
