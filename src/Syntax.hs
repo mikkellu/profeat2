@@ -3,6 +3,8 @@
 module Syntax
   ( module Syntax.Operators
 
+  , HasExprs(..)
+
   , Ident
 
   , Model(..)
@@ -72,13 +74,22 @@ module Syntax
   , LRange
   ) where
 
+import Control.Applicative hiding ( empty, optional )
+import Control.Lens
+
 import Data.Text.Lazy ( Text )
 
-import Text.PrettyPrint.Leijen.Text
+import Text.PrettyPrint.Leijen.Text hiding ( (<$>) )
+import qualified Text.PrettyPrint.Leijen.Text as PP
 
 import SrcLoc
 
 import Syntax.Operators
+
+-- | Any syntax tree node @n@ that 'HasExprs' provides a 'Traversal' of all
+-- 'Expr's contained in that node and its subtree.
+class HasExprs n where
+    exprs :: Traversal' (n a) (Expr a)
 
 type Ident = Text
 
@@ -228,10 +239,17 @@ data Expr a
 
 newtype Repeatable b a = Repeatable [Some b a] deriving (Eq, Functor, Show)
 
+instance (HasExprs b) => HasExprs (Repeatable b) where
+    exprs f (Repeatable xs) = Repeatable <$> traverse (exprs f) xs
+
 data Some b a
   = One (b a)
   | Many (ForLoop (Repeatable b) a)
   deriving (Eq, Functor, Show)
+
+instance (HasExprs b) => HasExprs (Some b) where
+    exprs f (One x)     = One  <$> exprs f x
+    exprs f (Many loop) = Many <$> exprs f loop
 
 data ForLoop b a = ForLoop
   { forVar   :: !Ident
@@ -239,6 +257,10 @@ data ForLoop b a = ForLoop
   , forBody  :: b a
   , forAnnot :: !a
   } deriving (Eq, Functor, Show)
+
+instance (HasExprs b) => HasExprs (ForLoop b) where
+    exprs f (ForLoop ident range body a) =
+        ForLoop ident <$> both f range <*> exprs f body <*> pure a
 
 data Function
   = FuncMin
@@ -257,7 +279,17 @@ data Name a
   | Index  (Name a) (Expr a)
   deriving (Eq, Functor, Show)
 
+instance HasExprs Name where
+    exprs f name = case name of
+        Name baseName         -> Name   <$> exprs f baseName
+        Member name' baseName -> Member <$> exprs f name' <*> exprs f baseName
+        Index  name' e        -> Index  <$> exprs f name' <*> f e
+
 data BaseName a = BaseName !Ident [Expr a] !a deriving (Eq, Functor, Show)
+
+instance HasExprs BaseName where
+    exprs f (BaseName ident concats a) =
+        BaseName ident <$> traverse f concats <*> pure a
 
 type Range a = (Expr a, Expr a)
 
@@ -344,8 +376,8 @@ prettyConstraint :: Expr a -> Doc
 prettyConstraint e = "constraint" <+> colon <+> pretty e <> semi
 
 instance Pretty (Decomposition a) where
-    pretty (Decomposition decompOp children _) = pretty decompOp <+> colon <+>
-        hang 4 (fillSep . punctuate comma $ map pretty children) <> semi
+    pretty (Decomposition decompOp cs _) = pretty decompOp <+> colon <+>
+        hang 4 (fillSep . punctuate comma $ map pretty cs) <> semi
 
 instance Pretty (DecompOp a) where
     pretty decomp = case decomp of
@@ -390,7 +422,7 @@ instance Pretty (Module a) where
 instance Pretty (ModuleBody a) where
     pretty (ModuleBody decls stmts _) =
         vsep (map pretty decls) <> line <> line <>
-        prettyRepeatable False (<$>) empty stmts
+        prettyRepeatable False (PP.<$>) empty stmts
 
 instance Pretty (VarDecl a) where
     pretty (VarDecl ident vt e _) =
