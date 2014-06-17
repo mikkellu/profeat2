@@ -320,7 +320,7 @@ instance Pretty (Definition a) where
 
 instance Pretty (Feature a) where
     pretty (Feature ident params decomp constrs mods rws _) =
-        "feature" <+> text ident <> tupled (map text params) <> line <>
+        "feature" <+> text ident <> prettyParams params <> line <>
         indent 4 body <> line <> "endfeature"
       where
         body = pretty decomp <> line <> constrList <> line <> line <>
@@ -329,14 +329,14 @@ instance Pretty (Feature a) where
         constrList = vsep (map prettyConstraint constrs)
         modList
           | null mods = empty
-          | otherwise = "modules" <+>
+          | otherwise = "modules" <+> colon <+>
             hang 4 (fillSep . punctuate comma $ map pretty mods) <> semi
 
 prettyConstraint :: Expr a -> Doc
-prettyConstraint e = "constraint" <+> pretty e <> semi
+prettyConstraint e = "constraint" <+> colon <+> pretty e <> semi
 
 instance Pretty (Decomposition a) where
-    pretty (Decomposition decompOp children _) = pretty decompOp <+>
+    pretty (Decomposition decompOp children _) = pretty decompOp <+> colon <+>
         hang 4 (fillSep . punctuate comma $ map pretty children) <> semi
 
 instance Pretty (DecompOp a) where
@@ -370,7 +370,7 @@ instance Pretty (Controller a) where
 
 instance Pretty (Module a) where
     pretty (Module ident params provides body) =
-        "module" <+> text ident <> tupled (map pretty params) <> line <>
+        "module" <+> text ident <> prettyParams params <> line <>
         indent 4 (providesList <> line <> pretty body) <> line <> "endmodule"
       where
         providesList
@@ -414,7 +414,7 @@ instance Pretty ConstType where
 
 instance Pretty (Formula a) where
     pretty (Formula ident params e _) =
-        "formula" <> tupled (map text params) <+> text ident <+> equals <+>
+        "formula" <> prettyParams params <+> text ident <+> equals <+>
         pretty e <> semi
 
 instance Pretty (Stmt a) where
@@ -509,6 +509,13 @@ instance Pretty (Name a) where
         Member n' ident _ -> pretty n' <> dot <> text ident
         Index n' e        -> pretty n' <> brackets (pretty e)
         Concat n' e       -> pretty n' <> char '#' <> pretty e
+
+prettyArgs :: (Pretty a) => [a] -> Doc
+prettyArgs [] = empty
+prettyArgs xs = parens (align . cat . punctuate comma $ map pretty xs)
+
+prettyParams :: (Pretty a) => [a] -> Doc
+prettyParams = prettyArgs
 
 prettyRange :: Range a -> Doc
 prettyRange (lower, upper) = brackets (pretty lower <+> ".." <+> pretty upper)
