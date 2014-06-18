@@ -318,7 +318,7 @@ assigns = repeatable assign (`sepBy1` reservedOp "&")
 assign :: Parser LAssign
 assign = loc (choice
     [ Activate   <$> (reserved "activate"   *> parens name)
-    , Deavtivate <$> (reserved "deactivate" *> parens name)
+    , Deactivate <$> (reserved "deactivate" *> parens name)
     , parens $ Assign <$> name <* symbol "'" <* reservedOp "=" <*> expr
     ]) <?> "assignment"
 

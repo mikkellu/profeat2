@@ -221,7 +221,7 @@ data Update a = Update
 data Assign a
   = Assign (Name a) (Expr a) !a
   | Activate (Name a) !a
-  | Deavtivate (Name a) !a
+  | Deactivate (Name a) !a
   deriving (Eq, Functor, Show)
 
 data Expr a
@@ -497,7 +497,7 @@ instance Pretty (Assign a) where
     pretty (Assign name e _) =
         parens (pretty name <> squote <+> equals <+> pretty e)
     pretty (Activate n _)   = "activate" <> parens (pretty n)
-    pretty (Deavtivate n _) = "deactivate" <> parens (pretty n)
+    pretty (Deactivate n _) = "deactivate" <> parens (pretty n)
 
 instance Pretty (Expr a) where
     pretty = prettyExpr 0
