@@ -359,11 +359,11 @@ function :: Parser Function
 function = choice
     [ FuncMin   <$  reserved "min"
     , FuncMax   <$  reserved "max"
-    , FuncFloor <$  symbol "floor"
-    , FuncCeil  <$  symbol "ceil"
-    , FuncPow   <$  symbol "pow"
-    , FuncMod   <$  symbol "mod"
-    , FuncLog   <$  symbol "log"
+    , FuncFloor <$  reserved "floor"
+    , FuncCeil  <$  reserved "ceil"
+    , FuncPow   <$  reserved "pow"
+    , FuncMod   <$  reserved "mod"
+    , FuncLog   <$  reserved "log"
     , Func      <$> identifier
     ] <?> "function call"
 
