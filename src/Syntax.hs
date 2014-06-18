@@ -114,8 +114,22 @@ data Feature a = Feature
   , featAnnot       :: !a
   } deriving (Eq, Functor, Show)
 
+instance HasExprs Feature where
+    exprs f (Feature ident params decomp constrs mods rws a) =
+        Feature ident params <$> traverse (exprs f) decomp
+                             <*> traverse f constrs
+                             <*> traverse (exprs f) mods
+                             <*> traverse (exprs f) rws
+                             <*> pure a
+
 data Decomposition a = Decomposition (DecompOp a) [FeatureRef a] !a
                      deriving (Eq, Functor, Show)
+
+instance HasExprs Decomposition where
+    exprs f (Decomposition decompOp refs a) =
+        Decomposition <$> exprs f decompOp
+                      <*> traverse (exprs f) refs
+                      <*> pure a
 
 data DecompOp a
   = AllOf
@@ -124,15 +138,31 @@ data DecompOp a
   | Group (Range a)
   deriving (Eq, Functor, Show)
 
+instance HasExprs DecompOp where
+    exprs f decompOp = case decompOp of
+        Group range -> Group <$> both (exprs f) range
+        _           -> pure decompOp
+
 data FeatureRef a = FeatureRef
   { frOptional :: !Bool
   , frInstance :: Instance a
   , frCount    :: Maybe (Expr a)
   } deriving (Eq, Functor, Show)
 
+instance HasExprs FeatureRef where
+    exprs f (FeatureRef opt inst cnt) =
+        FeatureRef opt <$> exprs f inst <*> traverse (exprs f) cnt
+
 data Instance a = Instance !Ident [Expr a] !a deriving (Eq, Functor, Show)
 
+instance HasExprs Instance where
+    exprs f (Instance ident args a) =
+        Instance ident <$> traverse (exprs f) args <*> pure a
+
 data Rewards a = Rewards !Ident [Reward a] deriving (Eq, Functor, Show)
+
+instance HasExprs Rewards where
+    exprs f (Rewards ident rws) = Rewards ident <$> traverse (exprs f) rws
 
 data Reward a = Reward
   { rwAction :: ActionLabel a
@@ -141,7 +171,14 @@ data Reward a = Reward
   , rwAnnot  :: !a
   } deriving (Eq, Functor, Show)
 
+instance HasExprs Reward where
+    exprs f (Reward actionLabel grd e a) =
+        Reward <$> exprs f actionLabel <*> f grd <*> f e <*> pure a
+
 data Controller a = Controller (ModuleBody a) deriving (Eq, Functor, Show)
+
+instance HasExprs Controller where
+    exprs f (Controller body) = Controller <$> exprs f body
 
 data Module a = Module
   { modIdent    :: !Ident
@@ -150,11 +187,19 @@ data Module a = Module
   , modBody     :: ModuleBody a
   } deriving (Eq, Functor, Show)
 
+instance HasExprs Module where
+    exprs f (Module ident params provides body) =
+        Module ident params provides <$> exprs f body
+
 data ModuleBody a = ModuleBody
   { modVars     :: [VarDecl a]
   , modStmts    :: Repeatable Stmt a
   , modAnnot    :: !a
   } deriving (Eq, Functor, Show)
+
+instance HasExprs ModuleBody where
+    exprs f (ModuleBody vars stmts a) =
+        ModuleBody <$> traverse (exprs f) vars <*> exprs f stmts <*> pure a
 
 data VarDecl a = VarDecl
   { declIdent :: !Ident
@@ -163,19 +208,37 @@ data VarDecl a = VarDecl
   , declAnnot :: !a
   } deriving (Eq, Functor, Show)
 
+instance HasExprs VarDecl where
+    exprs f (VarDecl ident vt e a) =
+        VarDecl ident vt <$> traverse (exprs f) e <*> pure a
+
 data VarType a
   = CompoundVarType (CompoundVarType a)
   | SimpleVarType   (SimpleVarType a)
   deriving (Eq, Functor, Show)
 
+instance HasExprs VarType where
+    exprs f vt = case vt of
+        CompoundVarType cvt -> CompoundVarType <$> exprs f cvt
+        SimpleVarType   svt -> SimpleVarType   <$> exprs f svt
+
 data CompoundVarType a
   = ArrayVarType (Range a) (SimpleVarType a)
   deriving (Eq, Functor, Show)
+
+instance HasExprs CompoundVarType where
+    exprs f (ArrayVarType range svt) =
+        ArrayVarType <$> both (exprs f) range <*> exprs f svt
 
 data SimpleVarType a
   = BoolVarType
   | IntVarType (Range a)
   deriving (Eq, Functor, Show)
+
+instance HasExprs SimpleVarType where
+    exprs f svt = case svt of
+        IntVarType range -> IntVarType <$> both (exprs f) range
+        BoolVarType      -> pure BoolVarType
 
 data Constant a = Constant
   { constType  :: !ConstType
@@ -184,6 +247,9 @@ data Constant a = Constant
   , constAnnot :: !a
   } deriving (Eq, Functor, Show)
 
+instance HasExprs Constant where
+    exprs f (Constant ct name e a) = Constant ct name <$> f e <*> pure a
+
 data ConstType
   = BoolConstType
   | IntConstType
@@ -191,7 +257,7 @@ data ConstType
   deriving (Eq, Show)
 
 data Formula a = Formula
-  { frmIdent :: !Ident
+  { frmIdent  :: !Ident
   , frmParams :: [Ident]
   , frmExpr   :: Expr a
   , frmAnnot  :: !a
@@ -204,6 +270,10 @@ data Stmt a = Stmt
   , stmtAnnot  :: !a
   } deriving (Eq, Functor, Show)
 
+instance HasExprs Stmt where
+    exprs f (Stmt action grd upds a) =
+        Stmt action <$> f grd <*> exprs f upds <*> pure a
+
 data ActionLabel a
   = ActInitialize !a
   | ActActivate !a
@@ -212,17 +282,32 @@ data ActionLabel a
   | NoAction
   deriving (Eq, Functor, Show)
 
+instance HasExprs ActionLabel where
+    exprs f actionLabel = case actionLabel of
+        Action name a -> Action <$> exprs f name <*> pure a
+        _             -> pure actionLabel
+
 data Update a = Update
   { updProb   :: Maybe (Expr a)
   , updAssign :: Repeatable Assign a
   , updAnnot  :: !a
   } deriving (Eq, Functor, Show)
 
+instance HasExprs Update where
+    exprs f (Update prob asgns a) =
+        Update <$> traverse f prob <*> exprs f asgns <*> pure a
+
 data Assign a
   = Assign (Name a) (Expr a) !a
   | Activate (Name a) !a
   | Deactivate (Name a) !a
   deriving (Eq, Functor, Show)
+
+instance HasExprs Assign where
+    exprs f asgn = case asgn of
+        Assign name e a   -> Assign     <$> exprs f name <*> f e <*> pure a
+        Activate name a   -> Activate   <$> exprs f name <*> pure a
+        Deactivate name a -> Deactivate <$> exprs f name <*> pure a
 
 data Expr a
   = BinaryExpr !BinOp (Expr a) (Expr a) !a
