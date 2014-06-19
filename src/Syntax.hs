@@ -77,12 +77,11 @@ module Syntax
 import Control.Applicative hiding ( empty, optional )
 import Control.Lens
 
-import Data.Text.Lazy ( Text )
-
 import Text.PrettyPrint.Leijen.Text hiding ( (<$>) )
 import qualified Text.PrettyPrint.Leijen.Text as PP
 
 import SrcLoc
+import Types
 
 import Syntax.Operators
 
@@ -90,8 +89,6 @@ import Syntax.Operators
 -- 'Expr's contained in that node and its subtree.
 class HasExprs n where
     exprs :: Traversal' (n a) (Expr a)
-
-type Ident = Text
 
 data Model a = Model [Definition a] deriving (Eq, Functor, Show)
 
@@ -262,6 +259,10 @@ data Formula a = Formula
   , frmExpr   :: Expr a
   , frmAnnot  :: !a
   } deriving (Eq, Functor, Show)
+
+instance HasExprs Formula where
+    exprs f (Formula ident params e a) =
+        Formula ident params <$> f e <*> pure a
 
 data Stmt a = Stmt
   { stmtAction :: ActionLabel a

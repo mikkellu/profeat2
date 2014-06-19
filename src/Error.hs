@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings #-}
 
 module Error
   ( Error(..)
@@ -13,6 +13,7 @@ import Data.Text.Lazy ( Text )
 import Text.PrettyPrint.Leijen.Text
 
 import SrcLoc
+import Types
 
 -- | Represents translation errors. It provides an error description and the
 -- source location.
@@ -27,9 +28,13 @@ throw l = left . Error l
 
 data ErrorDesc
   = SyntaxError !Text
+  | ArityError Ident !Int !Int -- expected actual
   deriving (Show)
 
 instance Pretty ErrorDesc where
     pretty desc = case desc of
         SyntaxError msg -> string msg
+        ArityError ident expected actual ->
+            text ident <+> "should have" <+> int expected <+> "arguments" <+>
+            "but has been given" <+> int actual
 
