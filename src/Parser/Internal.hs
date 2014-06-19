@@ -280,7 +280,7 @@ formulaDef :: Parser LDefinition
 formulaDef = FormulaDef <$> formula
 
 formula :: Parser LFormula
-formula = loc (Formula <$> identifier
+formula = loc (Formula <$> (reserved "formula" *> identifier)
                        <*> params
                        <*> (reservedOp "=" *> expr))
        <?> "formula"
