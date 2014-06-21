@@ -8,6 +8,7 @@ module Syntax
   , Ident
 
   , Model(..)
+  , Specification(..)
   , Definition(..)
   , Feature(..)
   , Decomposition(..)
@@ -26,6 +27,7 @@ module Syntax
   , Constant(..)
   , ConstType(..)
   , Formula(..)
+  , Property(..)
   , Stmt(..)
   , ActionLabel(..)
   , Update(..)
@@ -42,8 +44,10 @@ module Syntax
   , exprAnnot
   , unaryExpr
   , binaryExpr
+  , normalizeExpr
 
   , LModel
+  , LSpecification
   , LDefinition
   , LFeature
   , LDecomposition
@@ -61,6 +65,7 @@ module Syntax
   , LSimpleVarType
   , LConstant
   , LFormula
+  , LProperty
   , LStmt
   , LActionLabel
   , LUpdate
@@ -92,6 +97,8 @@ class HasExprs n where
 
 data Model a = Model [Definition a] deriving (Eq, Functor, Show)
 
+data Specification a = Specification [Definition a] deriving (Eq, Functor, Show)
+
 data Definition a
   = FeatureDef    (Feature a)
   | ControllerDef (Controller a)
@@ -99,6 +106,7 @@ data Definition a
   | GlobalDef     (VarDecl a)
   | ConstDef      (Constant a)
   | FormulaDef    (Formula a)
+  | PropertyDef   (Property a)
   deriving (Eq, Functor, Show)
 
 data Feature a = Feature
@@ -264,6 +272,15 @@ instance HasExprs Formula where
     exprs f (Formula ident params e a) =
         Formula ident params <$> f e <*> pure a
 
+data Property a = Property
+  { propIdent :: Maybe Ident
+  , propExpr  :: Expr a
+  , propAnnot :: !a
+  } deriving (Eq, Functor, Show)
+
+instance HasExprs Property where
+    exprs f (Property ident e a) = Property ident <$> f e <*> pure a
+
 data Stmt a = Stmt
   { stmtAction :: ActionLabel a
   , stmtGuard  :: Expr a
@@ -418,7 +435,21 @@ binaryExpr binOp lhs rhs = BinaryExpr binOp lhs rhs (exprAnnot lhs)
 unaryExpr :: UnOp -> Expr a -> Expr a
 unaryExpr unOp e = UnaryExpr unOp e (exprAnnot e)
 
+-- | Normalizes the given expression. The following rewrite rules are
+-- applied:
+--  - @!!e = e@
+--  - @-(literal) = (-literal)@
+normalizeExpr :: Expr a -> Expr a
+normalizeExpr = transform $ \e -> case e of
+    -- remove double negation
+    UnaryExpr (LogicUnOp LNot) (UnaryExpr (LogicUnOp LNot) e' _) _ -> e'
+    -- replace negated literals by negative literals
+    UnaryExpr (ArithUnOp Neg) (IntegerExpr i a) _ -> IntegerExpr (negate i) a
+    UnaryExpr (ArithUnOp Neg) (DecimalExpr d a) _ -> DecimalExpr (negate d) a
+    _ -> e
+
 type LModel           = Model SrcLoc
+type LSpecification   = Specification SrcLoc
 type LDefinition      = Definition SrcLoc
 type LFeature         = Feature SrcLoc
 type LDecomposition   = Decomposition SrcLoc
@@ -440,6 +471,7 @@ type LStmt            = Stmt SrcLoc
 type LActionLabel     = ActionLabel SrcLoc
 type LUpdate          = Update SrcLoc
 type LAssign          = Assign SrcLoc
+type LProperty        = Property SrcLoc
 type LExpr            = Expr SrcLoc
 type LRepeatable b    = Repeatable b SrcLoc
 type LSome b          = Some b SrcLoc
@@ -451,6 +483,10 @@ type LRange           = Range SrcLoc
 instance Pretty (Model a) where
     pretty (Model defs ) = vsep (punctuate line $ map pretty defs) <> line
 
+instance Pretty (Specification a) where
+    pretty (Specification defs) =
+        vsep (punctuate line $ map pretty defs) <> line
+
 instance Pretty (Definition a) where
     pretty def = case def of
         FeatureDef  f   -> pretty f
@@ -459,6 +495,7 @@ instance Pretty (Definition a) where
         GlobalDef   g   -> "global" <+> pretty g
         ConstDef    c   -> pretty c
         FormulaDef  f   -> pretty f
+        PropertyDef p   -> pretty p
 
 instance Pretty (Feature a) where
     pretty (Feature ident params decomp constrs mods rws _) =
@@ -560,6 +597,11 @@ instance Pretty (Formula a) where
         "formula" <> prettyParams params <+> text ident <+> equals <+>
         pretty e <> semi
 
+instance Pretty (Property a) where
+    pretty (Property (Just ident) e _) =
+        dquotes (text ident) <> colon <+> pretty e <> semi
+    pretty (Property Nothing e _) = pretty e <> semi
+
 instance Pretty (Stmt a) where
     pretty (Stmt action grd upds _) = hang 4 $
         brackets (pretty action) <+> pretty grd <+> "->" </>
@@ -594,12 +636,21 @@ prettyExpr prec e = case e of
         let prec' = binOpPrec binOp
         in  parens' (prec >= prec') $
                 prettyExpr prec' lhs <+> pretty binOp <+> prettyExpr prec' rhs
-    UnaryExpr unOpT e' _ ->
-        let prec' = unOpPrec unOpT
-        in parens' (prec >= prec') $ pretty unOpT <> prettyExpr prec' e'
     CondExpr cond te ee _ -> parens' (prec > 0) $
         prettyExpr 1 cond <+> char '?' <+>
         prettyExpr 1 te <+> colon <+> prettyExpr 1 ee
+    UnaryExpr (ProbUnOp (Prob bound)) e' _ ->
+        "P" <> pretty bound <+> brackets (pretty e')
+    UnaryExpr (ProbUnOp (Steady bound)) e' _ ->
+        "S" <> pretty bound <+> brackets (pretty e')
+    UnaryExpr (TempUnOp Exists) e' _ -> "E" <+> brackets (pretty e')
+    UnaryExpr (TempUnOp Forall) e' _ -> "A" <+> brackets (pretty e')
+    UnaryExpr unOpT e' _ ->
+        let prec' = unOpPrec unOpT
+            sep'  = case unOpT of
+                        TempUnOp _   -> (<+>)
+                        _            -> (<>)
+        in parens' (prec >= prec') $ pretty unOpT `sep'` prettyExpr prec' e'
     LoopExpr loop _       -> prettyLoop pretty True loop
     FuncExpr func args _  ->
         pretty func <> parens (align . cat . punctuate comma $ map pretty args)

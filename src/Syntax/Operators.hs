@@ -6,13 +6,21 @@ module Syntax.Operators
   , EqBinOp(..)
   , RelBinOp(..)
   , LogicBinOp(..)
+  , TempBinOp(..)
   , binOpPrec
 
   , UnOp(..)
   , ArithUnOp(..)
   , LogicUnOp(..)
+  , TempUnOp(..)
+  , ProbUnOp(..)
+  , Bound(..)
+  , BoundOp(..)
+  , QueryType(..)
   , unOpPrec
   ) where
+
+import Data.Text.Lazy ( Text )
 
 import Text.PrettyPrint.Leijen.Text
 
@@ -21,6 +29,7 @@ data BinOp
   | EqBinOp !EqBinOp
   | RelBinOp !RelBinOp
   | LogicBinOp !LogicBinOp
+  | TempBinOp !TempBinOp
   deriving (Eq, Show)
 
 data ArithBinOp
@@ -49,25 +58,34 @@ data LogicBinOp
   | LOr
   deriving (Bounded, Enum, Eq, Show)
 
+data TempBinOp
+  = Until
+  | WeakUntil
+  | Release
+  deriving (Bounded, Enum, Eq, Show)
+
 -- | Returns the precedence level of the given operator.
 binOpPrec :: BinOp -> Int
 binOpPrec binOpT = case binOpT of
     ArithBinOp binOp -> case binOp of
-        Mul     -> 8
-        Div     -> 8
-        Add     -> 7
-        Sub     -> 7
-    EqBinOp _   -> 6
-    RelBinOp _  -> 6
+        Mul     -> 10
+        Div     -> 10
+        Add     -> 9
+        Sub     -> 9
+    EqBinOp _   -> 8
+    RelBinOp _  -> 8
     LogicBinOp binOp -> case binOp of
+        LAnd    -> 6
+        LOr     -> 5
         LImpl   -> 4
         LEq     -> 4
-        LAnd    -> 3
-        LOr     -> 2
+    TempBinOp _ -> 3
 
 data UnOp
   = ArithUnOp !ArithUnOp
   | LogicUnOp !LogicUnOp
+  | TempUnOp !TempUnOp
+  | ProbUnOp !ProbUnOp
   deriving (Eq, Show)
 
 data ArithUnOp
@@ -78,11 +96,49 @@ data LogicUnOp
  = LNot
   deriving (Bounded, Enum, Eq, Show)
 
+data TempUnOp
+  = Next
+  | Finally
+  | Globally
+  | Exists
+  | Forall
+  deriving (Bounded, Enum, Eq, Show)
+
+data ProbUnOp
+  = Prob Bound
+  | Steady Bound
+  deriving (Eq, Show)
+
+data Bound
+  = Bound !BoundOp !Text
+  | Query !QueryType
+  deriving (Eq, Show)
+
+data BoundOp
+  = BGt
+  | BLt
+  | BGte
+  | BLte
+  deriving (Bounded, Enum, Eq, Show)
+
+data QueryType
+  = QueryProb
+  | QueryMinProb
+  | QueryMaxProb
+  deriving (Bounded, Enum, Eq, Show)
+
 -- | Returns the precedence level of the given operator.
 unOpPrec :: UnOp -> Int
 unOpPrec unOpT = case unOpT of
-    ArithUnOp _  -> 9
-    LogicUnOp _  -> 5
+    ArithUnOp _  -> 11
+    LogicUnOp _  -> 7
+    TempUnOp unOp -> case unOp of
+        Next     -> 3
+        Finally  -> 3
+        Globally -> 3
+        Exists   -> 2
+        Forall   -> 2
+    ProbUnOp _   -> 2
 
 instance Pretty BinOp where
     pretty binOpT = case binOpT of
@@ -90,6 +146,7 @@ instance Pretty BinOp where
         EqBinOp    binOp -> pretty binOp
         RelBinOp   binOp -> pretty binOp
         LogicBinOp binOp -> pretty binOp
+        TempBinOp  binOp -> pretty binOp
 
 instance Pretty ArithBinOp where
     pretty binOp = case binOp of
@@ -117,10 +174,18 @@ instance Pretty LogicBinOp where
         LAnd  -> "&"
         LOr   -> "|"
 
+instance Pretty TempBinOp where
+    pretty binOp = case binOp of
+        Until     -> "U"
+        WeakUntil -> "W"
+        Release   -> "R"
+
 instance Pretty UnOp where
     pretty unOpT = case unOpT of
         ArithUnOp unOp     -> pretty unOp
         LogicUnOp unOp     -> pretty unOp
+        TempUnOp  unOp     -> pretty unOp
+        _                  -> error $ "Ast.hs: unmatched operator" ++ show unOpT -- Prob and Steady are handled in Pretty instance for Expr
 
 instance Pretty ArithUnOp where
     pretty unOp = case unOp of
@@ -129,4 +194,34 @@ instance Pretty ArithUnOp where
 instance Pretty LogicUnOp where
     pretty unOp = case unOp of
         LNot -> "!"
+
+instance Pretty TempUnOp where
+    pretty unOp = case unOp of
+        Next     -> "X"
+        Finally  -> "F"
+        Globally -> "G"
+        Exists   -> "E"
+        Forall   -> "A"
+
+instance Pretty ProbUnOp where
+    pretty unOp = case unOp of
+        Prob _   -> "P"
+        Steady _ -> "S"
+
+instance Pretty Bound where
+    pretty (Bound boundOp prob) = pretty boundOp <> text prob
+    pretty (Query query)        = pretty query
+
+instance Pretty BoundOp where
+    pretty boundOp = case boundOp of
+        BGt  -> ">"
+        BLt  -> "<"
+        BGte -> ">="
+        BLte -> "<="
+
+instance Pretty QueryType where
+    pretty qt = case qt of
+        QueryProb    -> "=?"
+        QueryMinProb -> "min=?"
+        QueryMaxProb -> "max=?"
 

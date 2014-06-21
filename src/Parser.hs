@@ -1,5 +1,6 @@
 module Parser
   ( parseModel
+  , parseSpecification
   ) where
 
 import Data.Text.Lazy ( Text )
@@ -13,4 +14,7 @@ import Parser.Internal
 
 parseModel :: SourceName -> Text -> Either Error LModel
 parseModel = parseFile model
+
+parseSpecification :: SourceName -> Text -> Either Error LSpecification
+parseSpecification = parseFile specification
 

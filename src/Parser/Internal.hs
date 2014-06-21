@@ -4,7 +4,7 @@ module Parser.Internal
   ( parseFile
 
   , model
-  , definition
+  , specification
 
   , featureDef
   , feature
@@ -28,6 +28,9 @@ module Parser.Internal
   , formulaDef
   , formula
 
+  , propertyDef
+  , property
+
   , stmt
   , update
   , assign
@@ -39,7 +42,8 @@ import Control.Applicative
 import Control.Lens hiding ( assign )
 import Control.Monad.Identity
 
-import Data.List ( foldl' )
+import Data.Foldable
+import Data.Monoid
 import Data.Text.Lazy ( Text, pack )
 import Data.Text.Lens
 
@@ -82,11 +86,12 @@ reservedNames =
     , "oneOf", "someOf", "of", "optional", "constraint", "rewards", "endrewards"
     , "controller", "endcontroller", "module", "endmodule", "provides"
     , "activate", "deactivate", "array", "bool", "int", "double", "initialize"
-    , "for", "endfor", "id", "min", "max", "true", "false"
+    , "for", "endfor", "id", "min", "max", "true", "false", "P", "Pmin"
+    , "Pmax", "S" , "E", "A", "U", "W", "R", "X", "F", "G"
     ]
 reservedOpNames =
     [ "/", "*", "-", "+", "=", "!=", ">", "<", ">=", "<=", "&", "|", "!"
-    , "=>", "<=>", "->", "..", "...", "?", ":", ".", "#"
+    , "=>", "<=>", "->", "..", "...", "?", ".", "#", "=?"
     ]
 
 languageDef :: T.GenLanguageDef Text () Identity
@@ -97,8 +102,8 @@ languageDef = T.LanguageDef
     , T.nestedComments  = True
     , T.identStart      = letter <|> char '_'
     , T.identLetter     = alphaNum <|> char '_'
-    , T.opStart         = oneOf "/*-+=!><&|.?:#"
-    , T.opLetter        = oneOf "=.>"
+    , T.opStart         = oneOf "/*-+=!><&|.?#"
+    , T.opLetter        = oneOf "=.>?"
     , T.reservedNames   = reservedNames
     , T.reservedOpNames = reservedOpNames
     , T.caseSensitive   = True
@@ -112,6 +117,13 @@ integer = fromInteger <$> T.integer lexer
 
 float :: Parser Double
 float = T.float lexer
+
+decimal :: Parser Text
+decimal = T.lexeme lexer $ try $ do
+    w <- many digit
+    void $ char '.'
+    f <- many1 digit
+    return . pack $ w ++ '.':f
 
 bool :: Parser Bool
 bool = False <$ reserved "false"
@@ -159,16 +171,18 @@ loc p = do
     ($ srcLoc src line column) <$> p
 
 model :: Parser LModel
-model = Model <$> many definition
+model = Model <$> many (choice [ featureDef
+                               , controllerDef
+                               , moduleDef
+                               , globalDef
+                               , constantDef
+                               , formulaDef
+                               ])
 
-definition :: Parser LDefinition
-definition = choice [ featureDef
-                    , controllerDef
-                    , moduleDef
-                    , globalDef
-                    , constantDef
-                    , formulaDef
-                    ]
+specification :: Parser LSpecification
+specification = Specification <$> many (choice [ constantDef
+                                               , propertyDef
+                                               ])
 
 featureDef :: Parser LDefinition
 featureDef = FeatureDef <$> feature <?> "feature"
@@ -285,6 +299,12 @@ formula = loc (Formula <$> (reserved "formula" *> identifier)
                        <*> (reservedOp "=" *> expr))
        <?> "formula"
 
+propertyDef :: Parser LDefinition
+propertyDef = PropertyDef <$>
+    loc (Property <$> propertyIdent <*> property <* semi) <?> "property"
+  where
+    propertyIdent = option Nothing (Just <$> doubleQuotes identifier <* colon)
+
 stmt :: Parser LStmt
 stmt =  loc (Stmt <$> brackets actionLabel
                   <*> expr <* reservedOp "->"
@@ -323,23 +343,54 @@ assign = loc (choice
     ]) <?> "assignment"
 
 expr :: Parser LExpr
-expr = do
-    e <- simpleExpr
-    option e . loc $ CondExpr e <$> (reservedOp "?" *> expr) <*> (colon *> expr)
-  where
-    simpleExpr = buildExpressionParser opTable term <?> "expression"
+expr = expr' False
 
-term :: Parser LExpr
-term =  parens expr
-    <|> loc (choice
-            [ MissingExpr <$ reservedOp "..."
-            , BoolExpr <$> bool
-            , DecimalExpr <$> try float
-            , IntegerExpr <$> integer
-            , LoopExpr <$> forLoop expr
-            , try (FuncExpr <$> function <*> args)
-            , NameExpr <$> name
-            ])
+property :: Parser LExpr
+property = expr' True
+
+-- | Creates the expression parser. If @allowPctl@ is 'True' the parser
+-- will accept temporal and probabilistic operators.
+expr' :: Bool -> Parser LExpr
+expr' allowPctl = do
+    e <- simpleExpr
+    option e . loc $ CondExpr e <$> (reservedOp "?" *> expr' allowPctl)
+                                <*> (colon *> expr' allowPctl)
+  where
+    simpleExpr =
+        normalizeExpr <$> buildExpressionParser opTable (term allowPctl)
+                      <?> "expression"
+    opTable
+      | allowPctl = exprOpTable ++ pctlOpTable -- order is important here, PCTL operators have lower precedence
+      | otherwise = exprOpTable
+
+term :: Bool -> Parser LExpr
+term allowPctl
+    = parens (expr' allowPctl)
+   <|> loc (choice $ pctlExpr ++
+                   [ MissingExpr <$ reservedOp "..."
+                   , BoolExpr <$> bool
+                   , DecimalExpr <$> try float
+                   , IntegerExpr <$> integer
+                   , LoopExpr <$> forLoop (expr' allowPctl)
+                   , try (FuncExpr <$> function <*> args)
+                   , NameExpr <$> name
+                   ])
+   <?> "literal, variable or expression"
+  where
+    pctlExpr
+      | allowPctl = [UnaryExpr <$> stateOp <*> brackets (expr' allowPctl)]
+      | otherwise = []
+    stateOp -- one of Prob, Steady, Exists, Forall
+        =  ProbUnOp . Prob   . Query <$> (QueryMinProb <$ reserved "Pmin"
+                                      <|> QueryMaxProb <$ reserved "Pmax")
+                                     <* reservedOp "=?"
+       <|> ProbUnOp . Steady . Query <$> (QueryMinProb <$ reserved "Smin"
+                                      <|> QueryMaxProb <$ reserved "Smax")
+                                     <* reservedOp "=?"
+       <|> ProbUnOp <$> ((Prob   <$ reserved "P"
+                      <|> Steady <$ reserved "S") <*> bound)
+       <|> TempUnOp Exists <$ reserved "E"
+       <|> TempUnOp Forall <$ reserved "A"
 
 repeatable :: Parser (b SrcLoc)
            -> (Parser (Some b SrcLoc) -> Parser [Some b SrcLoc])
@@ -367,6 +418,17 @@ function = choice
     , Func      <$> identifier
     ] <?> "function call"
 
+bound :: Parser Bound
+bound =  Query QueryProb <$ reservedOp "=?"
+     <|> Bound <$> boundOp <*> decimal
+  where
+    boundOp = choice [ ">"  --> BGt
+                     , "<"  --> BLt
+                     , ">=" --> BGte
+                     , "<=" --> BLte
+                     ]
+    s --> bOp = bOp <$ reservedOp s
+
 name :: Parser LName
 name = foldl' (flip ($)) <$> (Name <$> baseName) <*> many qualifier
   where
@@ -387,8 +449,8 @@ params = option [] . parens $ commaSep1 identifier
 range :: Parser LRange
 range = brackets ((,) <$> expr <*> (reservedOp ".." *> expr))
 
-opTable :: OperatorTable Text () Identity LExpr
-opTable = -- operators listed in descending precedence, operators in same group have the same precedence
+exprOpTable :: OperatorTable Text () Identity LExpr
+exprOpTable = -- operators listed in descending precedence, operators in same group have the same precedence
     [ [ unaryOp "-" $ ArithUnOp Neg
       ]
     , [ "*"   --> ArithBinOp Mul
@@ -417,6 +479,29 @@ opTable = -- operators listed in descending precedence, operators in same group 
   where
     unaryOp s     = unary $ reservedOp s
     (-->) s = binary AssocLeft $ reservedOp s
+
+pctlOpTable :: OperatorTable Text () Identity LExpr
+pctlOpTable =
+    [ [ Prefix tempUnOps ]
+    , [ "U" --> TempBinOp Until
+      , "W" --> TempBinOp WeakUntil
+      , "R" --> TempBinOp Release
+      ]
+    ]
+  where
+    tempUnOps = appEndo . foldMap (Endo . unaryExpr) <$> many1 tempUnOp -- Note [unary temporal operators] (see below)
+    tempUnOp  = TempUnOp <$> (Next     <$ reserved "X"
+                          <|> Finally  <$ reserved "F"
+                          <|> Globally <$ reserved "G")
+    (-->) s = binary AssocNone $ reserved s
+
+{- Note [unary temporal operators]
+- Prefix operators of the same precedence (like X, F and G) can only occur once
+- (see Parsec doc for details) and thus would require superfluous
+- parentheses. To overcome this limitation a sequence of X, F and
+- G operators is folded to appear as a single operator. Using the same
+- approach one could allow sequencing of the ! operator.
+-}
 
 unary :: ParsecT s u m a -> UnOp -> Operator s u m (Expr b)
 unary p unOp = Prefix (unaryExpr unOp <$ p)
