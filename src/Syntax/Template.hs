@@ -1,11 +1,14 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 module Syntax.Template
-  ( instantiate
+  ( expandFormulas
+  , instantiate
   , substitute
   ) where
 
+import Control.Applicative
 import Control.Lens
+import Control.Monad
 import Control.Monad.Either
 
 import Data.Map ( Map )
@@ -17,6 +20,29 @@ import Syntax
 
 class Template n where
     parameters :: n a -> [Ident]
+
+expandFormulas :: (Applicative m, HasExprs n, MonadEither Error m)
+               => Map Ident LFormula
+               -> n SrcLoc
+               -> m (n SrcLoc)
+expandFormulas frms = exprs (rewriteM expand)
+  where
+    expand e = case e of
+        NameExpr (Name (BaseName ident [] l)) _ ->
+            case frms^.at ident of
+                Just f -> do
+                    let paramCount = length (frmParams f)
+                    unless (paramCount == 0) . throw l $
+                        ArityError ident paramCount 0
+                    return . Just $ frmExpr f
+                Nothing -> return Nothing
+        FuncExpr (Func ident) args l ->
+            case frms^.at ident of
+                Just f -> do
+                    f' <- instantiate f ident args l
+                    return . Just $ frmExpr f'
+                Nothing -> return Nothing
+        _ -> return Nothing
 
 instantiate :: (Template n, HasExprs n, MonadEither Error m)
             => n SrcLoc -- ^ the template
