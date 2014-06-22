@@ -38,7 +38,6 @@ module Syntax
   , ForLoop(..)
   , Function(..)
   , Name(..)
-  , BaseName(..)
   , Range
 
   , exprAnnot
@@ -75,7 +74,6 @@ module Syntax
   , LSome
   , LForLoop
   , LName
-  , LBaseName
   , LRange
   ) where
 
@@ -393,22 +391,16 @@ data Function
   deriving (Eq, Show)
 
 data Name a
-  = Name (BaseName a)
-  | Member (Name a) (BaseName a)
+  = Name !Ident
+  | Member (Name a) !Ident
   | Index  (Name a) (Expr a)
   deriving (Eq, Functor, Show)
 
 instance HasExprs Name where
     exprs f name = case name of
-        Name baseName         -> Name   <$> exprs f baseName
-        Member name' baseName -> Member <$> exprs f name' <*> exprs f baseName
-        Index  name' e        -> Index  <$> exprs f name' <*> f e
-
-data BaseName a = BaseName !Ident [Expr a] !a deriving (Eq, Functor, Show)
-
-instance HasExprs BaseName where
-    exprs f (BaseName ident concats a) =
-        BaseName ident <$> traverse f concats <*> pure a
+        Name _             -> pure name
+        Member name' ident -> Member <$> exprs f name' <*> pure ident
+        Index  name' e     -> Index  <$> exprs f name' <*> f e
 
 type Range a = (Expr a, Expr a)
 
@@ -477,7 +469,6 @@ type LRepeatable b    = Repeatable b SrcLoc
 type LSome b          = Some b SrcLoc
 type LForLoop b       = ForLoop b SrcLoc
 type LName            = Name SrcLoc
-type LBaseName        = BaseName SrcLoc
 type LRange           = Range SrcLoc
 
 instance Pretty (Model a) where
@@ -699,13 +690,9 @@ instance Pretty Function where
 
 instance Pretty (Name a) where
     pretty n = case n of
-        Name name      -> pretty name
-        Member n' name -> pretty n' <> dot <> pretty name
-        Index n' e     -> pretty n' <> brackets (pretty e)
-
-instance Pretty (BaseName a) where
-    pretty (BaseName ident concats _) =
-        text ident <> hcat (map ((char '#' <>) . pretty) concats)
+        Name ident      -> text ident
+        Member n' ident -> pretty n' <> dot <> text ident
+        Index n' e      -> pretty n' <> brackets (pretty e)
 
 prettyArgs :: (Pretty a) => [a] -> Doc
 prettyArgs [] = empty

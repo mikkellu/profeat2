@@ -91,7 +91,7 @@ reservedNames =
     ]
 reservedOpNames =
     [ "/", "*", "-", "+", "=", "!=", ">", "<", ">=", "<=", "&", "|", "!"
-    , "=>", "<=>", "->", "..", "...", "?", ".", "#", "=?"
+    , "=>", "<=>", "->", "..", "...", "?", ".", "=?"
     ]
 
 languageDef :: T.GenLanguageDef Text () Identity
@@ -102,7 +102,7 @@ languageDef = T.LanguageDef
     , T.nestedComments  = True
     , T.identStart      = letter <|> char '_'
     , T.identLetter     = alphaNum <|> char '_'
-    , T.opStart         = oneOf "/*-+=!><&|.?#"
+    , T.opStart         = oneOf "/*-+=!><&|.?"
     , T.opLetter        = oneOf "=.>?"
     , T.reservedNames   = reservedNames
     , T.reservedOpNames = reservedOpNames
@@ -430,15 +430,12 @@ bound =  Query QueryProb <$ reservedOp "=?"
     s --> bOp = bOp <$ reservedOp s
 
 name :: Parser LName
-name = foldl' (flip ($)) <$> (Name <$> baseName) <*> many qualifier
+name = foldl' (flip ($)) <$> (Name <$> identifier) <*> many qualifier
   where
     qualifier = choice
-        [ dot *> (flip Member <$> baseName)
+        [ dot *> (flip Member <$> identifier)
         , flip Index <$> brackets expr
         ] <?> "qualifier"
-
-baseName :: Parser LBaseName
-baseName = loc $ BaseName <$> identifier <*> many (reservedOp "#" *> expr)
 
 args :: Parser [LExpr]
 args = parens (commaSep expr)

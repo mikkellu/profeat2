@@ -87,12 +87,10 @@ action = 'initialize'
        | name
        ;
 
-name      = base_name, { qualifier } ;
-qualifier = '.', base_name
+name      = ident_symbol, { qualifier } ;
+qualifier = '.', ident_symbol
           | '[', expr, ']'
           ;
-
-base_name = ident_symbol, { '#', expr } ;
 
 (* Templates *)
 

@@ -28,7 +28,7 @@ expandFormulas :: (Applicative m, HasExprs n, MonadEither Error m)
 expandFormulas frms = exprs (rewriteM expand)
   where
     expand e = case e of
-        NameExpr (Name (BaseName ident [] l)) _ ->
+        NameExpr (Name ident) l ->
             case frms^.at ident of
                 Just f -> do
                     let paramCount = length (frmParams f)
@@ -62,7 +62,7 @@ instantiate template ident args l =
 
 substitute :: (HasExprs n) => Map Ident LExpr -> n SrcLoc -> n SrcLoc
 substitute defs = over exprs . transform $ \node -> case node of
-    NameExpr (Name (BaseName ident [] l)) _ ->
+    NameExpr (Name ident) l ->
         maybe node (fmap (reLoc l)) $ defs^.at ident
     _ -> node
 
