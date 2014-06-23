@@ -83,11 +83,11 @@ toSyntaxError = SyntaxError . pack .
 reservedNames, reservedOpNames :: [String]
 reservedNames =
     [ "feature", "endfeature", "global", "const", "formula", "modules", "allOf"
-    , "oneOf", "someOf", "of", "optional", "constraint", "rewards", "endrewards"
-    , "controller", "endcontroller", "module", "endmodule", "provides"
-    , "activate", "deactivate", "array", "bool", "int", "double", "initialize"
-    , "for", "endfor", "id", "min", "max", "true", "false", "P", "Pmin"
-    , "Pmax", "S" , "E", "A", "U", "W", "R", "X", "F", "G"
+    , "oneOf", "someOf", "of", "optional", "as", "constraint", "rewards"
+    , "endrewards", "controller", "endcontroller", "module", "endmodule"
+    , "provides", "activate", "deactivate", "array", "bool", "int", "double"
+    , "initialize" , "for", "endfor", "id", "min", "max", "true", "false", "P"
+    , "Pmin", "Pmax", "S" , "E", "A", "U", "W", "R", "X", "F", "G"
     ]
 reservedOpNames =
     [ "/", "*", "-", "+", "=", "!=", ">", "<", ">=", "<=", "&", "|", "!"
@@ -219,6 +219,7 @@ featureRef :: Parser LFeatureRef
 featureRef = FeatureRef <$> option False (True <$ reserved "optional")
                         <*> inst
                         <*> optionMaybe (brackets expr)
+                        <*> optionMaybe (reserved "as" *> identifier)
 
 inst :: Parser LInstance
 inst = loc $ Instance <$> identifier <*> option [] args

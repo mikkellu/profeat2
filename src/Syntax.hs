@@ -150,11 +150,14 @@ data FeatureRef a = FeatureRef
   { frOptional :: !Bool
   , frInstance :: Instance a
   , frCount    :: Maybe (Expr a)
+  , frAlias    :: Maybe Ident
   } deriving (Eq, Functor, Show)
 
 instance HasExprs FeatureRef where
-    exprs f (FeatureRef opt inst cnt) =
-        FeatureRef opt <$> exprs f inst <*> traverse (exprs f) cnt
+    exprs f (FeatureRef opt inst cnt alias) =
+        FeatureRef opt <$> exprs f inst
+                       <*> traverse (exprs f) cnt
+                       <*> pure alias
 
 data Instance a = Instance !Ident [Expr a] !a deriving (Eq, Functor, Show)
 
@@ -517,9 +520,10 @@ instance Pretty (DecompOp a) where
         Group range -> prettyRange range
 
 instance Pretty (FeatureRef a) where
-    pretty (FeatureRef optional inst cnt) =
+    pretty (FeatureRef optional inst cnt alias) =
         (if optional then "optional" else empty) <+>
-        pretty inst <> maybe empty (brackets . pretty) cnt
+        pretty inst <> maybe empty (brackets . pretty) cnt <+>
+        maybe empty (("as" <+>) . text) alias
 
 instance Pretty (Instance a) where
     pretty (Instance ident args _) = text ident <> prettyArgs args

@@ -27,7 +27,8 @@ decomposition = 'allOf'    , feature_list
 constraint = 'constraint', constraint_expr ;
 
 feature_list = feature, { feature } ;
-feature      = [ 'optional' ], ident_symbol, [ arg_list ], [ '[', expr, ']' ] ;
+feature      = [ 'optional' ], ident_symbol, [ arg_list ], [ '[', expr, ']' ],
+               [ 'as', ident_symbol ] ;
 
 cost_block = 'costs', '"', ident_symbol, '"', cost_list, 'endcosts' ;
 cost_list  = cost, { cost } ;
