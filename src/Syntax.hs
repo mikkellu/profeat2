@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveFunctor, OverloadedStrings #-}
+{-# LANGUAGE DeriveFunctor, OverloadedStrings, TemplateHaskell #-}
 
 module Syntax
   ( module Syntax.Operators
@@ -9,7 +9,16 @@ module Syntax
 
   , Model(..)
   , Specification(..)
+
   , Definition(..)
+  , _FeatureDef
+  , _ControllerDef
+  , _ModuleDef
+  , _GlobalDef
+  , _ConstDef
+  , _FormulaDef
+  , _PropertyDef
+
   , Feature(..)
   , Decomposition(..)
   , DecompOp(..)
@@ -39,6 +48,9 @@ module Syntax
   , Function(..)
   , Name(..)
   , Range
+
+  , _NameExpr
+  , _Name
 
   , exprAnnot
   , unaryExpr
@@ -407,6 +419,20 @@ instance HasExprs Name where
 
 type Range a = (Expr a, Expr a)
 
+-- | This 'Prism' provides a 'Traversal' for 'IdentExpr's.
+_NameExpr :: Prism' (Expr a) (Name a, a)
+_NameExpr = prism' (uncurry NameExpr) f
+  where
+    f (NameExpr name a) = Just (name, a)
+    f _                 = Nothing
+
+-- | This 'Prism' provides a 'Traversal' for 'Name's.
+_Name :: Prism' (Name a) Ident
+_Name = prism' Name f
+  where
+    f (Name ident) = Just ident
+    f _            = Nothing
+
 exprAnnot :: Expr a -> a
 exprAnnot e = case e of
     BinaryExpr _ _ _ a -> a
@@ -473,6 +499,8 @@ type LSome b          = Some b SrcLoc
 type LForLoop b       = ForLoop b SrcLoc
 type LName            = Name SrcLoc
 type LRange           = Range SrcLoc
+
+makePrisms ''Definition
 
 instance Pretty (Model a) where
     pretty (Model defs ) = vsep (punctuate line $ map pretty defs) <> line
@@ -569,8 +597,8 @@ instance Pretty (VarType a) where
         SimpleVarType svt   -> pretty svt
 
 instance Pretty (CompoundVarType a) where
-    pretty (ArrayVarType range svt) =
-        "array" <+> prettyRange range <+> "of" <+> pretty svt
+    pretty (ArrayVarType size svt) =
+        "array" <+> prettyRange size <+> "of" <+> pretty svt
 
 instance Pretty (SimpleVarType a) where
     pretty svt = case svt of
@@ -704,7 +732,4 @@ prettyArgs xs = parens (align . cat . punctuate comma $ map pretty xs)
 
 prettyParams :: (Pretty a) => [a] -> Doc
 prettyParams = prettyArgs
-
-prettyRange :: Range a -> Doc
-prettyRange (lower, upper) = brackets (pretty lower <+> ".." <+> pretty upper)
 

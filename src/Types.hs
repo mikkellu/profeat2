@@ -7,7 +7,20 @@ module Types
   , CompoundType(..)
   , SimpleType(..)
 
+  , boolType
+  , intType
+  , intSimpleType
+  , doubleType
+  , types
+
+  , isBoolType
+  , isIntType
+  , isNumericType
+  , canBeCastedTo
+
   , Value(..)
+
+  , prettyRange
   ) where
 
 import Data.Text.Lazy ( Text )
@@ -27,6 +40,14 @@ instance Pretty Type where
         CompoundType ct -> pretty ct
         SimpleType st   -> pretty st
 
+data CompoundType
+  = ArrayType (Maybe (Integer, Integer)) SimpleType
+  deriving (Eq, Show)
+
+instance Pretty CompoundType where
+    pretty (ArrayType size st) =
+        "array" <+> maybe empty prettyRange size <+> "of" <+> pretty st
+
 data SimpleType
   = BoolType
   | IntType (Maybe (Integer, Integer))
@@ -35,20 +56,47 @@ data SimpleType
 
 instance Pretty SimpleType where
     pretty st = case st of
-        BoolType                      -> "bool"
-        IntType (Just (lower, upper)) ->
-            brackets (integer lower <+> ".." <+> integer upper)
-        IntType Nothing               -> "int"
-        DoubleType                    -> "double"
+        BoolType      -> "bool"
+        IntType range -> maybe "int" prettyRange range
+        DoubleType    -> "double"
 
-data CompoundType
-  = ArrayType (Integer, Integer) SimpleType
-  deriving (Eq, Show)
+prettyRange :: (Pretty a) => (a, a) -> Doc
+prettyRange (lower, upper) = brackets (pretty lower <+> ".." <+> pretty upper)
 
-instance Pretty CompoundType where
-    pretty (ArrayType (lower, upper) st) =
-        "array" <+> brackets (integer lower <+> ".." <+> integer upper) <+>
-        "of" <+> pretty st
+intSimpleType :: SimpleType
+intSimpleType = IntType Nothing
+
+boolType, intType, doubleType :: Type
+boolType   = SimpleType BoolType
+intType    = SimpleType intSimpleType
+doubleType = SimpleType DoubleType
+
+-- | A list of all types an expression can possibly have.
+types :: [Type]
+types = map SimpleType [BoolType, intSimpleType, DoubleType]
+
+-- | Returns 'True' if @t@ is 'BoolType'.
+isBoolType :: Type -> Bool
+isBoolType (SimpleType BoolType) = True
+isBoolType _                     = False
+
+-- | Returns @True@ if @t@ is an 'IntType'.
+isIntType :: Type -> Bool
+isIntType (SimpleType (IntType _)) = True
+isIntType _                        = False
+
+-- | Returns 'True' if @t@ is either 'IntType' or 'DoubleType'.
+isNumericType :: Type -> Bool
+isNumericType (SimpleType st) = case st of
+    IntType _  -> True
+    DoubleType -> True
+    BoolType   -> False
+isNumericType _ = False
+
+-- | Returns 'True' if type @l@ can be casted to type @r@ and vice versa.
+canBeCastedTo :: Type -> Type -> Bool
+canBeCastedTo l r =
+    (isBoolType l && isBoolType r) || (isNumericType l && isNumericType r)
 
 -- | A @Value@ of a variable.
 data Value
