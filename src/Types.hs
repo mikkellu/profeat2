@@ -6,6 +6,8 @@ module Types
   , Type(..)
   , CompoundType(..)
   , SimpleType(..)
+
+  , Value(..)
   ) where
 
 import Data.Text.Lazy ( Text )
@@ -47,4 +49,18 @@ instance Pretty CompoundType where
     pretty (ArrayType (lower, upper) st) =
         "array" <+> brackets (integer lower <+> ".." <+> integer upper) <+>
         "of" <+> pretty st
+
+-- | A @Value@ of a variable.
+data Value
+    = BoolVal !Bool
+    | IntVal !Integer
+    | DblVal !Double
+    deriving (Eq, Show)
+
+instance Pretty Value where
+    pretty v = case v of
+        BoolVal False -> "false"
+        BoolVal True  -> "true"
+        IntVal  i     -> integer i
+        DblVal  d     -> double d
 
