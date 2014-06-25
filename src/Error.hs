@@ -37,6 +37,7 @@ data ErrorDesc
   | NotApplicable !BinOp !Type !Type
   | NotAFunction !LExpr
   | StandaloneFuntion !Function
+  | DivisionByZero Valuation
   deriving (Show)
 
 instance Pretty ErrorDesc where
@@ -65,4 +66,6 @@ instance Pretty ErrorDesc where
             pretty e <+> "is not a function"
         StandaloneFuntion f ->
             pretty f <+> "is a function, but no arguments are given"
+        DivisionByZero val ->
+            "division by zero with valuation" <+> prettyValuation val
 

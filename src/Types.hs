@@ -19,10 +19,14 @@ module Types
   , canBeCastedTo
 
   , Value(..)
+  , Valuation
 
+  , prettyValuation
   , prettyRange
   ) where
 
+import Data.Map ( Map )
+import qualified Data.Map as Map
 import Data.Text.Lazy ( Text )
 
 import Text.PrettyPrint.Leijen.Text
@@ -111,4 +115,14 @@ instance Pretty Value where
         BoolVal True  -> "true"
         IntVal  i     -> integer i
         DblVal  d     -> double d
+
+-- | A variable valuation.
+type Valuation = Map Ident Value
+
+-- | The 'Doc' representation of a 'Valuation'.
+prettyValuation :: Valuation -> Doc
+prettyValuation =
+    sep . punctuate comma .
+    map (\(name, v) -> text name <> equals <> pretty v) .
+    Map.assocs
 
