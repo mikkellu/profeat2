@@ -345,8 +345,9 @@ data Expr a
   | UnaryExpr !UnOp (Expr a) !a
   | CondExpr (Expr a) (Expr a) (Expr a) !a
   | LoopExpr (ForLoop Expr a) !a
-  | FuncExpr !Function [Expr a] !a
+  | CallExpr (Expr a) [Expr a] !a
   | NameExpr (Name a) !a
+  | FuncExpr !Function !a
   | DecimalExpr !Double !a
   | IntegerExpr !Integer !a
   | BoolExpr !Bool !a
@@ -361,8 +362,8 @@ instance Plated (Expr a) where
         CondExpr cond te ee a      ->
             CondExpr <$> f cond <*> f te <*> f ee <*> pure a
         LoopExpr loop a            -> LoopExpr <$> exprs f loop <*> pure a
-        FuncExpr func args a       ->
-            FuncExpr func <$> traverse f args <*> pure a
+        CallExpr e' args a         ->
+            CallExpr <$> f e' <*> traverse f args <*> pure a
         NameExpr name a            -> NameExpr <$> exprs f name <*> pure a
         _                          -> pure e
 
@@ -402,7 +403,6 @@ data Function
   | FuncPow
   | FuncMod
   | FuncLog
-  | Func !Ident
   deriving (Eq, Show)
 
 data Name a
@@ -439,8 +439,9 @@ exprAnnot e = case e of
     UnaryExpr _ _ a    -> a
     CondExpr _ _ _ a   -> a
     LoopExpr _ a       -> a
-    FuncExpr _ _ a     -> a
+    CallExpr _ _ a     -> a
     NameExpr _ a       -> a
+    FuncExpr _ a       -> a
     DecimalExpr _ a    -> a
     IntegerExpr _ a    -> a
     BoolExpr _ a       -> a
@@ -675,9 +676,11 @@ prettyExpr prec e = case e of
                         _            -> (<>)
         in parens' (prec >= prec') $ pretty unOpT `sep'` prettyExpr prec' e'
     LoopExpr loop _       -> prettyLoop pretty True loop
-    FuncExpr func args _  ->
-        pretty func <> parens (align . cat . punctuate comma $ map pretty args)
+    CallExpr e' args _    ->
+        prettyExpr callPrec e' <>
+        parens (align . cat . punctuate comma $ map pretty args)
     NameExpr n _          -> pretty n
+    FuncExpr func _       -> pretty func
     DecimalExpr d _       -> double d
     IntegerExpr i _       -> integer i
     BoolExpr True _       -> "true"
@@ -718,7 +721,6 @@ instance Pretty Function where
         FuncPow    -> "pow"
         FuncMod    -> "mod"
         FuncLog    -> "log"
-        Func ident -> text ident
 
 instance Pretty (Name a) where
     pretty n = case n of

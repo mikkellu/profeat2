@@ -139,8 +139,7 @@ reservedOp = T.reservedOp lexer
 symbol :: String -> Parser String
 symbol = T.symbol lexer
 
-dot, semi, colon :: Parser String
-dot   = T.dot lexer
+semi, colon :: Parser String
 semi  = T.semi lexer
 colon = T.colon lexer
 
@@ -352,20 +351,25 @@ property = expr' True
 -- | Creates the expression parser. If @allowPctl@ is 'True' the parser
 -- will accept temporal and probabilistic operators.
 expr' :: Bool -> Parser LExpr
-expr' allowPctl = do
-    e <- simpleExpr
-    option e . loc $ CondExpr e <$> (reservedOp "?" *> expr' allowPctl)
-                                <*> (colon *> expr' allowPctl)
+expr' allowPctl = simpleExpr >>= condExpr
   where
     simpleExpr =
         normalizeExpr <$> buildExpressionParser opTable (term allowPctl)
                       <?> "expression"
+    condExpr e = option e $ CondExpr e <$> (reservedOp "?" *> expr' allowPctl)
+                                       <*> (colon *> expr' allowPctl)
+                                       <*> pure (exprAnnot e)
     opTable
       | allowPctl = exprOpTable ++ pctlOpTable -- order is important here, PCTL operators have lower precedence
       | otherwise = exprOpTable
 
 term :: Bool -> Parser LExpr
-term allowPctl
+term allowPctl = atom allowPctl >>= callExpr
+  where
+    callExpr e = option e $ CallExpr e <$> args <*> pure (exprAnnot e)
+
+atom :: Bool -> Parser LExpr
+atom allowPctl
     = parens (expr' allowPctl)
    <|> loc (choice $ pctlExpr ++
                    [ MissingExpr <$ reservedOp "..."
@@ -373,7 +377,7 @@ term allowPctl
                    , DecimalExpr <$> try float
                    , IntegerExpr <$> integer
                    , LoopExpr <$> forLoop (expr' allowPctl)
-                   , try (FuncExpr <$> function <*> args)
+                   , FuncExpr <$> function
                    , NameExpr <$> name
                    ])
    <?> "literal, variable or expression"
@@ -416,7 +420,6 @@ function = choice
     , FuncPow   <$  reserved "pow"
     , FuncMod   <$  reserved "mod"
     , FuncLog   <$  reserved "log"
-    , Func      <$> identifier
     ] <?> "function call"
 
 bound :: Parser Bound
@@ -434,7 +437,7 @@ name :: Parser LName
 name = foldl' (flip ($)) <$> (Name <$> identifier) <*> many qualifier
   where
     qualifier = choice
-        [ dot *> (flip Member <$> identifier)
+        [ reservedOp "." *> (flip Member <$> identifier)
         , flip Index <$> brackets expr
         ] <?> "qualifier"
 

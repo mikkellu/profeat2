@@ -113,9 +113,9 @@ constraint_term = 'true' | 'false'
 *)
 
 expr = ? expressions over term ? ;
-term = 'id' (* module id *)
-     | '...' (* placeholder for for-loops *)
-     | function_call
+term = atom, [ '(', arg_list, ')' ] ;
+atom = '...' (* placeholder for for-loops *)
+     | function
      | name
      | decimal_symbol
      | integer_symbol
@@ -124,11 +124,9 @@ term = 'id' (* module id *)
      | for_loop, expr, 'endfor'
      ;
 
-function_call = function, arg_list ;
-function      = 'min' | 'max' | 'floor' | 'ceil' | 'pow' | 'mod' | 'log'
-              | 'activated'
-              | ident_symbol
-              ;
+function = 'min' | 'max' | 'floor' | 'ceil' | 'pow' | 'mod' | 'log'
+         | 'activated'
+         ;
 
 (* Operators for expr, highest to lowest precedence
     - (unary)

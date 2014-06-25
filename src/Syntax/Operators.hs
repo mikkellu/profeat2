@@ -18,6 +18,8 @@ module Syntax.Operators
   , BoundOp(..)
   , QueryType(..)
   , unOpPrec
+
+  , callPrec
   ) where
 
 import Data.Text.Lazy ( Text )
@@ -63,6 +65,10 @@ data TempBinOp
   | WeakUntil
   | Release
   deriving (Bounded, Enum, Eq, Show)
+
+-- | Returns the precedence level of a function call.
+callPrec :: Int
+callPrec = 12
 
 -- | Returns the precedence level of the given operator.
 binOpPrec :: BinOp -> Int

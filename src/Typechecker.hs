@@ -142,7 +142,7 @@ typeOf (CondExpr cond te ee _) = do
 
 typeOf (LoopExpr _ _) = error "Typechecker.typeOf: unresolved LoopExpr"
 
-typeOf (FuncExpr function args l) = do
+typeOf (CallExpr (FuncExpr function _) args l) = do
     ts <- for args $ checkIfType isNumericType
 
     case function of
@@ -158,7 +158,6 @@ typeOf (FuncExpr function args l) = do
             void . for args $ checkIfType_ isIntType
             return intType
         FuncLog   -> checkArgCount 2 >> return doubleType
-        Func _    -> error "Typechecker.typeOf: unresolved FuncExpr"
   where
     funcMinMax ts
       | doubleType `elem` ts = return doubleType
@@ -171,8 +170,10 @@ typeOf (FuncExpr function args l) = do
         ArityError (displayT . renderOneLine $ pretty function) n numArgs
       | otherwise    = return ()
 
+typeOf (CallExpr e _ l) = throw l $ NotAFunction e
 
 typeOf (NameExpr name l)  = lookupType name l =<< ask
+typeOf (FuncExpr f l)     = throw l $ StandaloneFuntion f
 typeOf (DecimalExpr _ _)  = return doubleType
 typeOf (IntegerExpr _ _)  = return intType
 typeOf (BoolExpr _ _)     = return boolType

@@ -35,6 +35,8 @@ data ErrorDesc
   | ArityError Ident !Int !Int -- expected actual
   | TypeMismatch [Type] !Type !LExpr
   | NotApplicable !BinOp !Type !Type
+  | NotAFunction !LExpr
+  | StandaloneFuntion !Function
   deriving (Show)
 
 instance Pretty ErrorDesc where
@@ -59,4 +61,8 @@ instance Pretty ErrorDesc where
             "operator" <+> pretty binOpT <+>
             "is not applicable for expressions of type" <+> pretty tl <+>
             "and" <+> pretty tr
+        NotAFunction e ->
+            pretty e <+> "is not a function"
+        StandaloneFuntion f ->
+            pretty f <+> "is a function, but no arguments are given"
 
