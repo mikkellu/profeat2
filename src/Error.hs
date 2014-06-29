@@ -37,6 +37,8 @@ data ErrorDesc
   | NotApplicable !BinOp !Type !Type
   | NotAFunction !LExpr
   | StandaloneFuntion !Function
+  | UnknownValues LExpr [LName]
+  | MalformedLoopBody
   | DivisionByZero Valuation
   deriving (Show)
 
@@ -66,6 +68,12 @@ instance Pretty ErrorDesc where
             pretty e <+> "is not a function"
         StandaloneFuntion f ->
             pretty f <+> "is a function, but no arguments are given"
+        UnknownValues e names ->
+            "the expression" <+> pretty e <+> "cannot be evaluated as the" <+>
+            "values of the following variables is not known:" <> line <>
+            sep (punctuate comma $ map pretty names)
+        MalformedLoopBody ->
+            "malformed loop"
         DivisionByZero val ->
             "division by zero with valuation" <+> prettyValuation val
 

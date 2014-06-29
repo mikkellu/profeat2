@@ -3,6 +3,9 @@
 module Typechecker
   ( extendSymbolTable
   , typeOf
+  , checkIfConst
+  , checkIfType
+  , checkIfType_
   ) where
 
 import Control.Applicative
@@ -93,6 +96,20 @@ isCyclicDef post defs = isCyclic Set.empty
         case defs^.at i of
             Just x  -> let is' = Set.insert i is in any (isCyclic is') $ post x
             Nothing -> False
+
+checkIfConst :: (MonadReader Valuation m, MonadEither Error m) => LExpr -> m ()
+checkIfConst e = ask >>= \val -> case unknownValues val e of
+    []    -> return ()
+    names -> throw (exprAnnot e) $ UnknownValues e names
+
+unknownValues :: Valuation -> Expr a -> [Name a]
+unknownValues val = go where
+    go e = case e of
+        NameExpr n@(Name ident) _
+          | Map.member ident val -> []
+          | otherwise            -> [n]
+        NameExpr name _ -> [name]
+        _               -> concatMap go (children e)
 
 typeOf :: (Applicative m, MonadReader SymbolTable m, MonadEither Error m)
        => LExpr

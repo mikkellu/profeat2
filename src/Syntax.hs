@@ -50,6 +50,7 @@ module Syntax
   , Range
 
   , _NameExpr
+  , _MissingExpr
   , _Name
 
   , exprAnnot
@@ -425,6 +426,13 @@ _NameExpr = prism' (uncurry NameExpr) f
   where
     f (NameExpr name a) = Just (name, a)
     f _                 = Nothing
+
+-- | This 'Prism' provides a 'Traversal' for 'MissingExpr's.
+_MissingExpr :: Prism' (Expr a) a
+_MissingExpr = prism' MissingExpr f
+  where
+    f (MissingExpr a) = Just a
+    f _               = Nothing
 
 -- | This 'Prism' provides a 'Traversal' for 'Name's.
 _Name :: Prism' (Name a) Ident

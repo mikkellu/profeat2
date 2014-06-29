@@ -1,7 +1,9 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 module Syntax.Template
-  ( expandFormulas
+  ( unrollRepeatable
+  , unrollLoopExprs
+  , expandFormulas
   , instantiate
   , substitute
   ) where
@@ -9,16 +11,96 @@ module Syntax.Template
 import Control.Applicative
 import Control.Lens
 import Control.Monad.Either
+import Control.Monad.Reader
 
 import Data.Map ( Map )
 import qualified Data.Map as Map
 
 import Error
+import Eval
 import SrcLoc
+import Symbols
 import Syntax
+import Typechecker
+import Types
 
 class Template n where
     parameters :: n a -> [Ident]
+
+unrollRepeatable :: ( Applicative m
+                    , MonadReader SymbolTable m
+                    , MonadEither Error m
+                    , HasExprs b
+                    )
+                 => Valuation
+                 -> LRepeatable b
+                 -> m (LRepeatable b)
+unrollRepeatable val (Repeatable ss) = Repeatable <$> rewriteM f ss where
+    f (s:ss') = case s of
+        One _     -> return Nothing
+        Many loop -> Just . (++ ss') <$> unrollRepeatableLoop val loop
+    f [] = return Nothing
+
+unrollRepeatableLoop :: ( Applicative m
+                        , MonadReader SymbolTable m
+                        , MonadEither Error m
+                        , HasExprs b
+                        )
+                     => Valuation
+                     -> LForLoop (Repeatable b)
+                     -> m [Some b SrcLoc]
+unrollRepeatableLoop = unrollLoop f where
+    f (Repeatable ss) = return . concatMap (\defs -> map (substitute defs) ss)
+
+unrollLoopExprs :: ( Applicative m
+                   , MonadReader SymbolTable m
+                   , MonadEither Error m
+                   )
+                => Valuation
+                -> LExpr
+                -> m LExpr
+unrollLoopExprs val = rewriteM' f where
+    f e = case e of
+        LoopExpr loop _ -> Just <$> unrollExprLoop val loop
+        _               -> return Nothing
+
+unrollExprLoop :: ( Applicative m
+                  , MonadReader SymbolTable m
+                  , MonadEither Error m
+                  )
+               => Valuation
+               -> LForLoop Expr
+               -> m LExpr
+unrollExprLoop = unrollLoop f where
+    f e defss = do
+        checkLoopBody e
+        return $ transformOf plateBody (unrollExpr defss) e
+
+unrollExpr :: [Map Ident LExpr] -> LExpr -> LExpr
+unrollExpr defss e = case e of
+    BinaryExpr binOp e' (MissingExpr _) _ ->
+        let e's = map (`substitute` e') defss
+        in foldr1 (binaryExpr binOp) e's
+    _ -> e
+
+unrollLoop :: (Applicative m, MonadReader SymbolTable m, MonadEither Error m)
+           => (a SrcLoc -> [Map Ident LExpr] -> m b)
+           -> Valuation
+           -> LForLoop a
+           -> m b
+unrollLoop f val (ForLoop ident range body _) = do
+    symTbl <- ask
+    range' <- both (unrollLoopExprs val) range
+
+    both (checkIfType_ isIntType) range'
+    runReaderT (both checkIfConst range') val
+
+    (IntVal lower, IntVal upper) <- both (eval' val) range'
+
+    let indices | lower <= upper = [lower .. upper]
+                | otherwise      = [lower, lower - 1 .. upper]
+
+    f body (map (Map.singleton ident . flip IntegerExpr noLoc) indices)
 
 expandFormulas :: (Applicative m, HasExprs n, MonadEither Error m)
                => Map Ident LFormula
@@ -58,15 +140,40 @@ substitute defs
         maybe node (fmap (reLoc l)) $ defs^.at ident
     _ -> node
 
+-- | Check whether the given expression contains exactly one expression of
+-- the form @e * ...@, where @*@ is any binary operator.
+checkLoopBody :: (Functor m, MonadEither Error m) => LExpr -> m ()
+checkLoopBody e = go e >>= \cnt ->
+    when (cnt /= 1) (throw (exprAnnot e) MalformedLoopBody)
+  where
+    go e' = case e' of
+        BinaryExpr _ lhs (MissingExpr _) _
+          | has (traverse._MissingExpr) $ universeOf plateBody lhs ->
+                throw (exprAnnot lhs) MalformedLoopBody
+          | otherwise -> return 1
+        MissingExpr _ -> throw (exprAnnot e') MalformedLoopBody
+        _             -> sum <$> mapM go (e'^..plateBody)
+
+-- Traversal of the immediate children of the given expression, ommitting
+-- the body of nested 'LoopExpr's.
+plateBody :: Traversal' (Expr a) (Expr a)
+plateBody f e = case e of
+    LoopExpr (ForLoop ident range body a) a' ->
+        LoopExpr <$> (ForLoop ident <$> both f range <*> pure body <*> pure a)
+                 <*> pure a'
+    _ -> plate f e
+
 -- Rewrite by applying the monadic everywhere you can in a top-down manner.
 -- Ensures that the rule cannot be applied anywhere in the result.
 rewriteM' :: (Monad m, Applicative m, Plated a)
           => (a -> m (Maybe a))
           -> a
           -> m a
-rewriteM' f = go
-  where
-    go e = f e >>= maybe (plate go e) go
+rewriteM' = rewriteMOf' plate
+
+rewriteMOf' :: (Monad m) => LensLike' m a a -> (a -> m (Maybe a)) -> a -> m a
+rewriteMOf' l f = go where
+    go e = f e >>= maybe (l go e) go
 
 instance Template Feature where
     parameters = featParams
