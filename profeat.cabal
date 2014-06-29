@@ -1,5 +1,5 @@
 name:                profeat
-version:             0.21.0
+version:             0.22.0
 synopsis:            A feature modelling language
 author:              Philipp Chrszon
 maintainer:          Philipp.Chrszon@mailbox.tu-dresden.de
@@ -17,7 +17,7 @@ library
                        Symbols,
                        Syntax,
                        Syntax.Operators,
-                       Syntax.Template,
+                       Template,
                        Typechecker,
                        Types
   hs-source-dirs:      src

@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 
-module Syntax.Template
+module Template
   ( unrollRepeatable
   , unrollLoopExprs
   , expandFormulas
