@@ -89,18 +89,17 @@ unrollLoop :: (Applicative m, MonadReader SymbolTable m, MonadEither Error m)
            -> LForLoop a
            -> m b
 unrollLoop f val (ForLoop ident range body _) = do
-    symTbl <- ask
     range' <- both (unrollLoopExprs val) range
 
-    both (checkIfType_ isIntType) range'
-    runReaderT (both checkIfConst range') val
+    _ <- both (checkIfType_ isIntType) range'
+    _ <- runReaderT (both checkIfConst range') val
 
     (IntVal lower, IntVal upper) <- both (eval' val) range'
 
-    let indices | lower <= upper = [lower .. upper]
-                | otherwise      = [lower, lower - 1 .. upper]
+    let is | lower <= upper = [lower .. upper]
+           | otherwise      = [lower, lower - 1 .. upper]
 
-    f body (map (Map.singleton ident . flip IntegerExpr noLoc) indices)
+    f body (map (Map.singleton ident . flip IntegerExpr noLoc) is)
 
 expandFormulas :: (Applicative m, HasExprs n, MonadEither Error m)
                => Map Ident LFormula
@@ -146,6 +145,7 @@ checkLoopBody :: (Functor m, MonadEither Error m) => LExpr -> m ()
 checkLoopBody e = go e >>= \cnt ->
     when (cnt /= 1) (throw (exprAnnot e) MalformedLoopBody)
   where
+    go :: (Functor m, MonadEither Error m) => LExpr -> m Integer
     go e' = case e' of
         BinaryExpr _ lhs (MissingExpr _) _
           | has (traverse._MissingExpr) $ universeOf plateBody lhs ->
