@@ -296,7 +296,7 @@ formulaDef = FormulaDef <$> formula
 formula :: Parser LFormula
 formula = loc (Formula <$> (reserved "formula" *> identifier)
                        <*> params
-                       <*> (reservedOp "=" *> expr))
+                       <*> (reservedOp "=" *> expr <* semi))
        <?> "formula"
 
 propertyDef :: Parser LDefinition
