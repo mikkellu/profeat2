@@ -1,9 +1,13 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 module Template
-  ( unrollRepeatable
+  ( preprocessExpr
+
+  , unrollRepeatable
   , unrollLoopExprs
+
   , expandFormulas
+
   , instantiate
   , substitute
   ) where
@@ -17,28 +21,35 @@ import Data.Map ( Map )
 import qualified Data.Map as Map
 
 import Error
-import Eval
 import SrcLoc
 import Symbols
 import Syntax
 import Typechecker
-import Types
 
 class Template n where
     parameters :: n a -> [Ident]
+
+preprocessExpr :: ( Applicative m
+                  , MonadReader SymbolTable m
+                  , MonadEither Error m
+                  )
+               => LExpr
+               -> m LExpr
+preprocessExpr e = do
+    frms <- view formulas
+    expandFormulas frms e >>= unrollLoopExprs
 
 unrollRepeatable :: ( Applicative m
                     , MonadReader SymbolTable m
                     , MonadEither Error m
                     , HasExprs b
                     )
-                 => Valuation
-                 -> LRepeatable b
+                 => LRepeatable b
                  -> m (LRepeatable b)
-unrollRepeatable val (Repeatable ss) = Repeatable <$> rewriteM f ss where
+unrollRepeatable (Repeatable ss) = Repeatable <$> rewriteM f ss where
     f (s:ss') = case s of
         One _     -> return Nothing
-        Many loop -> Just . (++ ss') <$> unrollRepeatableLoop val loop
+        Many loop -> Just . (++ ss') <$> unrollRepeatableLoop loop
     f [] = return Nothing
 
 unrollRepeatableLoop :: ( Applicative m
@@ -46,8 +57,7 @@ unrollRepeatableLoop :: ( Applicative m
                         , MonadEither Error m
                         , HasExprs b
                         )
-                     => Valuation
-                     -> LForLoop (Repeatable b)
+                     => LForLoop (Repeatable b)
                      -> m [Some b SrcLoc]
 unrollRepeatableLoop = unrollLoop f where
     f (Repeatable ss) = return . concatMap (\defs -> map (substitute defs) ss)
@@ -56,20 +66,18 @@ unrollLoopExprs :: ( Applicative m
                    , MonadReader SymbolTable m
                    , MonadEither Error m
                    )
-                => Valuation
-                -> LExpr
+                => LExpr
                 -> m LExpr
-unrollLoopExprs val = rewriteM' f where
+unrollLoopExprs = rewriteM' f where
     f e = case e of
-        LoopExpr loop _ -> Just <$> unrollExprLoop val loop
+        LoopExpr loop _ -> Just <$> unrollExprLoop loop
         _               -> return Nothing
 
 unrollExprLoop :: ( Applicative m
                   , MonadReader SymbolTable m
                   , MonadEither Error m
                   )
-               => Valuation
-               -> LForLoop Expr
+               => LForLoop Expr
                -> m LExpr
 unrollExprLoop = unrollLoop f where
     f e defss = do
@@ -85,17 +93,12 @@ unrollExpr defss e = case e of
 
 unrollLoop :: (Applicative m, MonadReader SymbolTable m, MonadEither Error m)
            => (a SrcLoc -> [Map Ident LExpr] -> m b)
-           -> Valuation
            -> LForLoop a
            -> m b
-unrollLoop f val (ForLoop ident range body _) = do
-    range' <- both (unrollLoopExprs val) range
+unrollLoop f (ForLoop ident range body _) = do
+    range' <- both unrollLoopExprs range
 
-    _ <- both (checkIfType_ isIntType) range'
-    _ <- runReaderT (both checkIfConst range') val
-
-    (IntVal lower, IntVal upper) <- both (eval' val) range'
-
+    (lower, upper) <- evalRange range'
     let is | lower <= upper = [lower .. upper]
            | otherwise      = [lower, lower - 1 .. upper]
 

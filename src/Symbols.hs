@@ -4,11 +4,14 @@ module Symbols
   ( GlobalSymbol(..)
   , gsLoc
   , gsType
+  , gsVarType
+  , gsExpr
 
   , ConstSymbol(..)
   , csLoc
   , csType
-  , csValue
+  , csConstType
+  , csExpr
 
   , Table
   , SymbolTable(..)
@@ -17,6 +20,7 @@ module Symbols
   , formulas
   , modules
   , features
+  , constValues
 
   , emptySymbolTable
   , containsSymbol
@@ -35,39 +39,44 @@ import Syntax
 import Types
 
 data GlobalSymbol = GlobalSymbol
-  { _gsLoc  :: !SrcLoc
-  , _gsType :: !Type
-  }
+  { _gsLoc     :: !SrcLoc
+  , _gsType    :: !Type
+  , _gsVarType :: LVarType
+  , _gsExpr    :: Maybe LExpr
+  } deriving (Show)
 
 makeLenses ''GlobalSymbol
 
 data ConstSymbol = ConstSymbol
-  { _csLoc   :: !SrcLoc
-  , _csType  :: !Type
-  , _csValue :: Maybe Value
-  }
+  { _csLoc       :: !SrcLoc
+  , _csType      :: !Type
+  , _csConstType :: !ConstType
+  , _csExpr      :: LExpr
+  } deriving (Show)
 
 makeLenses ''ConstSymbol
 
 type Table a = Map Ident a
 
 data SymbolTable = SymbolTable
-  { _globals   :: Table GlobalSymbol
-  , _constants :: Table ConstSymbol
-  , _formulas  :: Table LFormula
-  , _modules   :: Table LModule
-  , _features  :: Table LFeature
-  }
+  { _globals     :: Table GlobalSymbol
+  , _constants   :: Table ConstSymbol
+  , _formulas    :: Table LFormula
+  , _modules     :: Table LModule
+  , _features    :: Table LFeature
+  , _constValues :: Valuation
+  } deriving (Show)
 
 makeLenses ''SymbolTable
 
 emptySymbolTable :: SymbolTable
-emptySymbolTable = SymbolTable empty empty empty empty empty
+emptySymbolTable = SymbolTable empty empty empty empty empty empty
 
 containsSymbol :: SymbolTable -> Ident -> Maybe SrcLoc
-containsSymbol symTbl ident =  (symTbl^?globals  .at ident._Just.gsLoc)
-                           <|> (symTbl^?constants.at ident._Just.csLoc)
-                           <|> (symTbl^?formulas .at ident._Just.to frmAnnot)
+containsSymbol symTbl ident =
+    (symTbl^?globals  .at ident._Just.gsLoc) <|>
+    (symTbl^?constants.at ident._Just.csLoc) <|>
+    (symTbl^?formulas .at ident._Just.to frmAnnot)
 
 lookupType :: (MonadEither Error m) => Name a -> SrcLoc -> SymbolTable -> m Type
 lookupType name l symTbl = case name of

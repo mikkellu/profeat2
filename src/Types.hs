@@ -16,6 +16,8 @@ module Types
   , isBoolType
   , isIntType
   , isNumericType
+
+  , isAssignableTo
   , canBeCastedTo
 
   , Value(..)
@@ -96,6 +98,17 @@ isNumericType (SimpleType st) = case st of
     DoubleType -> True
     BoolType   -> False
 isNumericType _ = False
+
+-- | Returns 'True' if an expression of the first type can be assigned to a
+-- variable of the second type.
+isAssignableTo :: Type -> Type -> Bool
+isAssignableTo (SimpleType tl) (SimpleType tr) = case (tl, tr) of
+    (BoolType   , BoolType  ) -> True
+    (IntType _  , IntType _ ) -> True
+    (DoubleType , DoubleType) -> True
+    (IntType _  , DoubleType) -> True
+    (_          , _         ) -> False
+isAssignableTo _ _ = False
 
 -- | Returns 'True' if type @l@ can be casted to type @r@ and vice versa.
 canBeCastedTo :: Type -> Type -> Bool

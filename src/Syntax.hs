@@ -52,6 +52,7 @@ module Syntax
   , _NameExpr
   , _MissingExpr
   , _Name
+  , identifiers
 
   , exprAnnot
   , unaryExpr
@@ -441,6 +442,10 @@ _Name = prism' Name f
     f (Name ident) = Just ident
     f _            = Nothing
 
+-- | A 'Traversal' of all identifiers in an expression.
+identifiers :: Traversal' (Expr a) Ident
+identifiers = _NameExpr._1._Name
+
 exprAnnot :: Expr a -> a
 exprAnnot e = case e of
     BinaryExpr _ _ _ a -> a
@@ -612,7 +617,7 @@ instance Pretty (CompoundVarType a) where
 instance Pretty (SimpleVarType a) where
     pretty svt = case svt of
         BoolVarType      -> "bool"
-        IntVarType range -> pretty range
+        IntVarType range -> prettyRange range
 
 instance Pretty (Constant a) where
     pretty (Constant ct ident e _) =

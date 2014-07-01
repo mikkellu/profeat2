@@ -22,8 +22,6 @@ import Control.Monad.Either
 import Control.Monad.Reader
 
 import Data.Map ( (!) )
-import qualified Data.Map as Map
-import Data.Traversable
 
 import Error
 import Syntax
