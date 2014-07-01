@@ -2,6 +2,7 @@
 
 module Syntax
   ( module Syntax.Operators
+  , module SrcLoc
 
   , HasExprs(..)
 

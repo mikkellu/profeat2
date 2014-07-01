@@ -12,7 +12,6 @@ import Data.Text.Lazy ( Text )
 
 import Text.PrettyPrint.Leijen.Text
 
-import SrcLoc
 import Syntax
 import Types
 

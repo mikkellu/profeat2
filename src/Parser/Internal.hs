@@ -54,7 +54,6 @@ import Text.Parsec.Text.Lazy
 import qualified Text.Parsec.Token as T
 
 import Error
-import SrcLoc
 import Syntax
 
 parseFile :: Parser a -> SourceName -> Text -> Either Error a

@@ -34,7 +34,6 @@ import Control.Lens
 import Data.Map ( Map, empty )
 
 import Error
-import SrcLoc
 import Syntax
 import Types
 

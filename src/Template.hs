@@ -21,7 +21,6 @@ import Data.Map ( Map )
 import qualified Data.Map as Map
 
 import Error
-import SrcLoc
 import Symbols
 import Syntax
 import Typechecker

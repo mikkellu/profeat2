@@ -24,7 +24,6 @@ import Syntax
 import Template
 import Typechecker
 import Types
-import SrcLoc
 
 extendSymbolTable :: SymbolTable -> [LDefinition] -> Either Error SymbolTable
 extendSymbolTable symTbl defs = flip evalStateT symTbl $ do
