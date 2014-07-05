@@ -38,6 +38,8 @@ data ErrorDesc
   | StandaloneFuntion !Function
   | UnknownValues LExpr [LName]
   | MalformedLoopBody
+  | AmbiguousDecomposition !Ident
+  | AmbiguousIdentifier !Ident
   | DivisionByZero Valuation
   deriving (Show)
 
@@ -73,6 +75,10 @@ instance Pretty ErrorDesc where
             sep (punctuate comma $ map pretty names)
         MalformedLoopBody ->
             "malformed loop"
+        AmbiguousDecomposition ident ->
+            "the feature" <+> text ident <+> "is referenced more than once"
+        AmbiguousIdentifier ident ->
+            text ident <+> "is defined by more than one referenced module"
         DivisionByZero val ->
             "division by zero with valuation" <+> prettyValuation val
 

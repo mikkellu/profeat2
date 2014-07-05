@@ -19,11 +19,12 @@ import Data.Traversable
 
 import Error
 import Eval
+import ProductLine
 import Symbols
 import Syntax
 import Template
 import Typechecker
-import Types
+import Types.Util
 
 extendSymbolTable :: SymbolTable -> [LDefinition] -> Either Error SymbolTable
 extendSymbolTable symTbl defs = flip evalStateT symTbl $ do
@@ -35,22 +36,35 @@ extendSymbolTable symTbl defs = flip evalStateT symTbl $ do
         ifNot containsSymbol ident l $ constants.at ident .=
             Just (ConstSymbol l (fromConstType ct) ct e)
 
-
     forOf_ (traverse._FormulaDef) defs $ \f@(Formula ident _ _ l) ->
         ifNot containsSymbol ident l $ formulas.at ident .= Just f
 
     checkIfNonCyclicFormulas =<< use formulas
+
+    forOf_ (traverse._ModuleDef) defs $ \m@(Module ident _ _ _) ->
+        ifNot containsModule ident (modAnnot $ modBody m) $
+            modules.at ident .= Just m
+
+    forOf_ (traverse._FeatureDef) defs $ \f -> let ident = featIdent f in
+        ifNot containsFeature ident (featAnnot f) $ features.at ident .= Just f
+
+    checkIfNonCyclicFeatures =<< use features
 
     expandExprsOf $ constants.traverse.csExpr
     checkIfNonCyclicConstants =<< use constants
     evalConstValues
 
     symTbl' <- get
-    flip runReaderT symTbl' . forOf (globals.traverse) symTbl' $ \gs -> do
+    symTbl'' <- flip runReaderT symTbl' .
+                forOf (globals.traverse) symTbl' $ \gs -> do
         t   <- fromVarType $ gs^.gsVarType
         vt' <- exprs preprocessExpr $ gs^.gsVarType
         e'  <- _Just preprocessExpr $ gs^.gsExpr
         return (gs & gsType .~ t & gsVarType .~ vt' & gsExpr .~ e')
+
+    root <- rootFeatureSymbol symTbl''
+
+    return $ symTbl'' & rootFeature .~ root
   where
     ifNot contains ident loc m = do
         st <- get
@@ -106,16 +120,22 @@ evalConstValue ident = do
 checkIfNonCyclicFormulas :: (Applicative m, MonadEither Error m)
                          => Table LFormula
                          -> m ()
-checkIfNonCyclicFormulas = checkIfNonCyclic post frmAnnot
-  where
+checkIfNonCyclicFormulas = checkIfNonCyclic post frmAnnot where
     post (Formula _ params e _) = universe e^..traverse.identifiers \\ params
 
 checkIfNonCyclicConstants :: (Applicative m, MonadEither Error m)
                           => Table ConstSymbol
                           -> m ()
-checkIfNonCyclicConstants = checkIfNonCyclic post (view csLoc)
-  where
+checkIfNonCyclicConstants = checkIfNonCyclic post (view csLoc) where
     post cs = universe (cs^.csExpr)^..traverse.identifiers
+
+checkIfNonCyclicFeatures :: (Applicative m, MonadEither Error m)
+                         => Table LFeature
+                         -> m ()
+checkIfNonCyclicFeatures = checkIfNonCyclic post featAnnot where
+    post f = case featDecomp f of
+        Just (Decomposition _ refs _) -> map (instIdent . frInstance) refs
+        Nothing                       -> []
 
 checkIfNonCyclic :: (Applicative m, MonadEither Error m)
                  => (a -> [Ident])
@@ -134,42 +154,4 @@ isCyclicDef post defs = isCyclic Set.empty
         case defs^.at i of
             Just x  -> let is' = Set.insert i is in any (isCyclic is') $ post x
             Nothing -> False
-
-fromVarType :: (Applicative m, MonadReader SymbolTable m, MonadEither Error m)
-            => LVarType
-            -> m Type
-fromVarType vt = case vt of
-    CompoundVarType (ArrayVarType size svt) ->
-        fmap CompoundType $ ArrayType <$> (Just <$> fromRange size)
-                                      <*> fromSimpleVarType svt
-    SimpleVarType svt -> SimpleType <$> fromSimpleVarType svt
-  where
-    fromSimpleVarType svt = case svt of
-        BoolVarType      -> pure BoolType
-        IntVarType range -> IntType . Just <$> fromRange range
-
-fromRange :: (Applicative m, MonadReader SymbolTable m, MonadEither Error m)
-          => LRange
-          -> m (Integer, Integer)
-fromRange = both preprocessExpr >=> evalRange
-
--- | Converts a 'VarType' to a 'Type' but ignores the bounds for integer
--- types and array sizes.
-fromVarType' :: VarType a -> Type
-fromVarType' vt = case vt of
-    CompoundVarType (ArrayVarType _ svt) ->
-        CompoundType . ArrayType Nothing $ fromSimpleVarType svt
-    SimpleVarType svt -> SimpleType $ fromSimpleVarType svt
-  where
-    fromSimpleVarType :: SimpleVarType a -> SimpleType
-    fromSimpleVarType svt = case svt of
-        BoolVarType  -> BoolType
-        IntVarType _ -> intSimpleType
-
--- | Converts a 'ConstType' to a 'Type'.
-fromConstType :: ConstType -> Type
-fromConstType ct = case ct of
-    BoolConstType   -> boolType
-    IntConstType    -> intType
-    DoubleConstType -> doubleType
 

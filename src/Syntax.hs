@@ -140,8 +140,11 @@ instance HasExprs Feature where
                              <*> traverse (exprs f) rws
                              <*> pure a
 
-data Decomposition a = Decomposition (DecompOp a) [FeatureRef a] !a
-                     deriving (Eq, Functor, Show)
+data Decomposition a = Decomposition
+  { decompOperator :: DecompOp a
+  , decompChildren :: [FeatureRef a]
+  , decompAnnot    :: !a
+  } deriving (Eq, Functor, Show)
 
 instance HasExprs Decomposition where
     exprs f (Decomposition decompOp refs a) =
@@ -174,7 +177,11 @@ instance HasExprs FeatureRef where
                        <*> traverse (exprs f) cnt
                        <*> pure alias
 
-data Instance a = Instance !Ident [Expr a] !a deriving (Eq, Functor, Show)
+data Instance a = Instance
+  { instIdent :: !Ident
+  , instArgs  :: [Expr a]
+  , instAnnot :: !a
+  } deriving (Eq, Functor, Show)
 
 instance HasExprs Instance where
     exprs f (Instance ident args a) =
@@ -231,7 +238,7 @@ data VarDecl a = VarDecl
 
 instance HasExprs VarDecl where
     exprs f (VarDecl ident vt e a) =
-        VarDecl ident vt <$> traverse (exprs f) e <*> pure a
+        VarDecl ident <$> exprs f vt <*> traverse (exprs f) e <*> pure a
 
 data VarType a
   = CompoundVarType (CompoundVarType a)

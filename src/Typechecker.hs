@@ -162,7 +162,7 @@ typeOf (CallExpr (FuncExpr function _) args l) = do
 
 typeOf (CallExpr e _ l) = throw l $ NotAFunction e
 
-typeOf (NameExpr name l)  = lookupType name l =<< ask
+typeOf (NameExpr name l)  = lookupType name l
 typeOf (FuncExpr f l)     = throw l $ StandaloneFuntion f
 typeOf (DecimalExpr _ _)  = return doubleType
 typeOf (IntegerExpr _ _)  = return intType

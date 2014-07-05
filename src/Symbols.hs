@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, TemplateHaskell #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings, RankNTypes, TemplateHaskell #-}
 
 module Symbols
   ( GlobalSymbol(..)
@@ -13,6 +13,20 @@ module Symbols
   , csConstType
   , csExpr
 
+  , VarSymbol(..)
+  , vsLoc
+  , vsType
+  , vsPublic
+
+  , FeatureSymbol(..)
+  , fsGroupCard
+  , fsChildren
+  , fsCount
+  , fsMandatory
+  , fsOptional
+  , fsModules
+  , fsVars
+
   , Table
   , SymbolTable(..)
   , globals
@@ -21,14 +35,22 @@ module Symbols
   , modules
   , features
   , constValues
+  , rootFeature
 
   , emptySymbolTable
+  , emptyFeatureSymbol
+
   , containsSymbol
+  , containsModule
+  , containsFeature
+  , lookupModule
+  , lookupFeature
   , lookupType
   ) where
 
 import Control.Applicative hiding ( empty )
 import Control.Monad.Either
+import Control.Monad.Reader
 import Control.Lens
 
 import Data.Map ( Map, empty )
@@ -36,6 +58,8 @@ import Data.Map ( Map, empty )
 import Error
 import Syntax
 import Types
+
+type Table a = Map Ident a
 
 data GlobalSymbol = GlobalSymbol
   { _gsLoc     :: !SrcLoc
@@ -55,7 +79,25 @@ data ConstSymbol = ConstSymbol
 
 makeLenses ''ConstSymbol
 
-type Table a = Map Ident a
+data VarSymbol = VarSymbol
+  { _vsLoc     :: !SrcLoc
+  , _vsPublic  :: !Bool
+  , _vsType    :: !Type
+  } deriving (Show)
+
+makeLenses ''VarSymbol
+
+data FeatureSymbol = FeatureSymbol
+  { _fsGroupCard :: (Integer, Integer)
+  , _fsChildren  :: Table FeatureSymbol
+  , _fsCount     :: !Integer
+  , _fsMandatory :: !Bool -- ^ the feature is contained in every product
+  , _fsOptional  :: !Bool -- ^ the feature is marked as optional
+  , _fsModules   :: Table LModuleBody
+  , _fsVars      :: Table VarSymbol
+  } deriving (Show)
+
+makeLenses ''FeatureSymbol
 
 data SymbolTable = SymbolTable
   { _globals     :: Table GlobalSymbol
@@ -64,12 +106,32 @@ data SymbolTable = SymbolTable
   , _modules     :: Table LModule
   , _features    :: Table LFeature
   , _constValues :: Valuation
+  , _rootFeature :: FeatureSymbol
   } deriving (Show)
 
 makeLenses ''SymbolTable
 
 emptySymbolTable :: SymbolTable
-emptySymbolTable = SymbolTable empty empty empty empty empty empty
+emptySymbolTable = SymbolTable
+  { _globals     = empty
+  , _constants   = empty
+  , _formulas    = empty
+  , _modules     = empty
+  , _features    = empty
+  , _constValues = empty
+  , _rootFeature = emptyFeatureSymbol
+  }
+
+emptyFeatureSymbol :: FeatureSymbol
+emptyFeatureSymbol = FeatureSymbol
+  { _fsGroupCard = (0, 0)
+  , _fsChildren  = empty
+  , _fsCount     = 1
+  , _fsMandatory = True
+  , _fsOptional  = False
+  , _fsModules   = empty
+  , _fsVars      = empty
+  }
 
 containsSymbol :: SymbolTable -> Ident -> Maybe SrcLoc
 containsSymbol symTbl ident =
@@ -77,8 +139,39 @@ containsSymbol symTbl ident =
     (symTbl^?constants.at ident._Just.csLoc) <|>
     (symTbl^?formulas .at ident._Just.to frmAnnot)
 
-lookupType :: (MonadEither Error m) => Name a -> SrcLoc -> SymbolTable -> m Type
-lookupType name l symTbl = case name of
+containsModule :: SymbolTable -> Ident -> Maybe SrcLoc
+containsModule symTbl ident =
+    symTbl^?modules.at ident._Just.to modBody.to modAnnot
+
+containsFeature :: SymbolTable -> Ident -> Maybe SrcLoc
+containsFeature symTbl ident = symTbl^?features.at ident._Just.to featAnnot
+
+lookupModule :: (MonadReader SymbolTable m, MonadEither Error m)
+             => Ident
+             -> SrcLoc
+             -> m LModule
+lookupModule = checkedLookup modules
+
+lookupFeature :: (MonadReader SymbolTable m, MonadEither Error m)
+              => Ident
+              -> SrcLoc
+              -> m LFeature
+lookupFeature = checkedLookup features
+
+checkedLookup :: (MonadReader SymbolTable m, MonadEither Error m)
+              => Lens' SymbolTable (Table a)
+              -> Ident
+              -> SrcLoc
+              -> m a
+checkedLookup f ident l =
+    maybe (throw l $ UndefinedIdentifier ident) return .
+    view (f.at ident) =<< ask
+
+lookupType :: (MonadReader SymbolTable m, MonadEither Error m)
+           => Name a
+           -> SrcLoc
+           -> m Type
+lookupType name l = ask >>= \symTbl -> case name of
     Name ident -> maybe (throw l $ UndefinedIdentifier ident) return $
         (symTbl^?globals  .at ident._Just.gsType) <|>
         (symTbl^?constants.at ident._Just.csType)
