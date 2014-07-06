@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, TupleSections #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings, TupleSections #-}
 
 module ProductLine
   ( rootFeatureSymbol
@@ -33,7 +33,7 @@ rootFeatureSymbol symTbl =
     in flip runReaderT symTbl $ do
         syms <- for roots $ \ident -> (ident,) <$> toFeatureSymbol' True ident
         return $ case syms of
-            []         -> emptyFeatureSymbol
+            []         -> emptyFeatureSymbol & fsIdent .~ "root"
             [(_, sym)] -> sym
             _          ->
                 let card = genericLength syms
@@ -110,7 +110,8 @@ toFeatureSymbol mandatory (FeatureRef isOptional inst cntExpr _) = do
     (mods, varSyms) <- instantiateModules (featModules feat)
 
     return FeatureSymbol
-        { _fsGroupCard = groupCard
+        { _fsIdent     = ident
+        , _fsGroupCard = groupCard
         , _fsChildren  = childFeats
         , _fsCount     = cnt
         , _fsMandatory = mandatory && not isOptional

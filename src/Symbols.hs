@@ -19,6 +19,7 @@ module Symbols
   , vsPublic
 
   , FeatureSymbol(..)
+  , fsIdent
   , fsGroupCard
   , fsChildren
   , fsCount
@@ -88,7 +89,8 @@ data VarSymbol = VarSymbol
 makeLenses ''VarSymbol
 
 data FeatureSymbol = FeatureSymbol
-  { _fsGroupCard :: (Integer, Integer)
+  { _fsIdent     :: !Ident
+  , _fsGroupCard :: (Integer, Integer)
   , _fsChildren  :: Table FeatureSymbol
   , _fsCount     :: !Integer
   , _fsMandatory :: !Bool -- ^ the feature is contained in every product
@@ -124,7 +126,8 @@ emptySymbolTable = SymbolTable
 
 emptyFeatureSymbol :: FeatureSymbol
 emptyFeatureSymbol = FeatureSymbol
-  { _fsGroupCard = (0, 0)
+  { _fsIdent     = ""
+  , _fsGroupCard = (0, 0)
   , _fsChildren  = empty
   , _fsCount     = 1
   , _fsMandatory = True
