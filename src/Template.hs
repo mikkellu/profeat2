@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings #-}
 
 module Template
   ( preprocessExpr
@@ -8,6 +8,7 @@ module Template
 
   , expandFormulas
 
+  , instantiateWithId
   , instantiate
   , substitute
   ) where
@@ -116,6 +117,18 @@ expandFormulas frms = exprs (rewriteM' expand)
 
     call ident args l =
         _Just (fmap frmExpr . instantiate ident args l) (frms^.at ident)
+
+instantiateWithId :: (Template n, HasExprs n, MonadEither Error m)
+                  => Integer
+                  -> Ident    -- ^ the template name
+                  -> [LExpr]  -- ^ the argument list
+                  -> SrcLoc   -- ^ 'SrcLoc' where the instantiation happens, required
+                              --   for error reporting
+                  -> n SrcLoc -- ^ the template
+                  -> m (n SrcLoc)
+instantiateWithId i ident args l =
+    let idDef = Map.singleton "id" $ IntegerExpr i noLoc
+    in instantiate ident args l . substitute idDef
 
 instantiate :: (Template n, HasExprs n, MonadEither Error m)
             => Ident    -- ^ the template name

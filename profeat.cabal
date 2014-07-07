@@ -1,5 +1,5 @@
 name:                profeat
-version:             0.24.3
+version:             0.25.0
 synopsis:            A feature modelling language
 author:              Philipp Chrszon
 maintainer:          Philipp.Chrszon@mailbox.tu-dresden.de
@@ -25,6 +25,7 @@ library
                        Types.Util
   hs-source-dirs:      src
   build-depends:       base >=4.6 && <5,
+                       array >=0.4.0.1,
                        containers >=0.5,
                        lens >=3.10.1 && <4,
                        mtl >=2.1.2,

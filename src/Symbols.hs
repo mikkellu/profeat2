@@ -20,9 +20,9 @@ module Symbols
 
   , FeatureSymbol(..)
   , fsIdent
+  , fsIndex
   , fsGroupCard
   , fsChildren
-  , fsCount
   , fsMandatory
   , fsOptional
   , fsModules
@@ -47,6 +47,7 @@ module Symbols
   , lookupModule
   , lookupFeature
   , lookupType
+  , featureCardinality
   ) where
 
 import Control.Applicative hiding ( empty )
@@ -54,6 +55,7 @@ import Control.Monad.Either
 import Control.Monad.Reader
 import Control.Lens
 
+import Data.Array
 import Data.Map ( Map, empty )
 
 import Error
@@ -90,9 +92,9 @@ makeLenses ''VarSymbol
 
 data FeatureSymbol = FeatureSymbol
   { _fsIdent     :: !Ident
+  , _fsIndex     :: !Integer
   , _fsGroupCard :: (Integer, Integer)
-  , _fsChildren  :: Table FeatureSymbol
-  , _fsCount     :: !Integer
+  , _fsChildren  :: Table (Array Integer FeatureSymbol)
   , _fsMandatory :: !Bool -- ^ the feature is contained in every product
   , _fsOptional  :: !Bool -- ^ the feature is marked as optional
   , _fsModules   :: Table LModuleBody
@@ -127,9 +129,9 @@ emptySymbolTable = SymbolTable
 emptyFeatureSymbol :: FeatureSymbol
 emptyFeatureSymbol = FeatureSymbol
   { _fsIdent     = ""
+  , _fsIndex     = 0
   , _fsGroupCard = (0, 0)
   , _fsChildren  = empty
-  , _fsCount     = 1
   , _fsMandatory = True
   , _fsOptional  = False
   , _fsModules   = empty
@@ -179,4 +181,8 @@ lookupType name l = ask >>= \symTbl -> case name of
         (symTbl^?globals  .at ident._Just.gsType) <|>
         (symTbl^?constants.at ident._Just.csType)
     _ -> undefined -- TODO: implement lookup for qualified names
+
+featureCardinality :: Array Integer FeatureSymbol -> Integer
+featureCardinality a = let (lower, upper) = bounds a
+                       in upper - lower + 1
 

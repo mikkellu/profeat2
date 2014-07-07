@@ -14,6 +14,7 @@ import Data.List ( (\\), group, genericLength, sort )
 import Data.Map ( fromList )
 import qualified Data.Map as Map
 import Data.Maybe
+import Data.Array
 import Data.Traversable
 
 import Error
@@ -34,7 +35,7 @@ rootFeatureSymbol symTbl =
         syms <- for roots $ \ident -> (ident,) <$> toFeatureSymbol' True ident
         return $ case syms of
             []         -> emptyFeatureSymbol & fsIdent .~ "root"
-            [(_, sym)] -> sym
+            [(_, sym)] -> sym ! 0
             _          ->
                 let card = genericLength syms
                 in emptyFeatureSymbol & fsGroupCard .~ (card, card)
@@ -61,77 +62,89 @@ toFeatureSymbol' :: ( Applicative m
                     )
                  => Bool -- ^ True, if the feature is mandatory
                  -> Ident
-                 -> m FeatureSymbol
+                 -> m (Array Integer FeatureSymbol)
 toFeatureSymbol' mandatory ident =
     let inst = Instance ident [] noLoc
         ref  = FeatureRef False inst Nothing Nothing
-    in toFeatureSymbol mandatory ref
+    in toFeatureSymbols mandatory ref
 
--- | Builds a 'FeatureSymbol' and all its child features.
-toFeatureSymbol :: ( Applicative m
-                   , MonadReader SymbolTable m
-                   , MonadEither Error m
-                   )
-                => Bool -- ^ True, if the feature is mandatory
-                -> LFeatureRef
-                -> m FeatureSymbol
-toFeatureSymbol mandatory (FeatureRef isOptional inst cntExpr _) = do
+toFeatureSymbols :: ( Applicative m
+                    , MonadReader SymbolTable m
+                    , MonadEither Error m
+                    )
+                 => Bool
+                 -> LFeatureRef
+                 -> m (Array Integer FeatureSymbol)
+toFeatureSymbols mandatory (FeatureRef isOptional inst cntExpr _) = do
     let Instance ident args l = inst
-    feat <- instantiate ident args l =<< lookupFeature ident l
+    cnt <- evalFeatureCardinality cntExpr
 
-    (groupCard, childFeats) <- case featDecomp feat of
-        Nothing -> return ((0, 0), Map.empty)
-        Just decomp@(Decomposition decompOp refs _) -> do
-            checkDecomposition decomp
+    fss <- for [0..cnt-1] $ \idx -> do
+        feat <- instantiateWithId idx ident args l =<< lookupFeature ident l
 
-            let mandatory' = case decompOp of
-                                 AllOf -> mandatory
-                                 _     -> False
+        (groupCard, childFeats) <- case featDecomp feat of
+            Nothing -> return ((0, 0), Map.empty)
+            Just decomp@(Decomposition decompOp refs _) -> do
+                checkDecomposition decomp
 
-            cfs <- fmap fromList . for refs $ \ref ->
-                (featRefIdent ref,) <$> toFeatureSymbol mandatory' ref
+                let mandatory' = case decompOp of
+                                     AllOf -> mandatory
+                                     _     -> False
 
-            let numChilds = sum $ cfs^..traverse.fsCount
-            card <- groupCardinality numChilds decompOp
+                cfs <- fmap fromList . for refs $ \ref ->
+                    (featRefIdent ref,) <$> toFeatureSymbols mandatory' ref
 
-            return (card, cfs)
+                let numChilds = sum $ cfs^..traverse.to featureCardinality
+                card <- groupCardinality numChilds decompOp
 
-    cnt <- case cntExpr of
-        Just e -> do
-            e' <- preprocessExpr e
-            checkIfConst e' >> checkIfType_ isIntType e'
+                return (card, cfs)
 
-            val      <- view constValues
-            IntVal v <- eval' val e'
 
-            return v
-        Nothing -> return 1
+        (mods, varSyms) <- instantiateModules idx (featModules feat)
 
-    (mods, varSyms) <- instantiateModules (featModules feat)
+        return FeatureSymbol
+            { _fsIdent     = ident
+            , _fsIndex     = idx
+            , _fsGroupCard = groupCard
+            , _fsChildren  = childFeats
+            , _fsMandatory = mandatory && not isOptional
+            , _fsOptional  = isOptional
+            , _fsModules   = mods
+            , _fsVars      = varSyms
+            }
 
-    return FeatureSymbol
-        { _fsIdent     = ident
-        , _fsGroupCard = groupCard
-        , _fsChildren  = childFeats
-        , _fsCount     = cnt
-        , _fsMandatory = mandatory && not isOptional
-        , _fsOptional  = isOptional
-        , _fsModules   = mods
-        , _fsVars      = varSyms
-        }
+    return $ listArray (0, cnt - 1) fss
 
 instantiateModules :: ( Applicative m
                       , MonadReader SymbolTable m
                       , MonadEither Error m
                       )
-                   => [LInstance]
+                   => Integer
+                   -> [LInstance]
                    -> m (Table LModuleBody, Table VarSymbol)
-instantiateModules insts = flip runStateT Map.empty $
+instantiateModules idx insts = flip runStateT Map.empty $
     fmap fromList . for insts $ \inst@(Instance ident _ l) -> do
-        (body, varSyms) <- instantiateModule inst
+        (body, varSyms) <- instantiateModule idx inst
         get >>= unionVarTable l varSyms >>= put
 
         return (ident, body)
+
+instantiateModule :: ( Applicative m
+                     , MonadReader SymbolTable m
+                     , MonadEither Error m
+                     )
+                  => Integer
+                  -> LInstance
+                  -> m (LModuleBody, Table VarSymbol)
+instantiateModule idx (Instance ident args l) = do
+    mod' <- instantiateWithId idx ident args l =<< lookupModule ident l
+    let body'  = modBody mod'
+    let public = modProvides mod'
+
+    varSyms <- fmap Map.fromList . for (modVars body') $ \decl ->
+                   (declIdent decl,) <$> varSymbol public decl
+
+    return (body', varSyms)
 
 unionVarTable :: (MonadEither Error m)
               => SrcLoc
@@ -143,22 +156,6 @@ unionVarTable l t1 t2 =
     in case isect of
         (ident:_) -> throw l $ AmbiguousIdentifier ident
         _         -> return $ Map.union t1 t2
-
-instantiateModule :: ( Applicative m
-                     , MonadReader SymbolTable m
-                     , MonadEither Error m
-                     )
-                  => LInstance
-                  -> m (LModuleBody, Table VarSymbol)
-instantiateModule (Instance ident args l) = do
-    mod' <- instantiate ident args l =<< lookupModule ident l
-    let body'  = modBody mod'
-    let public = modProvides mod'
-
-    varSyms <- fmap Map.fromList . for (modVars body') $ \decl ->
-                   (declIdent decl,) <$> varSymbol public decl
-
-    return (body', varSyms)
 
 varSymbol :: (Applicative m, MonadReader SymbolTable m, MonadEither Error m)
           => [Ident]
@@ -177,8 +174,23 @@ checkDecomposition (Decomposition _ refs l) =
         ((ident:_):_) -> throw l $ AmbiguousDecomposition ident
         _             -> return ()
 
-featRefIdent :: FeatureRef a -> Ident
-featRefIdent fr = fromMaybe (instIdent $ frInstance fr) (frAlias fr)
+evalFeatureCardinality :: ( Applicative m
+                          , MonadReader SymbolTable m
+                          , MonadEither Error m
+                          )
+                       => Maybe LExpr
+                       -> m Integer
+evalFeatureCardinality cntExpr = case cntExpr of
+    Nothing -> return 1
+    Just e -> do
+        e' <- preprocessExpr e
+        checkIfConst e' >> checkIfType_ isIntType e'
+
+        val      <- view constValues
+        IntVal v <- eval' val e'
+        unless (v > 0) . throw (exprAnnot e) $ InvalidFeatureCardinality v
+
+        return v
 
 -- | Returns the group cardinality for the given decomposition operator.
 groupCardinality :: ( Applicative m
@@ -189,8 +201,11 @@ groupCardinality :: ( Applicative m
                  -> LDecompOp -- ^ decomposition operator
                  -> m (Integer, Integer)
 groupCardinality cnt decompOp = case decompOp of
-    AllOf       -> return (cnt, cnt) -- and
-    OneOf       -> return (  1,   1) -- xor
-    SomeOf      -> return (  1, cnt) -- or
-    Group range -> both preprocessExpr range >>= evalRange
+    AllOf   -> return (cnt, cnt) -- and
+    OneOf   -> return (  1,   1) -- xor
+    SomeOf  -> return (  1, cnt) -- or
+    Group r -> both preprocessExpr r >>= evalRange
+
+featRefIdent :: FeatureRef a -> Ident
+featRefIdent fr = fromMaybe (instIdent $ frInstance fr) (frAlias fr)
 

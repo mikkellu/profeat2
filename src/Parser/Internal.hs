@@ -1,4 +1,4 @@
-{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE ExistentialQuantification, OverloadedStrings #-}
 
 module Parser.Internal
   ( parseFile
@@ -371,13 +371,14 @@ atom :: Bool -> Parser LExpr
 atom allowPctl
     = parens (expr' allowPctl)
    <|> loc (choice $ pctlExpr ++
-                   [ MissingExpr <$ reservedOp "..."
-                   , BoolExpr <$> bool
-                   , DecimalExpr <$> try float
-                   , IntegerExpr <$> integer
-                   , LoopExpr <$> forLoop (expr' allowPctl)
-                   , FuncExpr <$> function
-                   , NameExpr <$> name
+                   [ MissingExpr     <$  reservedOp "..."
+                   , NameExpr . Name <$> (reserved "id" *> pure "id")
+                   , BoolExpr        <$> bool
+                   , DecimalExpr     <$> try float
+                   , IntegerExpr     <$> integer
+                   , LoopExpr        <$> forLoop (expr' allowPctl)
+                   , FuncExpr        <$> function
+                   , NameExpr        <$> name
                    ])
    <?> "literal, variable or expression"
   where

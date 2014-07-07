@@ -40,6 +40,7 @@ data ErrorDesc
   | MalformedLoopBody
   | AmbiguousDecomposition !Ident
   | AmbiguousIdentifier !Ident
+  | InvalidFeatureCardinality Integer
   | DivisionByZero Valuation
   deriving (Show)
 
@@ -79,6 +80,9 @@ instance Pretty ErrorDesc where
             "the feature" <+> text ident <+> "is referenced more than once"
         AmbiguousIdentifier ident ->
             text ident <+> "is defined by more than one referenced module"
+        InvalidFeatureCardinality i ->
+            "feature cardinality must be greater than zero" <+>
+            parens ("given:" <+> integer i)
         DivisionByZero val ->
             "division by zero with valuation" <+> prettyValuation val
 
