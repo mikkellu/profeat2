@@ -21,6 +21,7 @@ module Symbols
   , FeatureSymbol(..)
   , fsIdent
   , fsIndex
+  , fsIsMultiFeature
   , fsGroupCard
   , fsChildren
   , fsMandatory
@@ -91,14 +92,15 @@ data VarSymbol = VarSymbol
 makeLenses ''VarSymbol
 
 data FeatureSymbol = FeatureSymbol
-  { _fsIdent     :: !Ident
-  , _fsIndex     :: !Integer
-  , _fsGroupCard :: (Integer, Integer)
-  , _fsChildren  :: Table (Array Integer FeatureSymbol)
-  , _fsMandatory :: !Bool -- ^ the feature is contained in every product
-  , _fsOptional  :: !Bool -- ^ the feature is marked as optional
-  , _fsModules   :: Table LModuleBody
-  , _fsVars      :: Table VarSymbol
+  { _fsIdent          :: !Ident
+  , _fsIndex          :: !Integer
+  , _fsIsMultiFeature :: !Bool
+  , _fsGroupCard      :: (Integer, Integer)
+  , _fsChildren       :: Table (Array Integer FeatureSymbol)
+  , _fsMandatory      :: !Bool -- ^ the feature is contained in every product
+  , _fsOptional       :: !Bool -- ^ the feature is marked as optional
+  , _fsModules        :: Table LModuleBody
+  , _fsVars           :: Table VarSymbol
   } deriving (Show)
 
 makeLenses ''FeatureSymbol
@@ -128,14 +130,15 @@ emptySymbolTable = SymbolTable
 
 emptyFeatureSymbol :: FeatureSymbol
 emptyFeatureSymbol = FeatureSymbol
-  { _fsIdent     = ""
-  , _fsIndex     = 0
-  , _fsGroupCard = (0, 0)
-  , _fsChildren  = empty
-  , _fsMandatory = True
-  , _fsOptional  = False
-  , _fsModules   = empty
-  , _fsVars      = empty
+  { _fsIdent          = ""
+  , _fsIndex          = 0
+  , _fsIsMultiFeature = False
+  , _fsGroupCard      = (0, 0)
+  , _fsChildren       = empty
+  , _fsMandatory      = True
+  , _fsOptional       = False
+  , _fsModules        = empty
+  , _fsVars           = empty
   }
 
 containsSymbol :: SymbolTable -> Ident -> Maybe SrcLoc

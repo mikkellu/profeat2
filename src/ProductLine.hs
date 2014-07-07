@@ -103,14 +103,15 @@ toFeatureSymbols mandatory (FeatureRef isOptional inst cntExpr _) = do
         (mods, varSyms) <- instantiateModules idx (featModules feat)
 
         return FeatureSymbol
-            { _fsIdent     = ident
-            , _fsIndex     = idx
-            , _fsGroupCard = groupCard
-            , _fsChildren  = childFeats
-            , _fsMandatory = mandatory && not isOptional
-            , _fsOptional  = isOptional
-            , _fsModules   = mods
-            , _fsVars      = varSyms
+            { _fsIdent          = ident
+            , _fsIndex          = idx
+            , _fsIsMultiFeature = cnt > 1
+            , _fsGroupCard      = groupCard
+            , _fsChildren       = childFeats
+            , _fsMandatory      = mandatory && not isOptional
+            , _fsOptional       = isOptional
+            , _fsModules        = mods
+            , _fsVars           = varSyms
             }
 
     return $ listArray (0, cnt - 1) fss
