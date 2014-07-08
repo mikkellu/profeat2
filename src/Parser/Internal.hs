@@ -43,6 +43,7 @@ import Control.Lens hiding ( assign )
 import Control.Monad.Identity
 
 import Data.Foldable
+import Data.List.NonEmpty
 import Data.Monoid
 import Data.Text.Lazy ( Text, pack )
 import Data.Text.Lens
@@ -435,9 +436,11 @@ bound =  Query QueryProb <$ reservedOp "=?"
     s --> bOp = bOp <$ reservedOp s
 
 name :: Parser LName
-name = loc (Name <$> qualifier `sepBy1` reservedOp ".") <?> "name"
+name =  loc (toName <$> qualifier <*> many (reservedOp "." *> qualifier))
+    <?> "name"
   where
-    qualifier = (,) <$> identifier <*> optionMaybe (brackets expr)
+    toName q qs = Name (q :| qs)
+    qualifier   = (,) <$> identifier <*> optionMaybe (brackets expr)
 
 args :: Parser [LExpr]
 args = parens (commaSep expr)

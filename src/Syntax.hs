@@ -98,6 +98,8 @@ module Syntax
 import Control.Applicative hiding ( empty, optional )
 import Control.Lens
 
+import Data.List.NonEmpty
+
 import Text.PrettyPrint.Leijen.Text hiding ( (<$>) )
 import qualified Text.PrettyPrint.Leijen.Text as PP
 
@@ -418,7 +420,8 @@ data Function
   | FuncLog
   deriving (Eq, Show)
 
-data Name a = Name [(Ident, Maybe (Expr a))] !a deriving (Eq, Functor, Show)
+data Name a = Name (NonEmpty (Ident, Maybe (Expr a))) !a
+            deriving (Eq, Functor, Show)
 
 instance HasExprs Name where
     exprs f (Name name a) = Name <$> (traverse._2._Just) f name <*> pure a
@@ -443,9 +446,9 @@ _MissingExpr = prism' MissingExpr f
 -- an identifier.
 _Ident :: Prism' (Name a) (Ident, a)
 _Ident = prism' c d where
-    c (ident, a)                  = Name [(ident, Nothing)] a
-    d (Name [(ident, Nothing)] a) = Just (ident, a)
-    d _                           = Nothing
+    c (ident, a)                        = Name ((ident, Nothing) :| []) a
+    d (Name ((ident, Nothing) :| []) a) = Just (ident, a)
+    d _                                 = Nothing
 
 -- | A 'Traversal' of all identifiers in an expression.
 identifiers :: Traversal' (Expr a) Ident
@@ -532,11 +535,11 @@ type LRange           = Range SrcLoc
 makePrisms ''Definition
 
 instance Pretty (Model a) where
-    pretty (Model defs ) = vsep (punctuate line $ map pretty defs) <> line
+    pretty (Model defs ) = vsep (punctuate line $ fmap pretty defs) <> line
 
 instance Pretty (Specification a) where
     pretty (Specification defs) =
-        vsep (punctuate line $ map pretty defs) <> line
+        vsep (punctuate line $ fmap pretty defs) <> line
 
 instance Pretty (Definition a) where
     pretty def = case def of
@@ -555,19 +558,19 @@ instance Pretty (Feature a) where
       where
         body = pretty decomp <> line <> constrList <> line <> line <>
                modList <> line <> line <>
-               vsep (map pretty rws)
-        constrList = vsep (map prettyConstraint constrs)
+               vsep (fmap pretty rws)
+        constrList = vsep (fmap prettyConstraint constrs)
         modList
           | null mods = empty
           | otherwise = "modules" <+> colon <+>
-            hang 4 (fillSep . punctuate comma $ map pretty mods) <> semi
+            hang 4 (fillSep . punctuate comma $ fmap pretty mods) <> semi
 
 prettyConstraint :: Expr a -> Doc
 prettyConstraint e = "constraint" <+> colon <+> pretty e <> semi
 
 instance Pretty (Decomposition a) where
     pretty (Decomposition decompOp cs _) = pretty decompOp <+> colon <+>
-        hang 4 (fillSep . punctuate comma $ map pretty cs) <> semi
+        hang 4 (fillSep . punctuate comma $ fmap pretty cs) <> semi
 
 instance Pretty (DecompOp a) where
     pretty decomp = case decomp of
@@ -588,7 +591,7 @@ instance Pretty (Instance a) where
 instance Pretty (Rewards a) where
     pretty (Rewards ident rws) =
         "costs" <+> dquotes (text ident) <> line <>
-        indent 4 (vsep $ map pretty rws) <> line <>
+        indent 4 (vsep $ fmap pretty rws) <> line <>
         "endcosts"
 
 instance Pretty (Reward a) where
@@ -608,11 +611,11 @@ instance Pretty (Module a) where
         providesList
           | null provides = empty
           | otherwise     = "provides" <+>
-            hang 4 (fillSep . punctuate comma $ map text provides) <> semi
+            hang 4 (fillSep . punctuate comma $ fmap text provides) <> semi
 
 instance Pretty (ModuleBody a) where
     pretty (ModuleBody decls stmts _) =
-        vsep (map pretty decls) <> line <> line <>
+        vsep (fmap pretty decls) <> line <> line <>
         prettyRepeatable False (PP.<$>) empty stmts
 
 instance Pretty (VarDecl a) where
@@ -706,7 +709,7 @@ prettyExpr prec e = case e of
     LoopExpr loop _       -> prettyLoop pretty True loop
     CallExpr e' args _    ->
         prettyExpr callPrec e' <>
-        parens (align . cat . punctuate comma $ map pretty args)
+        parens (align . cat . punctuate comma $ fmap pretty args)
     NameExpr n _          -> pretty n
     FuncExpr func _       -> pretty func
     DecimalExpr d _       -> double d
@@ -726,7 +729,7 @@ prettyRepeatable :: (Pretty (b a))
                  -> Doc
 prettyRepeatable inline sep' empty' (Repeatable xs) = case xs of
     [] -> empty'
-    _  -> foldr1 sep' $ map ppSome xs
+    _  -> foldr1 sep' $ fmap ppSome xs
   where
     ppSome (One x)     = pretty x
     ppSome (Many loop) =
@@ -751,14 +754,14 @@ instance Pretty Function where
         FuncLog    -> "log"
 
 instance Pretty (Name a) where
-    pretty (Name name _) = hcat . punctuate dot . fmap qualifier $ name
+    pretty (Name name _) = hcat . punctuate dot . fmap qualifier . toList $ name
       where
         qualifier (ident, idx) =
             text ident <> maybe empty (brackets . pretty) idx
 
 prettyArgs :: (Pretty a) => [a] -> Doc
 prettyArgs [] = empty
-prettyArgs xs = parens (align . cat . punctuate comma $ map pretty xs)
+prettyArgs xs = parens (align . cat . punctuate comma $ fmap pretty xs)
 
 prettyParams :: (Pretty a) => [a] -> Doc
 prettyParams = prettyArgs

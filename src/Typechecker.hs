@@ -20,6 +20,7 @@ import Control.Monad.Either
 import Control.Monad.Reader
 
 import Data.Array
+import Data.List.NonEmpty ( NonEmpty(..), nonEmpty )
 import Data.Map ( member )
 import Data.Traversable
 
@@ -181,18 +182,12 @@ getContext :: (Applicative m, MonadReader SymbolTable m, MonadEither Error m)
            => LName
            -> m (FeatureContext, Maybe LName)
 getContext (Name name l) = do
-    let (ident, idx) : qs = name
+    let (ident, idx) :| qs = name
 
     i   <- _Just evalInteger idx
     ctx <- findContext ident i l
 
-    (ctx', qs') <- go ctx qs
-
-    let name' = case qs' of
-            [] -> Nothing
-            _  -> Just $ Name qs' l
-
-    return (ctx', name')
+    over _2 (fmap (flip Name l) . nonEmpty) <$> go ctx qs
   where
     go ctx qs = case qs of
         (ident, idx):qs' ->
