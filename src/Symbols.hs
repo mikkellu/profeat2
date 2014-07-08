@@ -1,4 +1,8 @@
-{-# LANGUAGE FlexibleContexts, OverloadedStrings, RankNTypes, TemplateHaskell #-}
+{-# LANGUAGE FlexibleContexts
+           , OverloadedStrings
+           , RankNTypes
+           , TemplateHaskell
+           , TupleSections #-}
 
 module Symbols
   ( GlobalSymbol(..)
@@ -49,6 +53,12 @@ module Symbols
   , lookupFeature
   , lookupType
   , featureCardinality
+
+  , FeatureContext
+
+  , thisFeature
+  , extendContext
+  , allContexts
   ) where
 
 import Control.Applicative hiding ( empty )
@@ -58,6 +68,9 @@ import Control.Lens
 
 import Data.Array
 import Data.Map ( Map, empty )
+
+import Text.PrettyPrint.Leijen.Text hiding ( (<$>), empty )
+import qualified Text.PrettyPrint.Leijen.Text as PP
 
 import Error
 import Syntax
@@ -188,4 +201,31 @@ lookupType name l = ask >>= \symTbl -> case name^?_Ident._1 of
 featureCardinality :: Array Integer FeatureSymbol -> Integer
 featureCardinality a = let (lower, upper) = bounds a
                        in upper - lower + 1
+
+newtype FeatureContext = FeatureContext [FeatureSymbol]
+
+instance Pretty FeatureContext where
+    pretty (FeatureContext fss) =
+        hcat . punctuate dot . map qualifier . reverse $ fss
+      where
+        qualifier fs = text (fs^.fsIdent) <> prettyIndex fs
+        prettyIndex fs
+          | fs^.fsIndex == 0 &&
+            not (fs^.fsIsMultiFeature) = PP.empty
+          | otherwise                  = brackets . integer $ fs^.fsIndex
+
+extendContext :: FeatureSymbol -> FeatureContext -> FeatureContext
+extendContext fs (FeatureContext fss) = FeatureContext (fs:fss)
+
+thisFeature :: FeatureContext -> FeatureSymbol
+thisFeature (FeatureContext fss) = case fss of
+    fs:_ -> fs
+    []   -> error "Symbols.thisFeature: empty FeatureContext"
+
+allContexts :: FeatureSymbol -> [FeatureContext]
+allContexts = fmap FeatureContext . go [] where
+    go ctx fs =
+        let self = fs:ctx
+            ctxs' = fs^..fsChildren.traverse.traverse >>= go self
+        in self:ctxs'
 

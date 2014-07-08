@@ -1,7 +1,8 @@
-{-# LANGUAGE FlexibleContexts, ViewPatterns #-}
+{-# LANGUAGE FlexibleContexts, LambdaCase, ViewPatterns, TupleSections #-}
 
 module Typechecker
   ( evalRange
+  , evalInteger
 
   , checkInitialization
   , checkIfConst
@@ -9,6 +10,8 @@ module Typechecker
   , checkIfType_
 
   , typeOf
+
+  , getContext
   ) where
 
 import Control.Applicative
@@ -16,6 +19,7 @@ import Control.Lens hiding ( contains )
 import Control.Monad.Either
 import Control.Monad.Reader
 
+import Data.Array
 import Data.Map ( member )
 import Data.Traversable
 
@@ -32,14 +36,20 @@ import Types
 evalRange :: (Applicative m, MonadReader SymbolTable m, MonadEither Error m)
           => LRange
           -> m (Integer, Integer)
-evalRange range = do
+evalRange = both evalInteger
+
+-- | Evaluates the given expression as 'Integer'. The expression must not
+-- contain loops or unexpanded formulas.
+evalInteger :: (Applicative m, MonadReader SymbolTable m, MonadEither Error m)
+            => LExpr
+            -> m Integer
+evalInteger e = do
+    checkIfConst e >> checkIfType_ isIntType e
+
     val <- view constValues
+    IntVal v <- eval' val e
 
-    _ <- both (checkIfType_ isIntType) range
-    _ <- both checkIfConst range
-
-    (IntVal lower, IntVal upper) <- both (eval' val) range
-    return (lower, upper)
+    return v
 
 checkInitialization :: ( Applicative m
                        , MonadReader SymbolTable m
@@ -166,4 +176,57 @@ typeOf (DecimalExpr _ _)  = return doubleType
 typeOf (IntegerExpr _ _)  = return intType
 typeOf (BoolExpr _ _)     = return boolType
 typeOf (MissingExpr _)    = error "Typechecker.typeOf: unresolved MissingExpr"
+
+getContext :: (Applicative m, MonadReader SymbolTable m, MonadEither Error m)
+           => LName
+           -> m (FeatureContext, Maybe LName)
+getContext (Name name l) = do
+    let (ident, idx) : qs = name
+
+    i   <- _Just evalInteger idx
+    ctx <- findContext ident i l
+
+    (ctx', qs') <- go ctx qs
+
+    let name' = case qs' of
+            [] -> Nothing
+            _  -> Just $ Name qs' l
+
+    return (ctx', name')
+  where
+    go ctx qs = case qs of
+        (ident, idx):qs' ->
+            match ident idx (thisFeature ctx) >>= \case
+                Just fs' -> go (extendContext fs' ctx) qs'
+                Nothing  -> return (ctx, qs)
+        [] -> return (ctx, [])
+
+    match ident idx fs   = _Just (select ident idx) $ fs^.fsChildren.at ident
+    select ident idx fss = let card = bounds fss in case idx of
+        Just e -> do
+            i <- evalInteger e
+            unless (inRange card i) . throw l $ IndexOutOfBounds card i
+            return $ fss ! i
+        Nothing -> do
+            when (featureCardinality fss > 1) . throw l $ MissingIndex ident
+            return $ fss ! 0
+
+findContext :: (MonadReader SymbolTable m, MonadEither Error m)
+            => Ident
+            -> Maybe Integer
+            -> SrcLoc
+            -> m FeatureContext
+findContext ident idx l = do
+    root <- view rootFeature
+    let ctxs = filter (match . thisFeature) $ allContexts root
+
+    case ctxs of
+        []    -> throw l $ UndefinedIdentifier ident
+        [ctx] -> return ctx
+        _     -> let idents = fmap (displayT . renderOneLine . pretty) ctxs
+                 in throw l $ AmbiguousFeature ident idents
+  where
+    match = case idx of
+        Just i  -> liftA2 (&&) ((ident ==) . _fsIdent) ((i ==) . _fsIndex)
+        Nothing -> (ident ==) . _fsIdent
 

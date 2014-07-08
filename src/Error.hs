@@ -40,7 +40,10 @@ data ErrorDesc
   | MalformedLoopBody
   | AmbiguousDecomposition !Ident
   | AmbiguousIdentifier !Ident
-  | InvalidFeatureCardinality Integer
+  | AmbiguousFeature !Ident [Ident]
+  | InvalidFeatureCardinality !Integer
+  | MissingIndex !Ident
+  | IndexOutOfBounds !(Integer, Integer) !Integer
   | DivisionByZero Valuation
   deriving (Show)
 
@@ -80,9 +83,19 @@ instance Pretty ErrorDesc where
             "the feature" <+> text ident <+> "is referenced more than once"
         AmbiguousIdentifier ident ->
             text ident <+> "is defined by more than one referenced module"
+        AmbiguousFeature ident idents ->
+            "the name" <+> text ident <+> "is ambigouos" <> line <>
+            "possible candidates are:" <> line <>
+            vsep (map text idents)
         InvalidFeatureCardinality i ->
             "feature cardinality must be greater than zero" <+>
             parens ("given:" <+> integer i)
+        MissingIndex ident ->
+            text ident <+> "is a multi-feature, but no index is given"
+        IndexOutOfBounds range actual ->
+            "index out of bounds" <> line <>
+            "should be in:" <+> prettyRange range <> line <>
+            "given:" <+> integer actual
         DivisionByZero val ->
             "division by zero with valuation" <+> prettyValuation val
 

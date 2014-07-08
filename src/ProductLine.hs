@@ -18,12 +18,10 @@ import Data.Array
 import Data.Traversable
 
 import Error
-import Eval
 import Symbols
 import Syntax
 import Template
 import Typechecker
-import Types
 import Types.Util
 
 rootFeatureSymbol :: (Applicative m, MonadEither Error m)
@@ -185,10 +183,7 @@ evalFeatureCardinality cntExpr = case cntExpr of
     Nothing -> return 1
     Just e -> do
         e' <- preprocessExpr e
-        checkIfConst e' >> checkIfType_ isIntType e'
-
-        val      <- view constValues
-        IntVal v <- eval' val e'
+        v  <- evalInteger e'
         unless (v > 0) . throw (exprAnnot e) $ InvalidFeatureCardinality v
 
         return v

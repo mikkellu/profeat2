@@ -161,7 +161,7 @@ checkLoopBody e = go e >>= \cnt ->
         BinaryExpr _ lhs (MissingExpr _) _
           | has (traverse._MissingExpr) $ universeOf plateBody lhs ->
                 throw (exprAnnot lhs) MalformedLoopBody
-          | otherwise -> return 1
+          | otherwise -> return (1 :: Integer)
         MissingExpr _ -> throw (exprAnnot e') MalformedLoopBody
         _             -> sum <$> mapM go (e'^..plateBody)
 
