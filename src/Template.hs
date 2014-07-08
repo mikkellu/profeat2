@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts, LambdaCase, OverloadedStrings, ViewPatterns #-}
 
 module Template
   ( preprocessExpr
@@ -68,10 +68,9 @@ unrollLoopExprs :: ( Applicative m
                    )
                 => LExpr
                 -> m LExpr
-unrollLoopExprs = rewriteM' f where
-    f e = case e of
-        LoopExpr loop _ -> Just <$> unrollExprLoop loop
-        _               -> return Nothing
+unrollLoopExprs = rewriteM' $ \case
+    LoopExpr loop _ -> Just <$> unrollExprLoop loop
+    _               -> return Nothing
 
 unrollExprLoop :: ( Applicative m
                   , MonadReader SymbolTable m
@@ -108,13 +107,11 @@ expandFormulas :: (Applicative m, HasExprs n, MonadEither Error m)
                => Map Ident LFormula
                -> n SrcLoc
                -> m (n SrcLoc)
-expandFormulas frms = exprs (rewriteM' expand)
+expandFormulas frms = exprs . rewriteM' $ \case
+    CallExpr (viewIdentExpr -> Just ident) args l -> call ident args l
+    NameExpr (viewIdent -> Just ident) l          -> call ident [] l
+    _ -> return Nothing
   where
-    expand e = case e of
-        CallExpr (NameExpr (Name ident) _) args l -> call ident args l
-        NameExpr (Name ident) l                   -> call ident [] l
-        _                                         -> return Nothing
-
     call ident args l =
         _Just (fmap frmExpr . instantiate ident args l) (frms^.at ident)
 
@@ -150,7 +147,7 @@ substitute :: (HasExprs n) => Map Ident LExpr -> n SrcLoc -> n SrcLoc
 substitute defs
   | Map.null defs = id
   | otherwise     = over exprs . transform $ \node -> case node of
-    NameExpr (Name ident) l ->
+    NameExpr (viewIdent -> Just ident) l ->
         maybe node (fmap (reLoc l)) $ defs^.at ident
     _ -> node
 
@@ -160,7 +157,6 @@ checkLoopBody :: (Functor m, MonadEither Error m) => LExpr -> m ()
 checkLoopBody e = go e >>= \cnt ->
     when (cnt /= 1) (throw (exprAnnot e) MalformedLoopBody)
   where
-    go :: (Functor m, MonadEither Error m) => LExpr -> m Integer
     go e' = case e' of
         BinaryExpr _ lhs (MissingExpr _) _
           | has (traverse._MissingExpr) $ universeOf plateBody lhs ->

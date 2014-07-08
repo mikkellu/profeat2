@@ -179,8 +179,8 @@ lookupType :: (MonadReader SymbolTable m, MonadEither Error m)
            => Name a
            -> SrcLoc
            -> m Type
-lookupType name l = ask >>= \symTbl -> case name of
-    Name ident -> maybe (throw l $ UndefinedIdentifier ident) return $
+lookupType name l = ask >>= \symTbl -> case name^?_Ident._1 of
+    Just ident -> maybe (throw l $ UndefinedIdentifier ident) return $
         (symTbl^?globals  .at ident._Just.gsType) <|>
         (symTbl^?constants.at ident._Just.csType)
     _ -> undefined -- TODO: implement lookup for qualified names

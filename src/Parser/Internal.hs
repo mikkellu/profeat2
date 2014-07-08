@@ -372,7 +372,7 @@ atom allowPctl
     = parens (expr' allowPctl)
    <|> loc (choice $ pctlExpr ++
                    [ MissingExpr     <$  reservedOp "..."
-                   , NameExpr . Name <$> (reserved "id" *> pure "id")
+                   , idExpr          <$  reserved "id"
                    , BoolExpr        <$> bool
                    , DecimalExpr     <$> try float
                    , IntegerExpr     <$> integer
@@ -382,6 +382,7 @@ atom allowPctl
                    ])
    <?> "literal, variable or expression"
   where
+    idExpr l = NameExpr (_Ident # ("id", l)) l
     pctlExpr
       | allowPctl = [UnaryExpr <$> stateOp <*> brackets (expr' allowPctl)]
       | otherwise = []
@@ -434,12 +435,9 @@ bound =  Query QueryProb <$ reservedOp "=?"
     s --> bOp = bOp <$ reservedOp s
 
 name :: Parser LName
-name = foldl' (flip ($)) <$> (Name <$> identifier) <*> many qualifier
+name = loc (Name <$> qualifier `sepBy1` reservedOp ".") <?> "name"
   where
-    qualifier = choice
-        [ reservedOp "." *> (flip Member <$> identifier)
-        , flip Index <$> brackets expr
-        ] <?> "qualifier"
+    qualifier = (,) <$> identifier <*> optionMaybe (brackets expr)
 
 args :: Parser [LExpr]
 args = parens (commaSep expr)

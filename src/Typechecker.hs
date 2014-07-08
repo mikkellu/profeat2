@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts, ViewPatterns #-}
 
 module Typechecker
   ( evalRange
@@ -60,12 +60,10 @@ checkIfConst e = view constants >>= \constTbl ->
 
 unknownValues :: Table ConstSymbol -> Expr a -> [Name a]
 unknownValues constTbl = go where
-    go e = case e of
-        NameExpr n@(Name ident) _
-          | ident `member` constTbl -> []
-          | otherwise               -> [n]
-        NameExpr name _ -> [name]
-        _               -> concatMap go (children e)
+    go (viewIdentExpr -> Just ident)
+      | ident `member` constTbl = []
+    go (NameExpr name _) = [name]
+    go e = concatMap go (children e)
 
 checkIfType :: (Applicative m, MonadReader SymbolTable m, MonadEither Error m)
             => (Type -> Bool)

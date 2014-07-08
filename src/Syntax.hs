@@ -52,8 +52,11 @@ module Syntax
 
   , _NameExpr
   , _MissingExpr
-  , _Name
+  , _Ident
   , identifiers
+
+  , viewIdentExpr
+  , viewIdent
 
   , exprAnnot
   , unaryExpr
@@ -415,17 +418,10 @@ data Function
   | FuncLog
   deriving (Eq, Show)
 
-data Name a
-  = Name !Ident
-  | Member (Name a) !Ident
-  | Index  (Name a) (Expr a)
-  deriving (Eq, Functor, Show)
+data Name a = Name [(Ident, Maybe (Expr a))] !a deriving (Eq, Functor, Show)
 
 instance HasExprs Name where
-    exprs f name = case name of
-        Name _             -> pure name
-        Member name' ident -> Member <$> exprs f name' <*> pure ident
-        Index  name' e     -> Index  <$> exprs f name' <*> f e
+    exprs f (Name name a) = Name <$> (traverse._2._Just) f name <*> pure a
 
 type Range a = (Expr a, Expr a)
 
@@ -443,16 +439,27 @@ _MissingExpr = prism' MissingExpr f
     f (MissingExpr a) = Just a
     f _               = Nothing
 
--- | This 'Prism' provides a 'Traversal' for 'Name's.
-_Name :: Prism' (Name a) Ident
-_Name = prism' Name f
-  where
-    f (Name ident) = Just ident
-    f _            = Nothing
+-- | This 'Prism' provides a 'Traversal' for 'Name's consisting solely of
+-- an identifier.
+_Ident :: Prism' (Name a) (Ident, a)
+_Ident = prism' c d where
+    c (ident, a)                  = Name [(ident, Nothing)] a
+    d (Name [(ident, Nothing)] a) = Just (ident, a)
+    d _                           = Nothing
 
 -- | A 'Traversal' of all identifiers in an expression.
 identifiers :: Traversal' (Expr a) Ident
-identifiers = _NameExpr._1._Name
+identifiers = _NameExpr._1._Ident._1
+
+-- | If the given 'Expr' is an identifier, 'Just' this identifier is
+-- returned.
+viewIdentExpr :: Expr a -> Maybe Ident
+viewIdentExpr = preview $ _NameExpr._1._Ident._1
+
+-- | If the given 'Name' is an identifier, 'Just' this identifier is
+-- returned.
+viewIdent :: Name a -> Maybe Ident
+viewIdent = preview $ _Ident._1
 
 exprAnnot :: Expr a -> a
 exprAnnot e = case e of
@@ -744,10 +751,10 @@ instance Pretty Function where
         FuncLog    -> "log"
 
 instance Pretty (Name a) where
-    pretty n = case n of
-        Name ident      -> text ident
-        Member n' ident -> pretty n' <> dot <> text ident
-        Index n' e      -> pretty n' <> brackets (pretty e)
+    pretty (Name name _) = hcat . punctuate dot . fmap qualifier $ name
+      where
+        qualifier (ident, idx) =
+            text ident <> maybe empty (brackets . pretty) idx
 
 prettyArgs :: (Pretty a) => [a] -> Doc
 prettyArgs [] = empty

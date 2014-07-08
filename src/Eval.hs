@@ -149,14 +149,15 @@ evalImpl (CallExpr (FuncExpr function _) args _) = do
     toDouble (DblVal d) = d
     toDouble _          = typeError
 
-evalImpl CallExpr {}               = typeError
-evalImpl (NameExpr (Name ident) _) = (! ident) <$> ask
-evalImpl NameExpr {}               = error "Eval.eval: illegal name"
-evalImpl (FuncExpr _ _)            = typeError
-evalImpl (DecimalExpr d _)         = return $ DblVal d
-evalImpl (IntegerExpr i _)         = return $ IntVal i
-evalImpl (BoolExpr b _)            = return $ BoolVal b
-evalImpl (MissingExpr _)           = typeError
+evalImpl CallExpr {}       = typeError
+evalImpl (NameExpr name _) = case name^?_Ident._1 of
+    Just ident -> (! ident) <$> ask
+    Nothing    -> error "Eval.eval: illegal name"
+evalImpl (FuncExpr _ _)    = typeError
+evalImpl (DecimalExpr d _) = return $ DblVal d
+evalImpl (IntegerExpr i _) = return $ IntVal i
+evalImpl (BoolExpr b _)    = return $ BoolVal b
+evalImpl (MissingExpr _)   = typeError
 
 typeError :: a
 typeError = error "Eval.eval': type error"
