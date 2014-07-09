@@ -67,6 +67,8 @@ import Control.Monad.Reader
 import Control.Lens
 
 import Data.Array
+import Data.List.NonEmpty ( NonEmpty(..), toList )
+import qualified Data.List.NonEmpty as L
 import Data.Map ( Map, empty )
 
 import Text.PrettyPrint.Leijen.Text hiding ( (<$>), empty )
@@ -202,11 +204,11 @@ featureCardinality :: Array Integer FeatureSymbol -> Integer
 featureCardinality a = let (lower, upper) = bounds a
                        in upper - lower + 1
 
-newtype FeatureContext = FeatureContext [FeatureSymbol]
+newtype FeatureContext = FeatureContext (NonEmpty FeatureSymbol)
 
 instance Pretty FeatureContext where
     pretty (FeatureContext fss) =
-        hcat . punctuate dot . map qualifier . reverse $ fss
+        hcat . punctuate dot . fmap qualifier . reverse . toList $ fss
       where
         qualifier fs = text (fs^.fsIdent) <> prettyIndex fs
         prettyIndex fs
@@ -215,17 +217,18 @@ instance Pretty FeatureContext where
           | otherwise                  = brackets . integer $ fs^.fsIndex
 
 extendContext :: FeatureSymbol -> FeatureContext -> FeatureContext
-extendContext fs (FeatureContext fss) = FeatureContext (fs:fss)
+extendContext fs (FeatureContext fss) = FeatureContext (L.cons fs fss)
 
 thisFeature :: FeatureContext -> FeatureSymbol
-thisFeature (FeatureContext fss) = case fss of
-    fs:_ -> fs
-    []   -> error "Symbols.thisFeature: empty FeatureContext"
+thisFeature (FeatureContext fss) = L.head fss
 
 allContexts :: FeatureSymbol -> [FeatureContext]
-allContexts = fmap FeatureContext . go [] where
-    go ctx fs =
-        let self = fs:ctx
-            ctxs' = fs^..fsChildren.traverse.traverse >>= go self
+allContexts root = go (\_ _ -> rootContext) rootContext root
+  where
+    go mkContext ctx fs =
+        let self  = mkContext fs ctx
+            ctxs' = concatMap (go extendContext self) $
+                              fs^..fsChildren.traverse.traverse
         in self:ctxs'
+    rootContext = FeatureContext (root :| [])
 
