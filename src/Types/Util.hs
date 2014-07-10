@@ -33,7 +33,11 @@ fromVarType vt = case vt of
 fromRange :: (Applicative m, MonadReader Env m, MonadEither Error m)
           => LRange
           -> m (Integer, Integer)
-fromRange = both preprocessExpr >=> evalRange
+fromRange = both preprocessExpr >=> evalRange >=> return . flipBounds
+  where
+    flipBounds (x, y)
+      | x > y     = (y, x)
+      | otherwise = (x, y)
 
 -- | Converts a 'VarType' to a 'Type' but ignores the bounds for integer
 -- types and array sizes.

@@ -27,9 +27,9 @@ import Types.Util
 
 extendSymbolTable :: SymbolTable -> [LDefinition] -> Either Error SymbolTable
 extendSymbolTable symTbl defs = flip evalStateT symTbl $ do
-    forOf_ (traverse._GlobalDef) defs $ \(VarDecl ident vt e l) ->
+    forOf_ (traverse._GlobalDef) defs $ \decl@(VarDecl ident vt _ l) ->
         ifNot containsSymbol ident l $
-            globals.at ident .= Just (GlobalSymbol l (fromVarType' vt) vt e)
+            globals.at ident .= Just (GlobalSymbol (fromVarType' vt) decl)
 
     forOf_ (traverse._ConstDef) defs $ \(Constant ct ident e l) ->
         ifNot containsSymbol ident l $ constants.at ident .=
@@ -56,10 +56,8 @@ extendSymbolTable symTbl defs = flip evalStateT symTbl $ do
     symTbl' <- get
     symTbl'' <- flip runReaderT (Env Global symTbl') .
                 forOf (globals.traverse) symTbl' $ \gs -> do
-        t   <- fromVarType $ gs^.gsVarType
-        vt' <- exprs preprocessExpr $ gs^.gsVarType
-        e'  <- _Just preprocessExpr $ gs^.gsExpr
-        return (gs & gsType .~ t & gsVarType .~ vt' & gsExpr .~ e')
+        t   <- fromVarType $ gs^.gsDecl.to declType
+        return (gs & gsType .~ t)
 
     root <- rootFeatureSymbol symTbl''
 

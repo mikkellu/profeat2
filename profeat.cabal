@@ -1,5 +1,5 @@
 name:                profeat
-version:             0.27.2
+version:             0.28.0
 synopsis:            A feature modelling language
 author:              Philipp Chrszon
 maintainer:          Philipp.Chrszon@mailbox.tu-dresden.de
@@ -20,6 +20,7 @@ library
                        Syntax,
                        Syntax.Operators,
                        Template,
+                       Translator,
                        Typechecker,
                        Types,
                        Types.Util
@@ -39,6 +40,8 @@ library
 executable profeat
   main-is:             Main.hs
   build-depends:       base >=4.6 && <5,
+                       text >=0.11.3,
+                       wl-pprint-text >=1.1,
                        profeat
   ghc-options:         -Wall
 

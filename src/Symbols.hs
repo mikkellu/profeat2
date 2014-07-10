@@ -6,10 +6,8 @@
 
 module Symbols
   ( GlobalSymbol(..)
-  , gsLoc
   , gsType
-  , gsVarType
-  , gsExpr
+  , gsDecl
 
   , ConstSymbol(..)
   , csLoc
@@ -78,10 +76,8 @@ import Types
 type Table a = Map Ident a
 
 data GlobalSymbol = GlobalSymbol
-  { _gsLoc     :: !SrcLoc
-  , _gsType    :: !Type
-  , _gsVarType :: LVarType
-  , _gsExpr    :: Maybe LExpr
+  { _gsType    :: !Type
+  , _gsDecl    :: LVarDecl
   } deriving (Show)
 
 makeLenses ''GlobalSymbol
@@ -179,7 +175,7 @@ emptyFeatureSymbol = FeatureSymbol
 
 containsSymbol :: SymbolTable -> Ident -> Maybe SrcLoc
 containsSymbol symTbl ident =
-    (symTbl^?globals  .at ident._Just.gsLoc) <|>
+    (symTbl^?globals  .at ident._Just.gsDecl.to declAnnot) <|>
     (symTbl^?constants.at ident._Just.csLoc) <|>
     (symTbl^?formulas .at ident._Just.to frmAnnot)
 
