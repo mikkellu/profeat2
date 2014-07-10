@@ -9,6 +9,7 @@ import Control.Lens
 import Control.Monad.Reader
 
 import Data.Foldable ( toList )
+import Data.Map ( assocs )
 import Data.Monoid
 import Data.Text.Lazy ( pack )
 import Data.Traversable
@@ -36,7 +37,9 @@ translateModel symTbl = flip runReaderT (Env Global symTbl) $ do
                             ]
 
 trnsConsts :: Trans [LDefinition]
-trnsConsts = return []
+trnsConsts = fmap toConstDef <$> view (constants.to assocs)
+  where
+    toConstDef (ident, ConstSymbol l _ ct e) = ConstDef $ Constant ct ident e l
 
 trnsGlobals :: Trans [LDefinition]
 trnsGlobals = do
