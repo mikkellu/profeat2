@@ -60,7 +60,6 @@ module Symbols
   ) where
 
 import Control.Applicative hiding ( empty )
-import Control.Monad.Either
 import Control.Monad.Reader
 import Control.Lens
 

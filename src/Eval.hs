@@ -18,7 +18,6 @@ module Eval
 
 import Control.Applicative
 import Control.Lens
-import Control.Monad.Either
 import Control.Monad.Reader
 
 import Data.Map ( (!) )

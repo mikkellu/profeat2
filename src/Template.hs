@@ -1,7 +1,9 @@
 {-# LANGUAGE FlexibleContexts, LambdaCase, OverloadedStrings, ViewPatterns #-}
 
 module Template
-  ( preprocessExpr
+  ( Template(..)
+
+  , preprocessExpr
 
   , unrollRepeatable
   , unrollLoopExprs
@@ -15,7 +17,6 @@ module Template
 
 import Control.Applicative
 import Control.Lens
-import Control.Monad.Either
 import Control.Monad.Reader
 
 import Data.Map ( Map )

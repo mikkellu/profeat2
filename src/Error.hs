@@ -1,7 +1,9 @@
 {-# LANGUAGE FlexibleContexts, OverloadedStrings #-}
 
 module Error
-  ( Error(..)
+  ( module Control.Monad.Either
+
+  , Error(..)
   , ErrorDesc(..)
   , throw
   ) where

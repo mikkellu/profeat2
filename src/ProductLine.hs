@@ -6,7 +6,6 @@ module ProductLine
 
 import Control.Applicative
 import Control.Lens
-import Control.Monad.Either
 import Control.Monad.Reader
 import Control.Monad.State
 

@@ -20,7 +20,6 @@ module Typechecker
 
 import Control.Applicative
 import Control.Lens hiding ( contains )
-import Control.Monad.Either
 import Control.Monad.Reader
 
 import Data.Array
