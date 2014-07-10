@@ -54,7 +54,7 @@ evalInteger :: ( Applicative m
             => LExpr
             -> m Integer
 evalInteger e = do
-    checkIfConst e >> checkIfType_ isIntType e
+    checkIfType_ isIntType e >> checkIfConst e
 
     val <- view constValues
     IntVal v <- eval' val e
@@ -68,7 +68,7 @@ checkInitialization :: ( Applicative m
                     => Type
                     -> LExpr
                     -> m ()
-checkInitialization t e = checkIfConst e >> checkIfType_ (`isAssignableTo` t) e
+checkInitialization t e = checkIfType_ (`isAssignableTo` t) e >> checkIfConst e
 
 checkIfConst :: (MonadReader r m, MonadEither Error m, HasSymbolTable r)
              => LExpr
