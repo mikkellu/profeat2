@@ -697,7 +697,7 @@ prettyExpr :: Int -> Expr a -> Doc
 prettyExpr prec e = case e of
     BinaryExpr binOp lhs rhs _ ->
         let prec' = binOpPrec binOp
-        in  parens' (prec >= prec') $
+        in  parens' (prec > prec') $
                 prettyExpr prec' lhs <+> pretty binOp <+> prettyExpr prec' rhs
     CondExpr cond te ee _ -> parens' (prec > 0) $
         prettyExpr 1 cond <+> char '?' <+>
