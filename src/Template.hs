@@ -30,7 +30,7 @@ class Template n where
     parameters :: n a -> [Ident]
 
 preprocessExpr :: ( Applicative m
-                  , MonadReader SymbolTable m
+                  , MonadReader Env m
                   , MonadEither Error m
                   )
                => LExpr
@@ -40,7 +40,7 @@ preprocessExpr e = do
     expandFormulas frms e >>= unrollLoopExprs
 
 unrollRepeatable :: ( Applicative m
-                    , MonadReader SymbolTable m
+                    , MonadReader Env m
                     , MonadEither Error m
                     , HasExprs b
                     )
@@ -53,7 +53,7 @@ unrollRepeatable (Repeatable ss) = Repeatable <$> rewriteM f ss where
     f [] = return Nothing
 
 unrollRepeatableLoop :: ( Applicative m
-                        , MonadReader SymbolTable m
+                        , MonadReader Env m
                         , MonadEither Error m
                         , HasExprs b
                         )
@@ -63,7 +63,7 @@ unrollRepeatableLoop = unrollLoop f where
     f (Repeatable ss) = return . concatMap (\defs -> map (substitute defs) ss)
 
 unrollLoopExprs :: ( Applicative m
-                   , MonadReader SymbolTable m
+                   , MonadReader Env m
                    , MonadEither Error m
                    )
                 => LExpr
@@ -73,7 +73,7 @@ unrollLoopExprs = rewriteM' $ \case
     _               -> return Nothing
 
 unrollExprLoop :: ( Applicative m
-                  , MonadReader SymbolTable m
+                  , MonadReader Env m
                   , MonadEither Error m
                   )
                => LForLoop Expr
@@ -90,7 +90,7 @@ unrollExpr defss e = case e of
         in foldr1 (binaryExpr binOp) e's
     _ -> e
 
-unrollLoop :: (Applicative m, MonadReader SymbolTable m, MonadEither Error m)
+unrollLoop :: (Applicative m, MonadReader Env m, MonadEither Error m)
            => (a SrcLoc -> [Map Ident LExpr] -> m b)
            -> LForLoop a
            -> m b
@@ -174,8 +174,8 @@ plateBody f e = case e of
                  <*> pure a'
     _ -> plate f e
 
--- Rewrite by applying the monadic everywhere you can in a top-down manner.
--- Ensures that the rule cannot be applied anywhere in the result.
+-- Rewrite by applying the monadic rule everywhere you can in a top-down
+-- manner. Ensures that the rule cannot be applied anywhere in the result.
 rewriteM' :: (Monad m, Applicative m, Plated a)
           => (a -> m (Maybe a))
           -> a

@@ -44,6 +44,9 @@ data ErrorDesc
   | InvalidFeatureCardinality !Integer
   | MissingIndex !Ident
   | IndexOutOfBounds !(Integer, Integer) !Integer
+  | NotAnArray !Ident
+  | NotAVariable !Ident
+  | NotAMember !Ident !Ident
   | DivisionByZero Valuation
   deriving (Show)
 
@@ -96,6 +99,12 @@ instance Pretty ErrorDesc where
             "index out of bounds" <> line <>
             "should be in:" <+> prettyRange range <> line <>
             "given:" <+> integer actual
+        NotAnArray ident ->
+            text ident <+> "is not an array"
+        NotAVariable ident ->
+            text ident <+> "is used as a variable, but it is a feature"
+        NotAMember fIdent ident ->
+            text ident <+> "is not a member of" <+> text fIdent
         DivisionByZero val ->
             "division by zero with valuation" <+> prettyValuation val
 

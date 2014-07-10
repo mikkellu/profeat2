@@ -57,6 +57,7 @@ module Syntax
 
   , viewIdentExpr
   , viewIdent
+  , viewSimpleName
 
   , exprAnnot
   , unaryExpr
@@ -463,6 +464,13 @@ viewIdentExpr = preview $ _NameExpr._1._Ident._1
 -- returned.
 viewIdent :: Name a -> Maybe Ident
 viewIdent = preview $ _Ident._1
+
+-- | If the given 'Name' does not contain any member access, 'Just' its
+-- identifier, index and annotation are returned.
+viewSimpleName :: Name a -> Maybe (Ident, Maybe (Expr a), a)
+viewSimpleName name = case name of
+    Name ((ident, idx) :| []) l -> Just (ident, idx, l)
+    _                           -> Nothing
 
 exprAnnot :: Expr a -> a
 exprAnnot e = case e of

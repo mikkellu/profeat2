@@ -55,7 +55,7 @@ extendSymbolTable symTbl defs = flip evalStateT symTbl $ do
     evalConstValues
 
     symTbl' <- get
-    symTbl'' <- flip runReaderT symTbl' .
+    symTbl'' <- flip runReaderT (Env Global symTbl') .
                 forOf (globals.traverse) symTbl' $ \gs -> do
         t   <- fromVarType $ gs^.gsVarType
         vt' <- exprs preprocessExpr $ gs^.gsVarType
@@ -86,12 +86,12 @@ evalConstValues :: ( Applicative m
                 => m ()
 evalConstValues = do
     symTbl <- get
-    void . flip runReaderT symTbl $
+    void . flip runReaderT (Env Global symTbl) $
         for (symTbl^.constants.to keys) evalConstValue
 
 evalConstValue :: ( Applicative m
                   , MonadState SymbolTable m
-                  , MonadReader SymbolTable m
+                  , MonadReader Env m
                   , MonadEither Error m
                   )
                => Ident

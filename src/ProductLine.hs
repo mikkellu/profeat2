@@ -29,7 +29,7 @@ rootFeatureSymbol :: (Applicative m, MonadEither Error m)
                   -> m FeatureSymbol
 rootFeatureSymbol symTbl =
     let roots = rootFeatures symTbl
-    in flip runReaderT symTbl $ do
+    in flip runReaderT (Env Global symTbl) $ do
         syms <- for roots $ \ident -> (ident,) <$> toFeatureSymbol' True ident
         return $ case syms of
             []         -> emptyFeatureSymbol & fsIdent .~ "root"
@@ -55,7 +55,7 @@ rootFeatures symTbl =
     in feats \\ refFeats
 
 toFeatureSymbol' :: ( Applicative m
-                    , MonadReader SymbolTable m
+                    , MonadReader Env m
                     , MonadEither Error m
                     )
                  => Bool -- ^ True, if the feature is mandatory
@@ -67,7 +67,7 @@ toFeatureSymbol' mandatory ident =
     in toFeatureSymbols mandatory ref
 
 toFeatureSymbols :: ( Applicative m
-                    , MonadReader SymbolTable m
+                    , MonadReader Env m
                     , MonadEither Error m
                     )
                  => Bool
@@ -115,7 +115,7 @@ toFeatureSymbols mandatory (FeatureRef isOptional inst cntExpr _) = do
     return $ listArray (0, cnt - 1) fss
 
 instantiateModules :: ( Applicative m
-                      , MonadReader SymbolTable m
+                      , MonadReader Env m
                       , MonadEither Error m
                       )
                    => Integer
@@ -129,7 +129,7 @@ instantiateModules idx insts = flip runStateT Map.empty $
         return (ident, body)
 
 instantiateModule :: ( Applicative m
-                     , MonadReader SymbolTable m
+                     , MonadReader Env m
                      , MonadEither Error m
                      )
                   => Integer
@@ -156,7 +156,7 @@ unionVarTable l t1 t2 =
         (ident:_) -> throw l $ AmbiguousIdentifier ident
         _         -> return $ Map.union t1 t2
 
-varSymbol :: (Applicative m, MonadReader SymbolTable m, MonadEither Error m)
+varSymbol :: (Applicative m, MonadReader Env m, MonadEither Error m)
           => [Ident]
           -> LVarDecl
           -> m VarSymbol
@@ -174,7 +174,7 @@ checkDecomposition (Decomposition _ refs l) =
         _             -> return ()
 
 evalFeatureCardinality :: ( Applicative m
-                          , MonadReader SymbolTable m
+                          , MonadReader Env m
                           , MonadEither Error m
                           )
                        => Maybe LExpr
@@ -190,7 +190,7 @@ evalFeatureCardinality cntExpr = case cntExpr of
 
 -- | Returns the group cardinality for the given decomposition operator.
 groupCardinality :: ( Applicative m
-                    , MonadReader SymbolTable m
+                    , MonadReader Env m
                     , MonadEither Error m
                     )
                  => Integer   -- ^ total number of child features

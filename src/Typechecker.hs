@@ -1,4 +1,8 @@
-{-# LANGUAGE FlexibleContexts, LambdaCase, ViewPatterns, TupleSections #-}
+{-# LANGUAGE FlexibleContexts
+           , LambdaCase
+           , ViewPatterns
+           , RankNTypes
+           , TupleSections #-}
 
 module Typechecker
   ( evalRange
@@ -22,9 +26,11 @@ import Control.Monad.Reader
 import Data.Array
 import Data.List.NonEmpty ( NonEmpty(..), nonEmpty )
 import Data.Map ( member )
+import Data.Maybe
+import Data.Text.Lazy ( Text )
 import Data.Traversable
 
-import Text.PrettyPrint.Leijen.Text ( displayT, renderOneLine, pretty )
+import Text.PrettyPrint.Leijen.Text ( Pretty, displayT, renderOneLine, pretty )
 
 import Error
 import Eval
@@ -34,14 +40,17 @@ import Types
 
 -- | Evaluates the given range. The expressions must not contain loops or
 -- unexpanded formulas.
-evalRange :: (Applicative m, MonadReader SymbolTable m, MonadEither Error m)
+evalRange :: (Applicative m, MonadReader Env m, MonadEither Error m)
           => LRange
           -> m (Integer, Integer)
 evalRange = both evalInteger
 
 -- | Evaluates the given expression as 'Integer'. The expression must not
 -- contain loops or unexpanded formulas.
-evalInteger :: (Applicative m, MonadReader SymbolTable m, MonadEither Error m)
+evalInteger :: ( Applicative m
+               , MonadReader Env m
+               , MonadEither Error m
+               )
             => LExpr
             -> m Integer
 evalInteger e = do
@@ -53,7 +62,7 @@ evalInteger e = do
     return v
 
 checkInitialization :: ( Applicative m
-                       , MonadReader SymbolTable m
+                       , MonadReader Env m
                        , MonadEither Error m
                        )
                     => Type
@@ -61,7 +70,7 @@ checkInitialization :: ( Applicative m
                     -> m ()
 checkInitialization t e = checkIfConst e >> checkIfType_ (`isAssignableTo` t) e
 
-checkIfConst :: (MonadReader SymbolTable m, MonadEither Error m)
+checkIfConst :: (MonadReader r m, MonadEither Error m, HasSymbolTable r)
              => LExpr
              -> m ()
 checkIfConst e = view constants >>= \constTbl ->
@@ -76,7 +85,10 @@ unknownValues constTbl = go where
     go (NameExpr name _) = [name]
     go e = concatMap go (children e)
 
-checkIfType :: (Applicative m, MonadReader SymbolTable m, MonadEither Error m)
+checkIfType :: ( Applicative m
+               , MonadReader Env m
+               , MonadEither Error m
+               )
             => (Type -> Bool)
             -> LExpr
             -> m Type
@@ -87,13 +99,19 @@ checkIfType p e = do
   where
     expected = filter p types
 
-checkIfType_ :: (Applicative m, MonadReader SymbolTable m, MonadEither Error m)
+checkIfType_ :: ( Applicative m
+                , MonadReader Env m
+                , MonadEither Error m
+                )
              => (Type -> Bool)
              -> LExpr
              -> m ()
 checkIfType_ p e = void $ checkIfType p e
 
-typeOf :: (Applicative m, MonadReader SymbolTable m, MonadEither Error m)
+typeOf :: ( Applicative m
+          , MonadReader Env m
+          , MonadEither Error m
+          )
        => LExpr
        -> m Type
 typeOf (BinaryExpr (ArithBinOp Div) lhs rhs _) = do
@@ -166,19 +184,100 @@ typeOf (CallExpr (FuncExpr function _) args l) = do
     numArgs = length args
     checkArgCount n
       | numArgs /= n = throw l $
-        ArityError (displayT . renderOneLine $ pretty function) n numArgs
+        ArityError (prettyText function) n numArgs
       | otherwise    = return ()
 
 typeOf (CallExpr e _ l) = throw l $ NotAFunction e
 
-typeOf (NameExpr name l)  = lookupType name l
+typeOf (NameExpr name l) = lookupType name >>= \case
+    Just t  -> return t
+    Nothing -> throw l $ UndefinedIdentifier (prettyText name)
+
 typeOf (FuncExpr f l)     = throw l $ StandaloneFuntion f
 typeOf (DecimalExpr _ _)  = return doubleType
 typeOf (IntegerExpr _ _)  = return intType
 typeOf (BoolExpr _ _)     = return boolType
 typeOf (MissingExpr _)    = error "Typechecker.typeOf: unresolved MissingExpr"
 
-getContext :: (Applicative m, MonadReader SymbolTable m, MonadEither Error m)
+lookupType :: ( Applicative m
+              , MonadReader Env m
+              , MonadEither Error m
+              )
+           => LName
+           -> m (Maybe Type)
+lookupType (viewSimpleName -> Just (ident, idx, l)) = -- no member access
+    lookupTypeLocal ident idx l >>= \case       -- first check local scope of the feature...
+        Just t  -> return (Just t)
+        Nothing -> lookupTypeGlobal ident idx l -- ...and then the global scope
+lookupType name@(Name _ l) = getContext name >>= \case -- name has a context
+    (_, Nothing)      -> throw l $ NotAVariable (prettyText name)
+    (ctx, Just name') -> case name' of
+        (viewSimpleName -> Just (ident', idx', l')) ->
+            lookupTypeLocalIn ctx ident' idx' l' >>= \case
+                Just t  -> return (Just t)
+                Nothing -> notAMember ctx name' l'
+        Name _ l' -> notAMember ctx name' l'
+  where
+    notAMember ctx name' l' =
+        throw l' $ NotAMember (prettyText ctx) (prettyText name')
+
+lookupTypeGlobal :: ( Applicative m
+                    , MonadReader r m
+                    , MonadEither Error m
+                    , HasSymbolTable r
+                    )
+                 => Ident
+                 -> Maybe LExpr
+                 -> SrcLoc
+                 -> m (Maybe Type)
+lookupTypeGlobal ident idx l = do
+    symTbl <- view symbolTable
+    liftA2 (<|>) (lookupOf gsType (symTbl^.globals)   ident idx l)
+                 (lookupOf csType (symTbl^.constants) ident idx l)
+
+lookupTypeLocal :: ( Applicative m
+                   , MonadReader Env m
+                   , MonadEither Error m
+                   )
+                => Ident
+                -> Maybe LExpr
+                -> SrcLoc
+                -> m (Maybe Type)
+lookupTypeLocal ident idx l = view scope >>= \case
+    Local ctx -> lookupTypeLocalIn ctx ident idx l
+    Global    -> return Nothing
+
+lookupTypeLocalIn :: ( Applicative m
+                     , MonadReader r m
+                     , MonadEither Error m
+                     )
+                  => FeatureContext
+                  -> Ident
+                  -> Maybe LExpr
+                  -> SrcLoc
+                  -> m (Maybe Type)
+lookupTypeLocalIn ctx = lookupOf vsType (ctx^.to thisFeature.fsVars)
+
+lookupOf :: (Applicative m, MonadEither Error m)
+         => Getter a Type
+         -> Table a
+         -> Ident
+         -> Maybe LExpr
+         -> SrcLoc
+         -> m (Maybe Type)
+lookupOf g tbl ident idx l =
+    forOf _Just (tbl^?at ident._Just.g) $ \t -> case t of
+        CompoundType (ArrayType _ st) -- TODO: check array bounds
+          | isJust idx -> return (SimpleType st)
+          | otherwise  -> return t
+        SimpleType _
+          | isJust idx -> throw l $ NotAnArray ident
+          | otherwise  -> return t
+
+getContext :: ( Applicative m
+              , MonadReader Env m
+              , MonadEither Error m
+              )
            => LName
            -> m (FeatureContext, Maybe LName)
 getContext (Name name l) = do
@@ -206,7 +305,10 @@ getContext (Name name l) = do
             when (featureCardinality fss > 1) . throw l $ MissingIndex ident
             return $ fss ! 0
 
-findContext :: (MonadReader SymbolTable m, MonadEither Error m)
+findContext :: ( MonadReader r m
+               , MonadEither Error m
+               , HasSymbolTable r
+               )
             => Ident
             -> Maybe Integer
             -> SrcLoc
@@ -216,12 +318,15 @@ findContext ident idx l = do
     let ctxs = filter (match . thisFeature) $ allContexts root
 
     case ctxs of
-        []    -> throw l $ UndefinedIdentifier ident
+        []    -> throw l $ UndefinedIdentifier name
         [ctx] -> return ctx
-        _     -> let idents = fmap (displayT . renderOneLine . pretty) ctxs
-                 in throw l $ AmbiguousFeature ident idents
+        _     -> throw l . AmbiguousFeature name $ fmap prettyText ctxs
   where
     match = case idx of
         Just i  -> liftA2 (&&) ((ident ==) . _fsIdent) ((i ==) . _fsIndex)
         Nothing -> (ident ==) . _fsIdent
+    name = prettyText $ Name ((ident, fmap (flip IntegerExpr ()) idx) :| []) ()
+
+prettyText :: (Pretty a) => a -> Text
+prettyText = displayT . renderOneLine . pretty
 

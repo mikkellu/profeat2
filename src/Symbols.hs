@@ -35,13 +35,7 @@ module Symbols
 
   , Table
   , SymbolTable(..)
-  , globals
-  , constants
-  , formulas
-  , modules
-  , features
-  , constValues
-  , rootFeature
+  , HasSymbolTable(..)
 
   , emptySymbolTable
   , emptyFeatureSymbol
@@ -51,7 +45,6 @@ module Symbols
   , containsFeature
   , lookupModule
   , lookupFeature
-  , lookupType
   , featureCardinality
 
   , FeatureContext
@@ -59,6 +52,11 @@ module Symbols
   , thisFeature
   , extendContext
   , allContexts
+
+  , Scope(..)
+  , scope
+
+  , Env(..)
   ) where
 
 import Control.Applicative hiding ( empty )
@@ -130,7 +128,31 @@ data SymbolTable = SymbolTable
   , _rootFeature :: FeatureSymbol
   } deriving (Show)
 
-makeLenses ''SymbolTable
+makeClassy ''SymbolTable
+
+newtype FeatureContext = FeatureContext (NonEmpty FeatureSymbol)
+
+instance Pretty FeatureContext where
+    pretty (FeatureContext fss) =
+        hcat . punctuate dot . fmap qualifier . reverse . toList $ fss
+      where
+        qualifier fs = text (fs^.fsIdent) <> prettyIndex fs
+        prettyIndex fs
+          | fs^.fsIndex == 0 &&
+            not (fs^.fsIsMultiFeature) = PP.empty
+          | otherwise                  = brackets . integer $ fs^.fsIndex
+
+data Scope = Global | Local FeatureContext
+
+data Env = Env
+  { _scope          :: Scope
+  , _envSymbolTable :: SymbolTable
+  }
+
+makeLenses ''Env
+
+instance HasSymbolTable Env where
+    symbolTable = envSymbolTable
 
 emptySymbolTable :: SymbolTable
 emptySymbolTable = SymbolTable
@@ -169,52 +191,30 @@ containsModule symTbl ident =
 containsFeature :: SymbolTable -> Ident -> Maybe SrcLoc
 containsFeature symTbl ident = symTbl^?features.at ident._Just.to featAnnot
 
-lookupModule :: (MonadReader SymbolTable m, MonadEither Error m)
+lookupModule :: (MonadReader r m, MonadEither Error m, HasSymbolTable r)
              => Ident
              -> SrcLoc
              -> m LModule
 lookupModule = checkedLookup modules
 
-lookupFeature :: (MonadReader SymbolTable m, MonadEither Error m)
+lookupFeature :: (MonadReader r m, MonadEither Error m, HasSymbolTable r)
               => Ident
               -> SrcLoc
               -> m LFeature
 lookupFeature = checkedLookup features
 
-checkedLookup :: (MonadReader SymbolTable m, MonadEither Error m)
+checkedLookup :: (MonadReader r m, MonadEither Error m, HasSymbolTable r)
               => Lens' SymbolTable (Table a)
               -> Ident
               -> SrcLoc
               -> m a
 checkedLookup f ident l =
     maybe (throw l $ UndefinedIdentifier ident) return .
-    view (f.at ident) =<< ask
-
-lookupType :: (MonadReader SymbolTable m, MonadEither Error m)
-           => Name a
-           -> SrcLoc
-           -> m Type
-lookupType name l = ask >>= \symTbl -> case name^?_Ident._1 of
-    Just ident -> maybe (throw l $ UndefinedIdentifier ident) return $
-        (symTbl^?globals  .at ident._Just.gsType) <|>
-        (symTbl^?constants.at ident._Just.csType)
-    _ -> undefined -- TODO: implement lookup for qualified names
+    view (f.at ident) =<< view symbolTable
 
 featureCardinality :: Array Integer FeatureSymbol -> Integer
 featureCardinality a = let (lower, upper) = bounds a
                        in upper - lower + 1
-
-newtype FeatureContext = FeatureContext (NonEmpty FeatureSymbol)
-
-instance Pretty FeatureContext where
-    pretty (FeatureContext fss) =
-        hcat . punctuate dot . fmap qualifier . reverse . toList $ fss
-      where
-        qualifier fs = text (fs^.fsIdent) <> prettyIndex fs
-        prettyIndex fs
-          | fs^.fsIndex == 0 &&
-            not (fs^.fsIsMultiFeature) = PP.empty
-          | otherwise                  = brackets . integer $ fs^.fsIndex
 
 extendContext :: FeatureSymbol -> FeatureContext -> FeatureContext
 extendContext fs (FeatureContext fss) = FeatureContext (L.cons fs fss)
