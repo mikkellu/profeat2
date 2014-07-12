@@ -101,7 +101,7 @@ languageDef = T.LanguageDef
     , T.commentEnd      = "*/"
     , T.commentLine     = "//"
     , T.nestedComments  = True
-    , T.identStart      = letter <|> char '_'
+    , T.identStart      = letter
     , T.identLetter     = alphaNum <|> char '_'
     , T.opStart         = oneOf "/*-+=!><&|.?"
     , T.opLetter        = oneOf "=.>?"

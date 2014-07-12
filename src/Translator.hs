@@ -194,9 +194,9 @@ fullyQualifiedName sc ident idx l =
 fullyQualifiedIdent :: Scope -> Ident -> Maybe Integer -> Ident
 fullyQualifiedIdent sc ident idx =
     let prefix = case sc of
-            Local ctx -> contextIdent ctx
+            Local ctx -> contextIdent ctx `snoc` '_'
             Global    -> ""
-        ident' = prefix <> ('_' `cons` ident)
+        ident' = prefix <> ident
     in case idx of
            Just i  -> indexedIdent ident' i
            Nothing -> ident'

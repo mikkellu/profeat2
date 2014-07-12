@@ -74,7 +74,8 @@ import Data.List.NonEmpty ( NonEmpty(..), toList )
 import qualified Data.List.NonEmpty as L
 import Data.Map ( Map, empty )
 import Data.Maybe
-import Data.Text.Lazy ( append, intercalate, pack )
+import Data.Text.Lazy ( append, pack )
+import qualified Data.Text.Lazy as T
 
 import Text.PrettyPrint.Leijen.Text hiding ( (<$>), empty )
 import qualified Text.PrettyPrint.Leijen.Text as PP
@@ -256,8 +257,8 @@ allContexts root = go (\_ _ -> rootContext) rootContext root
     rootContext = FeatureContext (root :| [])
 
 contextIdent :: FeatureContext -> Ident
-contextIdent =
-    intercalate "_" . fmap mkFsIdent . reverse . toList . getFeatureSymbols
+contextIdent = T.concat . fmap (cons '_' . mkFsIdent) .
+               L.tail . L.reverse . getFeatureSymbols
   where
     mkFsIdent fs
       | fs^.fsIsMultiFeature = indexedIdent (fs^.fsIdent) (fs^.fsIndex)
