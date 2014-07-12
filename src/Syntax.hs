@@ -60,6 +60,8 @@ module Syntax
   , viewSimpleName
 
   , exprAnnot
+
+  , identExpr
   , unaryExpr
   , binaryExpr
   , normalizeExpr
@@ -319,7 +321,7 @@ data Stmt a = Stmt
 
 instance HasExprs Stmt where
     exprs f (Stmt action grd upds a) =
-        Stmt action <$> f grd <*> exprs f upds <*> pure a
+        Stmt <$> exprs f action <*> f grd <*> exprs f upds <*> pure a
 
 data ActionLabel a
   = ActInitialize !a
@@ -429,7 +431,7 @@ instance HasExprs Name where
 
 type Range a = (Expr a, Expr a)
 
--- | This 'Prism' provides a 'Traversal' for 'IdentExpr's.
+-- | This 'Prism' provides a 'Traversal' for 'NameExpr's.
 _NameExpr :: Prism' (Expr a) (Name a, a)
 _NameExpr = prism' (uncurry NameExpr) f
   where
@@ -485,6 +487,9 @@ exprAnnot e = case e of
     IntegerExpr _ a    -> a
     BoolExpr _ a       -> a
     MissingExpr a      -> a
+
+identExpr :: Ident -> SrcLoc -> LExpr
+identExpr ident l = NameExpr (_Ident # (ident, l)) l
 
 -- | Smart constructor for 'BinaryExpr' which attaches the annotation of
 -- the left inner expression @l@ to the newly created expression.

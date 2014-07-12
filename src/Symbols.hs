@@ -48,6 +48,7 @@ module Symbols
   , FeatureContext
 
   , thisFeature
+  , this
   , extendContext
   , allContexts
 
@@ -55,6 +56,9 @@ module Symbols
   , scope
 
   , Env(..)
+
+  , contextIdent
+  , indexedIdent
   ) where
 
 import Control.Applicative hiding ( empty )
@@ -65,6 +69,7 @@ import Data.Array
 import Data.List.NonEmpty ( NonEmpty(..), toList )
 import qualified Data.List.NonEmpty as L
 import Data.Map ( Map, empty )
+import Data.Text.Lazy ( append, intercalate, pack )
 
 import Text.PrettyPrint.Leijen.Text hiding ( (<$>), empty )
 import qualified Text.PrettyPrint.Leijen.Text as PP
@@ -113,6 +118,9 @@ data FeatureSymbol = FeatureSymbol
 
 makeLenses ''FeatureSymbol
 
+instance Eq FeatureSymbol where
+    x == y = _fsIdent x == _fsIdent y && _fsIndex x == _fsIndex y
+
 data SymbolTable = SymbolTable
   { _globals     :: Table GlobalSymbol
   , _constants   :: Table ConstSymbol
@@ -126,6 +134,7 @@ data SymbolTable = SymbolTable
 makeClassy ''SymbolTable
 
 newtype FeatureContext = FeatureContext (NonEmpty FeatureSymbol)
+                       deriving (Eq)
 
 instance Pretty FeatureContext where
     pretty (FeatureContext fss) =
@@ -133,11 +142,10 @@ instance Pretty FeatureContext where
       where
         qualifier fs = text (fs^.fsIdent) <> prettyIndex fs
         prettyIndex fs
-          | fs^.fsIndex == 0 &&
-            not (fs^.fsIsMultiFeature) = PP.empty
-          | otherwise                  = brackets . integer $ fs^.fsIndex
+          | fs^.fsIsMultiFeature = brackets . integer $ fs^.fsIndex
+          | otherwise            = PP.empty
 
-data Scope = Global | Local FeatureContext
+data Scope = Global | Local FeatureContext deriving (Eq)
 
 data Env = Env
   { _scope          :: Scope
@@ -217,6 +225,9 @@ extendContext fs (FeatureContext fss) = FeatureContext (L.cons fs fss)
 thisFeature :: FeatureContext -> FeatureSymbol
 thisFeature (FeatureContext fss) = L.head fss
 
+this :: Getter FeatureContext FeatureSymbol
+this = to thisFeature
+
 allContexts :: FeatureSymbol -> [FeatureContext]
 allContexts root = go (\_ _ -> rootContext) rootContext root
   where
@@ -226,4 +237,19 @@ allContexts root = go (\_ _ -> rootContext) rootContext root
                               fs^..fsChildren.traverse.traverse
         in self:ctxs'
     rootContext = FeatureContext (root :| [])
+
+contextIdent :: FeatureContext -> Ident
+contextIdent (FeatureContext fss) =
+    intercalate "_" . fmap mkFsIdent . reverse . toList $ fss
+  where
+    mkFsIdent fs
+      | fs^.fsIsMultiFeature = indexedIdent (fs^.fsIdent) (fs^.fsIndex)
+      | otherwise            = fs^.fsIdent
+
+indexedIdent :: Ident -> Integer -> Ident
+indexedIdent ident i = ident `append` ('_' `cons` indexToText i)
+  where
+    indexToText j
+      | j >= 0 = pack (show j)
+      | otherwise = '_' `cons` (pack . show $ negate j)
 

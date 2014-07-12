@@ -5,15 +5,21 @@
            , TupleSections #-}
 
 module Typechecker
-  ( evalRange
+  ( SymbolInfo(..)
+  , siType
+
+  , evalRange
   , evalInteger
 
   , checkInitialization
   , checkIfConst
+  , isConstExpr
   , checkIfType
   , checkIfType_
 
   , typeOf
+  , getSymbolInfo
+  , lookupSymbolInfo
 
   , getContext
   ) where
@@ -36,6 +42,13 @@ import Eval
 import Symbols
 import Syntax
 import Types
+
+data SymbolInfo = SymbolInfo
+  { siScope      :: !Scope
+  , siIdent      :: !Ident
+  , siIndex      :: Maybe LExpr
+  , siSymbolType :: !Type
+  }
 
 -- | Evaluates the given range. The expressions must not contain loops or
 -- unexpanded formulas.
@@ -76,6 +89,15 @@ checkIfConst e = view constants >>= \constTbl ->
     case unknownValues constTbl e of
         []    -> return ()
         names -> throw (exprAnnot e) $ UnknownValues e names
+
+isConstExpr :: ( Functor m
+               , MonadReader r m
+               , MonadEither Error m
+               , HasSymbolTable r
+               )
+        => LExpr
+        -> m Bool
+isConstExpr e = null . flip unknownValues e <$> view constants
 
 unknownValues :: Table ConstSymbol -> Expr a -> [Name a]
 unknownValues constTbl = go where
@@ -188,90 +210,71 @@ typeOf (CallExpr (FuncExpr function _) args l) = do
 
 typeOf (CallExpr e _ l) = throw l $ NotAFunction e
 
-typeOf (NameExpr name l) = lookupType name >>= \case
-    Just t  -> return t
-    Nothing -> throw l $ UndefinedIdentifier (prettyText name)
-
+typeOf (NameExpr name _)  = getSymbolInfo name >>= siType
 typeOf (FuncExpr f l)     = throw l $ StandaloneFuntion f
 typeOf (DecimalExpr _ _)  = return doubleType
 typeOf (IntegerExpr _ _)  = return intType
 typeOf (BoolExpr _ _)     = return boolType
 typeOf (MissingExpr _)    = error "Typechecker.typeOf: unresolved MissingExpr"
 
-lookupType :: ( Applicative m
-              , MonadReader Env m
-              , MonadEither Error m
-              )
-           => LName
-           -> m (Maybe Type)
-lookupType (viewSimpleName -> Just (ident, idx, l)) = -- no member access
-    lookupTypeLocal ident idx l >>= \case       -- first check local scope of the feature...
-        Just t  -> return (Just t)
-        Nothing -> lookupTypeGlobal ident idx l -- ...and then the global scope
-lookupType name@(Name _ l) = getContext name >>= \case -- name has a context
+siType :: (MonadEither Error m) => SymbolInfo -> m Type
+siType (SymbolInfo _ ident idx t) = case t of
+    CompoundType (ArrayType _ st) -- TODO: check array bounds
+      | isJust idx -> return (SimpleType st)
+      | otherwise  -> return t
+    SimpleType _ -> case idx of
+        Just e  -> throw (exprAnnot e) $ NotAnArray ident
+        Nothing -> return t
+
+getSymbolInfo :: ( Applicative m
+                 , MonadReader Env m
+                 , MonadEither Error m
+                 )
+              => LName
+              -> m SymbolInfo
+getSymbolInfo name@(Name _ l) = lookupSymbolInfo name >>= \case
+    Just si -> return si
+    Nothing -> throw l $ UndefinedIdentifier (prettyText name)
+
+lookupSymbolInfo :: ( Applicative m
+                    , MonadReader Env m
+                    , MonadEither Error m
+                    )
+                 => LName
+                 -> m (Maybe SymbolInfo)
+lookupSymbolInfo (viewSimpleName -> Just (ident, idx, _)) = do
+    sc <- view scope
+    fmap (SymbolInfo sc ident idx) <$> lookupType ident
+lookupSymbolInfo name@(Name _ l) = getContext name >>= \case
     (_, Nothing)      -> throw l $ NotAVariable (prettyText name)
     (ctx, Just name') -> case name' of
         (viewSimpleName -> Just (ident', idx', l')) ->
-            lookupTypeLocalIn ctx ident' idx' l' >>= \case
-                Just t  -> return (Just t)
+            case lookupTypeIn ctx ident' of
+                Just t  -> return . Just $ SymbolInfo (Local ctx) ident' idx' t
                 Nothing -> notAMember ctx name' l'
         Name _ l' -> notAMember ctx name' l'
   where
     notAMember ctx name' l' =
         throw l' $ NotAMember (prettyText ctx) (prettyText name')
 
-lookupTypeGlobal :: ( Applicative m
-                    , MonadReader r m
-                    , MonadEither Error m
-                    , HasSymbolTable r
-                    )
-                 => Ident
-                 -> Maybe LExpr
-                 -> SrcLoc
-                 -> m (Maybe Type)
-lookupTypeGlobal ident idx l = do
-    symTbl <- view symbolTable
-    liftA2 (<|>) (lookupOf gsType (symTbl^.globals)   ident idx l)
-                 (lookupOf csType (symTbl^.constants) ident idx l)
+lookupType :: ( Applicative m
+              , MonadReader Env m
+              , MonadEither Error m
+              )
+           => Ident
+           -> m (Maybe Type)
+lookupType ident = view scope >>= \case
+    Local ctx -> return $ lookupTypeIn ctx ident
+    Global    -> do
+        symTbl <- view symbolTable
+        return $ lookupOf gsType (symTbl^.globals) ident
+             <|> lookupOf csType (symTbl^.constants) ident
 
-lookupTypeLocal :: ( Applicative m
-                   , MonadReader Env m
-                   , MonadEither Error m
-                   )
-                => Ident
-                -> Maybe LExpr
-                -> SrcLoc
-                -> m (Maybe Type)
-lookupTypeLocal ident idx l = view scope >>= \case
-    Local ctx -> lookupTypeLocalIn ctx ident idx l
-    Global    -> return Nothing
+lookupTypeIn :: FeatureContext -> Ident -> Maybe Type
+lookupTypeIn ctx = lookupOf vsType $ ctx^.this.fsVars
 
-lookupTypeLocalIn :: ( Applicative m
-                     , MonadReader r m
-                     , MonadEither Error m
-                     )
-                  => FeatureContext
-                  -> Ident
-                  -> Maybe LExpr
-                  -> SrcLoc
-                  -> m (Maybe Type)
-lookupTypeLocalIn ctx = lookupOf vsType (ctx^.to thisFeature.fsVars)
-
-lookupOf :: (Applicative m, MonadEither Error m)
-         => Getter a Type
-         -> Table a
-         -> Ident
-         -> Maybe LExpr
-         -> SrcLoc
-         -> m (Maybe Type)
-lookupOf g tbl ident idx l =
-    forOf _Just (tbl^?at ident._Just.g) $ \t -> case t of
-        CompoundType (ArrayType _ st) -- TODO: check array bounds
-          | isJust idx -> return (SimpleType st)
-          | otherwise  -> return t
-        SimpleType _
-          | isJust idx -> throw l $ NotAnArray ident
-          | otherwise  -> return t
+lookupOf :: Getter a Type -> Table a -> Ident -> Maybe Type
+lookupOf g tbl ident = tbl^?at ident._Just.g
 
 getContext :: ( Applicative m
               , MonadReader Env m
@@ -289,7 +292,7 @@ getContext (Name name l) = do
   where
     go ctx qs = case qs of
         (ident, idx):qs' ->
-            match ident idx (thisFeature ctx) >>= \case
+            match ident idx (ctx^.this) >>= \case
                 Just fs' -> go (extendContext fs' ctx) qs'
                 Nothing  -> return (ctx, qs)
         [] -> return (ctx, [])

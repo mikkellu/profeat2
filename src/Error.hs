@@ -49,6 +49,8 @@ data ErrorDesc
   | NotAnArray !Ident
   | NotAVariable !Ident
   | NotAMember !Ident !Ident
+  | IllegalConstAssignment
+  | IllegalWriteAccess
   | DivisionByZero Valuation
   deriving (Show)
 
@@ -107,6 +109,10 @@ instance Pretty ErrorDesc where
             text ident <+> "is used as a variable, but it is a feature"
         NotAMember fIdent ident ->
             text ident <+> "is not a member of" <+> text fIdent
+        IllegalConstAssignment ->
+            "illegal assignment to constant"
+        IllegalWriteAccess ->
+            "illegal write access"
         DivisionByZero val ->
             "division by zero with valuation" <+> prettyValuation val
 
