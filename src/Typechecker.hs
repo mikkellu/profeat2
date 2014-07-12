@@ -244,7 +244,9 @@ lookupSymbolInfo :: ( Applicative m
                  -> m (Maybe SymbolInfo)
 lookupSymbolInfo (viewSimpleName -> Just (ident, idx, _)) = do
     sc <- view scope
-    fmap (SymbolInfo sc ident idx) <$> lookupType ident
+    lookupType ident >>= \case
+        Just t  -> return . Just $ SymbolInfo sc ident idx t
+        Nothing -> fmap (SymbolInfo Global ident idx) <$> lookupTypeGlobal ident
 lookupSymbolInfo name@(Name _ l) = getContext name >>= \case
     (_, Nothing)      -> throw l $ NotAVariable (prettyText name)
     (ctx, Just name') -> case name' of
@@ -263,12 +265,15 @@ lookupType :: ( Applicative m
               )
            => Ident
            -> m (Maybe Type)
-lookupType ident = view scope >>= \case
-    Local ctx -> return $ lookupTypeIn ctx ident
-    Global    -> do
-        symTbl <- view symbolTable
-        return $ lookupOf gsType (symTbl^.globals) ident
-             <|> lookupOf csType (symTbl^.constants) ident
+lookupType ident = flip fmap (view scope) $ \case
+    Local ctx -> lookupTypeIn ctx ident
+    Global    -> Nothing
+
+lookupTypeGlobal :: (MonadReader Env m) => Ident -> m (Maybe Type)
+lookupTypeGlobal ident = do
+    symTbl <- view symbolTable
+    return $ lookupOf gsType (symTbl^.globals) ident
+         <|> lookupOf csType (symTbl^.constants) ident
 
 lookupTypeIn :: FeatureContext -> Ident -> Maybe Type
 lookupTypeIn ctx = lookupOf vsType $ ctx^.this.fsVars
