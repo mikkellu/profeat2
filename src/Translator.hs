@@ -140,6 +140,8 @@ trnsExpr p = preprocessExpr >=> \e -> checkIfType_ p e *> go e
 
         let ident' = fullyQualifiedIdent (siScope si) (siIdent si) Nothing
         trnsIndex (siSymbolType si) ident' (siIndex si) l
+    go (CallExpr (FuncExpr FuncActive _) [NameExpr name _] _) =
+        activeExpr . fst <$> getContext name
     go e = plate go e
 
 trnsIndex :: Type -> Ident -> Maybe LExpr -> SrcLoc -> Trans LExpr
@@ -161,8 +163,18 @@ trnsIndex (CompoundType (ArrayType (Just (lower, upper)) _)) ident (Just e) l = 
                  (identExpr (indexedIdent ident i) noLoc)
                  elseExpr
                  noLoc
-
 trnsIndex _ ident _ l = return $ identExpr ident l
+
+activeExpr :: FeatureContext -> LExpr
+activeExpr ctx =
+    let ctxs = filter (not . _fsMandatory . thisFeature) $ parentContexts ctx
+    in case ctxs of
+           [] -> BoolExpr True noLoc
+           _  -> foldr1 (binaryExpr (LogicBinOp LAnd)) $ fmap isActive ctxs
+  where
+    isActive ctx' = let ident = contextIdent ctx'
+                    in binaryExpr (EqBinOp Eq) (identExpr ident noLoc)
+                                               (IntegerExpr 1 noLoc)
 
 trnsActionLabel :: Translator LActionLabel
 trnsActionLabel = return -- TODO: fully qualified label name for local labels

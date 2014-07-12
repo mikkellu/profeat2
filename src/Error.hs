@@ -49,6 +49,7 @@ data ErrorDesc
   | NotAnArray !Ident
   | NotAVariable !Ident
   | NotAMember !Ident !Ident
+  | NotAFeature !Ident
   | IllegalConstAssignment
   | IllegalWriteAccess
   | DivisionByZero Valuation
@@ -109,6 +110,8 @@ instance Pretty ErrorDesc where
             text ident <+> "is used as a variable, but it is a feature"
         NotAMember fIdent ident ->
             text ident <+> "is not a member of" <+> text fIdent
+        NotAFeature ident ->
+            text ident <+> "is not a feature"
         IllegalConstAssignment ->
             "illegal assignment to constant"
         IllegalWriteAccess ->

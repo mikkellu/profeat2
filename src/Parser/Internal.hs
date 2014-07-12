@@ -85,9 +85,10 @@ reservedNames =
     [ "feature", "endfeature", "global", "const", "formula", "modules", "allOf"
     , "oneOf", "someOf", "of", "optional", "as", "constraint", "rewards"
     , "endrewards", "controller", "endcontroller", "module", "endmodule"
-    , "provides", "activate", "deactivate", "array", "bool", "int", "double"
-    , "initialize" , "for", "endfor", "id", "min", "max", "true", "false", "P"
-    , "Pmin", "Pmax", "S" , "E", "A", "U", "W", "R", "X", "F", "G"
+    , "provides", "active", "activate", "deactivate", "array", "bool", "int"
+    , "double", "initialize" , "for", "endfor", "id", "min", "max"
+    , "true", "false", "P", "Pmin", "Pmax", "S" , "E", "A", "U", "W", "R"
+    , "X", "F", "G"
     ]
 reservedOpNames =
     [ "/", "*", "-", "+", "=", "!=", ">", "<", ">=", "<=", "&", "|", "!"
@@ -415,13 +416,14 @@ forLoop p = loc (ForLoop <$> (reserved "for" *> identifier)
 
 function :: Parser Function
 function = choice
-    [ FuncMin   <$  reserved "min"
-    , FuncMax   <$  reserved "max"
-    , FuncFloor <$  reserved "floor"
-    , FuncCeil  <$  reserved "ceil"
-    , FuncPow   <$  reserved "pow"
-    , FuncMod   <$  reserved "mod"
-    , FuncLog   <$  reserved "log"
+    [ FuncMin    <$ reserved "min"
+    , FuncMax    <$ reserved "max"
+    , FuncFloor  <$ reserved "floor"
+    , FuncCeil   <$ reserved "ceil"
+    , FuncPow    <$ reserved "pow"
+    , FuncMod    <$ reserved "mod"
+    , FuncLog    <$ reserved "log"
+    , FuncActive <$ reserved "active"
     ] <?> "function call"
 
 bound :: Parser Bound

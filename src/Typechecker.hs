@@ -180,22 +180,28 @@ typeOf (CondExpr cond te ee _) = do
 
 typeOf (LoopExpr _ _) = error "Typechecker.typeOf: unresolved LoopExpr"
 
-typeOf (CallExpr (FuncExpr function _) args l) = do
-    ts <- for args $ checkIfType isNumericType
-
-    case function of
-        FuncMin   -> funcMinMax ts
-        FuncMax   -> funcMinMax ts
-        FuncFloor -> funcFloorCeil
-        FuncCeil  -> funcFloorCeil
-        FuncPow   -> do
-            checkArgCount 2
-            return $ if doubleType `elem` ts then doubleType else intType
-        FuncMod   -> do
-            checkArgCount 2
-            void . for args $ checkIfType_ isIntType
-            return intType
-        FuncLog   -> checkArgCount 2 >> return doubleType
+typeOf (CallExpr (FuncExpr function _) args l) = case function of
+    FuncMin    -> do
+        ts <- for args $ checkIfType isNumericType
+        funcMinMax ts
+    FuncMax    -> do
+        ts <- for args $ checkIfType isNumericType
+        funcMinMax ts
+    FuncFloor  -> funcFloorCeil
+    FuncCeil   -> funcFloorCeil
+    FuncPow    -> do
+        checkArgCount 2
+        ts <- for args $ checkIfType isNumericType
+        return $ if doubleType `elem` ts then doubleType else intType
+    FuncMod    -> do
+        checkArgCount 2
+        void . for args $ checkIfType_ isIntType
+        return intType
+    FuncLog    -> checkArgCount 2 >> return doubleType
+    FuncActive -> do
+        checkArgCount 1
+        void $ traverse checkIfFeature args
+        return boolType
   where
     funcMinMax ts
       | doubleType `elem` ts = return doubleType
@@ -216,6 +222,14 @@ typeOf (DecimalExpr _ _)  = return doubleType
 typeOf (IntegerExpr _ _)  = return intType
 typeOf (BoolExpr _ _)     = return boolType
 typeOf (MissingExpr _)    = error "Typechecker.typeOf: unresolved MissingExpr"
+
+checkIfFeature :: (Applicative m, MonadReader Env m, MonadEither Error m)
+               => LExpr
+               -> m ()
+checkIfFeature (NameExpr name l) = do
+    (_, name') <- getContext name
+    unless (isNothing name') . throw l . NotAFeature $ prettyText name
+checkIfFeature e = throw (exprAnnot e) . NotAFeature $ prettyText e
 
 siType :: (MonadEither Error m) => SymbolInfo -> m Type
 siType (SymbolInfo _ ident idx t) = case t of

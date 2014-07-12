@@ -135,8 +135,9 @@ evalImpl (CallExpr (FuncExpr function _) args _) = do
         FuncPow ->
           let r = toDouble v ** toDouble (head vs')
           in if any isDblVal vs then DblVal r else IntVal $ truncate r
-        FuncMod -> IntVal $ toInt v `mod` toInt (head vs')
-        FuncLog -> DblVal $ toDouble v `logBase` toDouble (head vs')
+        FuncMod    -> IntVal $ toInt v `mod` toInt (head vs')
+        FuncLog    -> DblVal $ toDouble v `logBase` toDouble (head vs')
+        FuncActive -> error "Eval.eval: active-function"
   where
     isDblVal (DblVal _) = True
     isDblVal _          = False

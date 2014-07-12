@@ -46,9 +46,12 @@ module Symbols
   , featureCardinality
 
   , FeatureContext
+  , getFeatureSymbols
 
   , thisFeature
   , this
+  , parentContext
+  , parentContexts
   , extendContext
   , allContexts
 
@@ -66,9 +69,11 @@ import Control.Monad.Reader
 import Control.Lens
 
 import Data.Array
+import Data.List ( tails )
 import Data.List.NonEmpty ( NonEmpty(..), toList )
 import qualified Data.List.NonEmpty as L
 import Data.Map ( Map, empty )
+import Data.Maybe
 import Data.Text.Lazy ( append, intercalate, pack )
 
 import Text.PrettyPrint.Leijen.Text hiding ( (<$>), empty )
@@ -133,8 +138,9 @@ data SymbolTable = SymbolTable
 
 makeClassy ''SymbolTable
 
-newtype FeatureContext = FeatureContext (NonEmpty FeatureSymbol)
-                       deriving (Eq)
+newtype FeatureContext = FeatureContext
+  { getFeatureSymbols :: NonEmpty FeatureSymbol
+  } deriving (Eq)
 
 instance Pretty FeatureContext where
     pretty (FeatureContext fss) =
@@ -220,13 +226,24 @@ featureCardinality a = let (lower, upper) = bounds a
                        in upper - lower + 1
 
 extendContext :: FeatureSymbol -> FeatureContext -> FeatureContext
-extendContext fs (FeatureContext fss) = FeatureContext (L.cons fs fss)
+extendContext fs = FeatureContext . L.cons fs . getFeatureSymbols
 
 thisFeature :: FeatureContext -> FeatureSymbol
-thisFeature (FeatureContext fss) = L.head fss
+thisFeature = L.head . getFeatureSymbols
 
 this :: Getter FeatureContext FeatureSymbol
 this = to thisFeature
+
+parentContext :: FeatureContext -> Maybe FeatureContext
+parentContext = fmap FeatureContext . L.nonEmpty . L.tail . getFeatureSymbols
+
+parentContexts :: FeatureContext -> [FeatureContext]
+parentContexts = fmap FeatureContext .
+                 catMaybes .
+                 fmap L.nonEmpty .
+                 tails .
+                 toList .
+                 getFeatureSymbols
 
 allContexts :: FeatureSymbol -> [FeatureContext]
 allContexts root = go (\_ _ -> rootContext) rootContext root
@@ -239,8 +256,8 @@ allContexts root = go (\_ _ -> rootContext) rootContext root
     rootContext = FeatureContext (root :| [])
 
 contextIdent :: FeatureContext -> Ident
-contextIdent (FeatureContext fss) =
-    intercalate "_" . fmap mkFsIdent . reverse . toList $ fss
+contextIdent =
+    intercalate "_" . fmap mkFsIdent . reverse . toList . getFeatureSymbols
   where
     mkFsIdent fs
       | fs^.fsIsMultiFeature = indexedIdent (fs^.fsIdent) (fs^.fsIndex)
