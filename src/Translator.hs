@@ -159,7 +159,7 @@ trnsIndex (CompoundType (ArrayType (Just (lower, upper)) _)) ident (Just e) l = 
                            [lower .. upper - 1]
   where
     cond idxExpr i elseExpr =
-        CondExpr (binaryExpr (EqBinOp Eq) idxExpr (IntegerExpr i noLoc))
+        CondExpr (idxExpr `eq` intExpr i)
                  (identExpr (indexedIdent ident i) noLoc)
                  elseExpr
                  noLoc
@@ -172,9 +172,8 @@ activeExpr ctx =
            [] -> BoolExpr True noLoc
            _  -> foldr1 (binaryExpr (LogicBinOp LAnd)) $ fmap isActive ctxs
   where
-    isActive ctx' = let ident = contextIdent ctx'
-                    in binaryExpr (EqBinOp Eq) (identExpr ident noLoc)
-                                               (IntegerExpr 1 noLoc)
+    isActive ctx' = let ident = activeIdent ctx'
+                    in identExpr ident noLoc `eq` 1
 
 trnsActionLabel :: Translator LActionLabel
 trnsActionLabel = return -- TODO: fully qualified label name for local labels
@@ -200,4 +199,7 @@ fullyQualifiedIdent sc ident idx =
     in case idx of
            Just i  -> indexedIdent ident' i
            Nothing -> ident'
+
+activeIdent :: FeatureContext -> Ident
+activeIdent = contextIdent
 

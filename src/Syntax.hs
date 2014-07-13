@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveFunctor, OverloadedStrings, TemplateHaskell #-}
+{-# LANGUAGE DeriveFunctor, FlexibleInstances, OverloadedStrings, TemplateHaskell #-}
 
 module Syntax
   ( module Syntax.Operators
@@ -61,10 +61,14 @@ module Syntax
 
   , exprAnnot
 
-  , identExpr
   , unaryExpr
   , binaryExpr
+  , identExpr
+  , intExpr
   , normalizeExpr
+
+  , (?), ThenElse(..)
+  , eq, neq, gt, lt, gte, lte
 
   , LModel
   , LSpecification
@@ -372,6 +376,39 @@ data Expr a
   | MissingExpr !a
   deriving (Eq, Functor, Show)
 
+instance Num (Expr SrcLoc) where
+    (IntegerExpr 0 _) + e = e
+    e + (IntegerExpr 0 _) = e
+    (DecimalExpr 0 _) + e = e
+    e + (DecimalExpr 0 _) = e
+    lhs + rhs             = binaryExpr (ArithBinOp Add) lhs rhs
+
+    (IntegerExpr 1 _) * e = e
+    e * (IntegerExpr 1 _) = e
+    (DecimalExpr 1 _) * e = e
+    e * (DecimalExpr 1 _) = e
+    (IntegerExpr 0 _) * _ = 0
+    _ * (IntegerExpr 0 _) = 0
+    (DecimalExpr 0 _) * _ = DecimalExpr 0.0 noLoc
+    _ * (DecimalExpr 0 _) = DecimalExpr 0.0 noLoc
+    lhs * rhs             = binaryExpr (ArithBinOp Mul) lhs rhs
+
+    e - (IntegerExpr 0 _) = e
+    (IntegerExpr 0 _) - e = negate e
+    e - (DecimalExpr 0 _) = e
+    (DecimalExpr 0 _) - e = negate e
+    lhs - rhs             = binaryExpr (ArithBinOp Sub) lhs rhs
+
+    negate (IntegerExpr i _) = IntegerExpr (negate i) noLoc
+    negate (DecimalExpr d _) = DecimalExpr (negate d) noLoc
+    negate e                 = unaryExpr (ArithUnOp Neg) e
+
+    abs e = e `lt` 0 ? negate e :? e
+
+    signum e = e `lt` 0 ? -1 :? (e `gt` 0 ? 1 :? 0)
+
+    fromInteger = intExpr
+
 instance Plated (Expr a) where
     plate f e = case e of
         BinaryExpr binOp lhs rhs a ->
@@ -489,9 +526,6 @@ exprAnnot e = case e of
     BoolExpr _ a       -> a
     MissingExpr a      -> a
 
-identExpr :: Ident -> SrcLoc -> LExpr
-identExpr ident l = NameExpr (_Ident # (ident, l)) l
-
 -- | Smart constructor for 'BinaryExpr' which attaches the annotation of
 -- the left inner expression @l@ to the newly created expression.
 binaryExpr :: BinOp -> Expr a -> Expr a -> Expr a
@@ -501,6 +535,14 @@ binaryExpr binOp lhs rhs = BinaryExpr binOp lhs rhs (exprAnnot lhs)
 -- inner expression @e@ to the newly created expression.
 unaryExpr :: UnOp -> Expr a -> Expr a
 unaryExpr unOp e = UnaryExpr unOp e (exprAnnot e)
+
+-- | Generates a 'NameExpr' with the given identifier.
+identExpr :: Ident -> SrcLoc -> LExpr
+identExpr ident l = NameExpr (_Ident # (ident, l)) l
+
+-- | Generates an 'IntegerExpr'.
+intExpr :: Integer -> LExpr
+intExpr = flip IntegerExpr noLoc
 
 -- | Normalizes the given expression. The following rewrite rules are
 -- applied:
@@ -514,6 +556,22 @@ normalizeExpr = transform $ \e -> case e of
     UnaryExpr (ArithUnOp Neg) (IntegerExpr i a) _ -> IntegerExpr (negate i) a
     UnaryExpr (ArithUnOp Neg) (DecimalExpr d a) _ -> DecimalExpr (negate d) a
     _ -> e
+
+infixl 0 ?
+infixl 1 :?
+
+data ThenElse a = Expr a :? Expr a
+
+(?) :: Expr a -> ThenElse a -> Expr a
+cond ? (te :? ee) = CondExpr cond te ee $ exprAnnot cond
+
+eq, neq, gt, lt, gte, lte :: Expr a -> Expr a -> Expr a
+eq  = binaryExpr (EqBinOp Eq)
+neq = binaryExpr (EqBinOp Neq)
+gt  = binaryExpr (RelBinOp Gt)
+lt  = binaryExpr (RelBinOp Lt)
+gte = binaryExpr (RelBinOp Gte)
+lte = binaryExpr (RelBinOp Lte)
 
 type LModel           = Model SrcLoc
 type LSpecification   = Specification SrcLoc
