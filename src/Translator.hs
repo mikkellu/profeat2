@@ -10,6 +10,7 @@ import Control.Monad.Reader
 
 import Data.Foldable ( toList )
 import Data.Map ( assocs, member )
+import Data.Maybe
 import Data.Monoid
 import Data.Traversable
 
@@ -48,6 +49,34 @@ trnsGlobals = do
     fmap concat . for (globalTbl^..traverse) $ \(GlobalSymbol t decl) ->
         fmap GlobalDef <$> trnsVarDecl t decl
 
+trnsController :: Trans (Maybe LDefinition)
+trnsController = local (scope .~ LocalCtrlr) $ do
+    (decls, stmts, l) <- view controller >>= \case
+        Just cts -> do
+            body <- trnsModuleBody $ cts^.ctsBody
+            let ModuleBody decls (Repeatable stmts) l = body
+            return (decls, stmts, l)
+        Nothing -> return ([], [], noLoc)
+
+    actDecls <- genActiveVars
+    let decls' = actDecls ++ decls
+        stmts' = Repeatable stmts
+        body'  = ModuleBody decls' stmts' l
+
+    return $ if null decls' && null stmts
+        then Nothing
+        else Just . ModuleDef $ Module "_controller" [] [] body'
+
+genActiveVars :: Trans [LVarDecl]
+genActiveVars = mapMaybe mkVarDecl . allContexts <$> view rootFeature where
+    mkVarDecl ctx
+      | ctx^.this.fsMandatory = Nothing
+      | otherwise             =
+        let ident = activeIdent ctx
+            vt    = SimpleVarType $ IntVarType (0, 1)
+            e     = Just 0
+        in Just $ VarDecl ident vt e noLoc
+
 trnsModules :: Trans [LDefinition]
 trnsModules = do
     root <- view rootFeature
@@ -58,9 +87,7 @@ trnsModules = do
 trnsModule :: Ident -> LModuleBody -> Trans LModule
 trnsModule ident body = do
     Local ctx <- view scope
-    let ident' = contextIdent ctx <> ('_' `cons` ident)
-
-    Module ident' [] [] <$> trnsModuleBody body
+    Module (moduleIdent ctx ident) [] [] <$> trnsModuleBody body
 
 trnsModuleBody :: Translator LModuleBody
 trnsModuleBody (ModuleBody decls stmts l) =
@@ -70,10 +97,16 @@ trnsModuleBody (ModuleBody decls stmts l) =
 
 trnsLocalVars :: Translator [LVarDecl]
 trnsLocalVars decls = do
-    Local ctx <- view scope
-    fmap concat . for decls $ \decl ->
-        let t = ctx^?!this.fsVars.at (declIdent decl)._Just.vsType
-        in trnsVarDecl t decl
+    sc <- view scope
+    case sc of -- TODO: refactor
+        Local ctx -> fmap concat . for decls $ \decl ->
+            let t = ctx^?!this.fsVars.at (declIdent decl)._Just.vsType
+            in trnsVarDecl t decl
+        LocalCtrlr -> fmap concat . for decls $ \decl -> do
+            cts <- view controller
+            let t = cts^?!_Just.ctsVars.at (declIdent decl)._Just.vsType
+            trnsVarDecl t decl
+        Global -> error "Translator.trnsLocalVars: called with Global scope"
 
 trnsStmt :: Translator LStmt
 trnsStmt (Stmt action grd upds l) =
@@ -109,9 +142,6 @@ trnsAssign asgn = do
             let name' = fullyQualifiedName symSc ident i l
             return $ Assign name' e' l
         _ -> undefined -- TODO: activation/deactivation
-
-trnsController :: Trans (Maybe LDefinition)
-trnsController = return Nothing
 
 trnsVarDecl :: Type -> LVarDecl -> Trans [LVarDecl]
 trnsVarDecl t (VarDecl ident vt e l) = do
@@ -193,8 +223,9 @@ fullyQualifiedName sc ident idx l =
 fullyQualifiedIdent :: Scope -> Ident -> Maybe Integer -> Ident
 fullyQualifiedIdent sc ident idx =
     let prefix = case sc of
-            Local ctx -> contextIdent ctx `snoc` '_'
-            Global    -> ""
+            Local ctx  -> contextIdent ctx `snoc` '_'
+            LocalCtrlr -> "__"
+            Global     -> ""
         ident' = prefix <> ident
     in case idx of
            Just i  -> indexedIdent ident' i
@@ -202,4 +233,7 @@ fullyQualifiedIdent sc ident idx =
 
 activeIdent :: FeatureContext -> Ident
 activeIdent = contextIdent
+
+moduleIdent :: FeatureContext -> Ident -> Ident
+moduleIdent ctx ident = contextIdent ctx <> ('_' `cons` ident)
 

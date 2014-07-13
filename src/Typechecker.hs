@@ -279,15 +279,21 @@ lookupType :: ( Applicative m
               )
            => Ident
            -> m (Maybe Type)
-lookupType ident = flip fmap (view scope) $ \case
-    Local ctx -> lookupTypeIn ctx ident
-    Global    -> Nothing
+lookupType ident = view scope >>= \case
+    Local ctx  -> return $ lookupTypeIn ctx ident
+    LocalCtrlr -> lookupTypeCtrlr ident
+    Global     -> return Nothing
 
 lookupTypeGlobal :: (MonadReader Env m) => Ident -> m (Maybe Type)
 lookupTypeGlobal ident = do
     symTbl <- view symbolTable
     return $ lookupOf gsType (symTbl^.globals) ident
          <|> lookupOf csType (symTbl^.constants) ident
+
+lookupTypeCtrlr:: (MonadReader Env m) => Ident -> m (Maybe Type)
+lookupTypeCtrlr ident = do
+    symTbl <- view symbolTable
+    return $ symTbl^?controller._Just.ctsVars.at ident._Just.vsType
 
 lookupTypeIn :: FeatureContext -> Ident -> Maybe Type
 lookupTypeIn ctx = lookupOf vsType $ ctx^.this.fsVars

@@ -49,9 +49,9 @@ extendSymbolTable symTbl defs = flip evalStateT symTbl $ do
 
     checkIfNonCyclicFeatures =<< use features
 
-    forOf_ (traverse._ControllerDef) defs $ \c@(Controller body) ->
+    forOf_ (traverse._ControllerDef) defs $ \(Controller body) ->
         ifNot containsController "controller" (modAnnot body) $
-            controller .= Just (ControllerSymbol body)
+            controller .= Just (ControllerSymbol Map.empty body)
 
     expandExprsOf $ constants.traverse.csExpr
     checkIfNonCyclicConstants =<< use constants
@@ -64,6 +64,7 @@ extendSymbolTable symTbl defs = flip evalStateT symTbl $ do
         return (gs & gsType .~ t)
 
     root <- rootFeatureSymbol symTbl''
+    setControllerVarTypes
 
     return $ symTbl'' & rootFeature .~ root
   where
@@ -72,6 +73,20 @@ extendSymbolTable symTbl defs = flip evalStateT symTbl $ do
         case st `contains` ident of
             Just l' -> throw loc $ MultipleDeclarations ident l'
             Nothing -> m
+
+setControllerVarTypes :: ( Applicative m
+                         , MonadState SymbolTable m
+                         , MonadEither Error m
+                         )
+                      => m ()
+setControllerVarTypes = do
+    symTbl <- get
+    let cts = symTbl^.controller
+    void . flip runReaderT (Env LocalCtrlr symTbl) $
+        for (cts^.._Just.ctsBody.to modVars.traverse) $
+            \(VarDecl ident vt _ l) -> do
+                vs <- VarSymbol l False <$> fromVarType vt
+                controller._Just.ctsVars.at ident .= Just vs
 
 expandExprsOf :: (Applicative m, MonadState SymbolTable m, MonadEither Error m)
               => Traversal' SymbolTable LExpr

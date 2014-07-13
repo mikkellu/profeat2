@@ -32,6 +32,7 @@ module Symbols
   , fsVars
 
   , ControllerSymbol(..)
+  , ctsVars
   , ctsBody
 
   , Table
@@ -115,7 +116,8 @@ data VarSymbol = VarSymbol
 makeLenses ''VarSymbol
 
 data ControllerSymbol = ControllerSymbol
-  { _ctsBody :: LModuleBody
+  { _ctsVars :: Table VarSymbol
+  , _ctsBody :: LModuleBody
   } deriving (Show)
 
 makeLenses ''ControllerSymbol
@@ -163,7 +165,7 @@ instance Pretty FeatureContext where
           | fs^.fsIsMultiFeature = brackets . integer $ fs^.fsIndex
           | otherwise            = PP.empty
 
-data Scope = Global | Local FeatureContext deriving (Eq)
+data Scope = Global | LocalCtrlr | Local FeatureContext deriving (Eq)
 
 data Env = Env
   { _scope          :: Scope
