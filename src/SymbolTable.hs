@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, RankNTypes #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings, RankNTypes #-}
 
 module SymbolTable
   ( module Symbols
@@ -48,6 +48,10 @@ extendSymbolTable symTbl defs = flip evalStateT symTbl $ do
         ifNot containsFeature ident (featAnnot f) $ features.at ident .= Just f
 
     checkIfNonCyclicFeatures =<< use features
+
+    forOf_ (traverse._ControllerDef) defs $ \c@(Controller body) ->
+        ifNot containsController "controller" (modAnnot body) $
+            controller .= Just (ControllerSymbol body)
 
     expandExprsOf $ constants.traverse.csExpr
     checkIfNonCyclicConstants =<< use constants

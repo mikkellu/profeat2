@@ -31,6 +31,9 @@ module Symbols
   , fsModules
   , fsVars
 
+  , ControllerSymbol(..)
+  , ctsBody
+
   , Table
   , SymbolTable(..)
   , HasSymbolTable(..)
@@ -41,6 +44,7 @@ module Symbols
   , containsSymbol
   , containsModule
   , containsFeature
+  , containsController
   , lookupModule
   , lookupFeature
   , featureCardinality
@@ -110,6 +114,12 @@ data VarSymbol = VarSymbol
 
 makeLenses ''VarSymbol
 
+data ControllerSymbol = ControllerSymbol
+  { _ctsBody :: LModuleBody
+  } deriving (Show)
+
+makeLenses ''ControllerSymbol
+
 data FeatureSymbol = FeatureSymbol
   { _fsIdent          :: !Ident
   , _fsIndex          :: !Integer
@@ -135,6 +145,7 @@ data SymbolTable = SymbolTable
   , _features    :: Table LFeature
   , _constValues :: Valuation
   , _rootFeature :: FeatureSymbol
+  , _controller  :: Maybe ControllerSymbol
   } deriving (Show)
 
 makeClassy ''SymbolTable
@@ -173,6 +184,7 @@ emptySymbolTable = SymbolTable
   , _features    = empty
   , _constValues = empty
   , _rootFeature = emptyFeatureSymbol
+  , _controller  = Nothing
   }
 
 emptyFeatureSymbol :: FeatureSymbol
@@ -200,6 +212,9 @@ containsModule symTbl ident =
 
 containsFeature :: SymbolTable -> Ident -> Maybe SrcLoc
 containsFeature symTbl ident = symTbl^?features.at ident._Just.to featAnnot
+
+containsController :: SymbolTable -> Ident -> Maybe SrcLoc
+containsController symTbl _ = symTbl^?controller._Just.ctsBody.to modAnnot
 
 lookupModule :: (MonadReader r m, MonadEither Error m, HasSymbolTable r)
              => Ident
