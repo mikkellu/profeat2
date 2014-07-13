@@ -82,10 +82,10 @@ toSyntaxError = SyntaxError . pack .
 
 reservedNames, reservedOpNames :: [String]
 reservedNames =
-    [ "feature", "endfeature", "global", "const", "formula", "modules", "allOf"
-    , "oneOf", "someOf", "of", "optional", "as", "constraint", "rewards"
+    [ "feature", "endfeature", "global", "const", "formula", "modules", "all"
+    , "one", "some", "of", "optional", "as", "constraint", "rewards"
     , "endrewards", "controller", "endcontroller", "module", "endmodule"
-    , "provides", "active", "activate", "deactivate", "array", "bool", "int"
+    , "public", "active", "activate", "deactivate", "array", "bool", "int"
     , "double", "initialize" , "for", "endfor", "id", "min", "max"
     , "true", "false", "P", "Pmin", "Pmax", "S" , "E", "A", "U", "W", "R"
     , "X", "F", "G"
@@ -198,20 +198,20 @@ feature = loc $ do
                          <*> moduleList
                          <*> many rewards
   where
-    moduleList = option [] $ reserved "modules" *> colon *> commaSep1 inst <* semi
+    moduleList = option [] $ reserved "modules" *> commaSep1 inst <* semi
 
 constraint :: Parser LExpr
-constraint = reserved "constraint" *> colon *> expr <* semi
+constraint = reserved "constraint" *> expr <* semi
 
 decomposition :: Parser LDecomposition
-decomposition = loc (Decomposition <$> (decompOp <* colon)
+decomposition = loc (Decomposition <$> (decompOp <* reserved "of")
                                    <*> (commaSep1 featureRef <* semi))
              <?> "decomposition"
 
 decompOp :: Parser LDecompOp
-decompOp =  AllOf  <$  reserved "allOf"
-        <|> OneOf  <$  reserved "oneOf"
-        <|> SomeOf <$  reserved "someOf"
+decompOp =  AllOf  <$  reserved "all"
+        <|> OneOf  <$  reserved "one"
+        <|> SomeOf <$  reserved "some"
         <|> Group  <$> range
         <?> "decomposition operator"
 
@@ -244,10 +244,9 @@ moduleDef = fmap ModuleDef $ do
     reserved "module"
     ident <- identifier
     ps    <- params
-    block "module" $ Module ident ps <$> provides <*> moduleBody
+    block "module" $ Module ident ps <$> public <*> moduleBody
   where
-    provides = option [] $
-        reserved "provides" *> colon *> commaSep1 identifier <* semi
+    public = option [] $ reserved "public" *> commaSep1 identifier <* semi
 
 moduleBody :: Parser LModuleBody
 moduleBody = loc (ModuleBody <$> many varDecl <*> repeatable stmt many)

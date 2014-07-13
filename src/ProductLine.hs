@@ -148,7 +148,7 @@ instantiateModule :: ( Applicative m
 instantiateModule idx (Instance ident args l) = do
     mod'  <- instantiateWithId idx ident args l =<< lookupModule ident l
     body' <- prepModuleBody $ modBody mod'
-    let public = modProvides mod'
+    let public = modPublic mod'
 
     varSyms <- fmap Map.fromList . for (modVars body') $ \decl ->
                    (declIdent decl,) <$> varSymbol public decl

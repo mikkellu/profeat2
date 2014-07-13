@@ -225,10 +225,10 @@ instance HasExprs Controller where
     exprs f (Controller body) = Controller <$> exprs f body
 
 data Module a = Module
-  { modIdent    :: !Ident
-  , modParams   :: [Ident]
-  , modProvides :: [Ident]
-  , modBody     :: ModuleBody a
+  { modIdent  :: !Ident
+  , modParams :: [Ident]
+  , modPublic :: [Ident]
+  , modBody   :: ModuleBody a
   } deriving (Eq, Functor, Show)
 
 instance HasExprs Module where
@@ -653,21 +653,21 @@ instance Pretty (Feature a) where
         constrList = vsep (fmap prettyConstraint constrs)
         modList
           | null mods = empty
-          | otherwise = "modules" <+> colon <+>
+          | otherwise = "modules" <+>
             hang 4 (fillSep . punctuate comma $ fmap pretty mods) <> semi
 
 prettyConstraint :: Expr a -> Doc
-prettyConstraint e = "constraint" <+> colon <+> pretty e <> semi
+prettyConstraint e = "constraint" <+> pretty e <> semi
 
 instance Pretty (Decomposition a) where
-    pretty (Decomposition decompOp cs _) = pretty decompOp <+> colon <+>
+    pretty (Decomposition decompOp cs _) = pretty decompOp <+> "of" <+>
         hang 4 (fillSep . punctuate comma $ fmap pretty cs) <> semi
 
 instance Pretty (DecompOp a) where
     pretty decomp = case decomp of
-        AllOf       -> "allOf"
-        OneOf       -> "oneOf"
-        SomeOf      -> "someOf"
+        AllOf       -> "all"
+        OneOf       -> "one"
+        SomeOf      -> "some"
         Group range -> prettyRange range
 
 instance Pretty (FeatureRef a) where
@@ -695,14 +695,14 @@ instance Pretty (Controller a) where
         indent 4 (pretty body) <> line <> "endcontroller"
 
 instance Pretty (Module a) where
-    pretty (Module ident params provides body) =
+    pretty (Module ident params public body) =
         "module" <+> text ident <> prettyParams params <> line <>
-        indent 4 (providesList <> line <> pretty body) <> line <> "endmodule"
+        indent 4 (publicList <> line <> pretty body) <> line <> "endmodule"
       where
-        providesList
-          | null provides = empty
-          | otherwise     = "provides" <+>
-            hang 4 (fillSep . punctuate comma $ fmap text provides) <> semi
+        publicList
+          | null public = empty
+          | otherwise   = "public" <+>
+            hang 4 (fillSep . punctuate comma $ fmap text public) <> semi
 
 instance Pretty (ModuleBody a) where
     pretty (ModuleBody decls stmts _) =

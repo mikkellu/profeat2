@@ -18,10 +18,10 @@ feature_def = 'feature', ident_symbol, [ param_list ],
 module_list = module_inst, { module_inst }, ';' ;
 module_inst = ident_symbol, [ arg_list ] ;
 
-decomposition = 'allOf'    , feature_list
-              | 'oneOf'    , feature_list
-              | 'someOf'   , feature_list
-              | range, 'of', feature_list
+decomposition = 'all' , 'of', feature_list
+              | 'one' , 'of', feature_list
+              | 'some', 'of', feature_list
+              | range , 'of', feature_list
               ;
 
 constraint = 'constraint', constraint_expr ;
@@ -44,7 +44,7 @@ module_def = 'module', ident_symbol, [ param_list ],
 
 module_body = { var_decl }, stmt_list ;
 
-export_list = 'provides', ident_symbol, { ',', ident_symbol }, ';' ;
+export_list = 'public', ident_symbol, { ',', ident_symbol }, ';' ;
 
 stmt_list = stmt, [ stmt_list ]
           | for_loop, stmt_list, 'endfor'
@@ -88,10 +88,8 @@ action = 'initialize'
        | name
        ;
 
-name      = ident_symbol, { qualifier } ;
-qualifier = '.', ident_symbol
-          | '[', expr, ']'
-          ;
+name = ident_symbol, [ '[', expr, ']' ],
+        { '.', ident_symbol, [ '[', expr, ']' ] };
 
 (* Templates *)
 
