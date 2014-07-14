@@ -7,8 +7,11 @@ module Translator
 import Control.Applicative
 import Control.Lens
 import Control.Monad.Reader
+import Control.Monad.State
 
+import Data.Array ( Array, bounds, elems )
 import Data.Foldable ( toList )
+import Data.List ( genericTake, genericLength )
 import Data.Map ( assocs, member )
 import Data.Maybe
 import Data.Monoid
@@ -21,7 +24,7 @@ import Template
 import Typechecker
 import Types
 
-type Trans a = ReaderT Env (Either Error) a
+type Trans = ReaderT Env (Either Error)
 
 type Translator a = a -> Trans a
 
@@ -58,14 +61,27 @@ trnsController = local (scope .~ LocalCtrlr) $ do
             return (decls, stmts, l)
         Nothing -> return ([], [], noLoc)
 
-    actDecls <- genActiveVars
-    let decls' = actDecls ++ decls
-        stmts' = Repeatable stmts
-        body'  = ModuleBody decls' stmts' l
+    actDecls       <- genActiveVars
+    (seedStmts, i) <- genSeeding
+
+    let seedVar = VarDecl seedVarIdent
+                  (SimpleVarType $ IntVarType (0, intExpr i))
+                  (Just 0)
+                  noLoc
+        locGrd  = identExpr seedVarIdent noLoc `eq` intExpr i
+
+    let decls'  = actDecls ++ decls
+        stmts'  = fmap (prependLocGuard locGrd) stmts
+        stmts'' = Repeatable (fmap One seedStmts ++ stmts')
+        body'   = ModuleBody (seedVar:decls') stmts'' l
 
     return $ if null decls' && null stmts
         then Nothing
         else Just . ModuleDef $ Module "_controller" [] [] body'
+  where
+    prependLocGuard locGrd (One (Stmt action grd upds l)) =
+        One $ Stmt action (binaryExpr (LogicBinOp LAnd) locGrd grd) upds l
+    prependLocGuard _ s = s
 
 genActiveVars :: Trans [LVarDecl]
 genActiveVars = mapMaybe mkVarDecl . allContexts <$> view rootFeature where
@@ -76,6 +92,40 @@ genActiveVars = mapMaybe mkVarDecl . allContexts <$> view rootFeature where
             vt    = SimpleVarType $ IntVarType (0, 1)
             e     = Just 0
         in Just $ VarDecl ident vt e noLoc
+
+genSeeding :: Trans ([LStmt], Integer)
+genSeeding = do
+    root <- view rootFeature
+    return . flip runState 0 . fmap concat $ for (allContexts root) seed
+
+seed :: FeatureContext -> State Integer [LStmt]
+seed ctx = do
+    let fs      = ctx^.this
+        allMand = all (^.fsMandatory) $ fs^..fsChildren.traverse.traverse
+        confs   = configurations (^.fsOptional)
+                                 (fs^.fsGroupCard)
+                                 (fs^..fsChildren.traverse)
+    if isLeafFeature fs || allMand
+        then return []
+        else do
+            i <- get
+            let stmts = fmap (genStmt i) confs
+            modify (+1)
+
+            return stmts
+  where
+    genStmt :: Integer -> [FeatureSymbol] -> LStmt
+    genStmt i conf =
+        let ctxs' = (`extendContext` ctx) <$> filter (not . _fsMandatory) conf
+            grd   = identExpr seedVarIdent noLoc `eq` intExpr i
+            upd   = genUpdate i ctxs'
+        in Stmt NoAction grd (Repeatable [One upd]) noLoc
+
+    genUpdate :: Integer -> [FeatureContext] -> LUpdate
+    genUpdate i ctxs =
+        let sAsgn = One $ Assign seedVarName (intExpr $ i + 1) noLoc
+            asgns = fmap (\c -> One $ Assign (activeName c) 1 noLoc) ctxs
+        in Update Nothing (Repeatable $ sAsgn:asgns) noLoc
 
 trnsModules :: Trans [LDefinition]
 trnsModules = do
@@ -231,9 +281,36 @@ fullyQualifiedIdent sc ident idx =
            Just i  -> indexedIdent ident' i
            Nothing -> ident'
 
+activeName :: FeatureContext -> LName
+activeName ctx = review _Ident (activeIdent ctx, noLoc)
+
 activeIdent :: FeatureContext -> Ident
 activeIdent = contextIdent
 
 moduleIdent :: FeatureContext -> Ident -> Ident
 moduleIdent ctx ident = contextIdent ctx <> ('_' `cons` ident)
+
+seedVarName :: LName
+seedVarName = review _Ident (seedVarIdent, noLoc)
+
+seedVarIdent :: Ident
+seedVarIdent = "__loc"
+
+configurations :: (a -> Bool)
+               -> (Integer, Integer)
+               -> [Array Integer a]
+               -> [[a]]
+configurations isOptional (lower, upper) as = filter valid . subsequences $ as
+  where
+    opt = genericLength . filter isOptional $ as^..traverse.traverse
+    valid xs = let cnt  = genericLength xs
+                   mand = genericLength . filter (not . isOptional) $ xs
+               in lower - opt <= mand && cnt <= upper
+
+subsequences :: [Array Integer a] -> [[a]]
+subsequences (a:as) = let (lower, upper) = bounds a in do
+    ss <- subsequences as
+    i  <- enumFromTo lower (upper + 1)
+    return $ genericTake i (elems a) ++ ss
+subsequences [] = return []
 

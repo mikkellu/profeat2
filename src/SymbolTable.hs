@@ -26,7 +26,7 @@ import Typechecker
 import Types.Util
 
 extendSymbolTable :: SymbolTable -> [LDefinition] -> Either Error SymbolTable
-extendSymbolTable symTbl defs = flip evalStateT symTbl $ do
+extendSymbolTable symTbl defs = flip evalStateT symTbl $ do -- TODO: refactor
     forOf_ (traverse._GlobalDef) defs $ \decl@(VarDecl ident vt _ l) ->
         ifNot containsSymbol ident l $
             globals.at ident .= Just (GlobalSymbol (fromVarType' vt) decl)
@@ -66,7 +66,8 @@ extendSymbolTable symTbl defs = flip evalStateT symTbl $ do
     root <- rootFeatureSymbol symTbl''
     setControllerVarTypes
 
-    return $ symTbl'' & rootFeature .~ root
+    symTbl''' <- get
+    return $ symTbl''' & rootFeature .~ root
   where
     ifNot contains ident loc m = do
         st <- get

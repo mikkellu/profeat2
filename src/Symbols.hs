@@ -53,6 +53,7 @@ module Symbols
   , FeatureContext
   , getFeatureSymbols
 
+  , isLeafFeature
   , thisFeature
   , this
   , parentContext
@@ -242,6 +243,9 @@ checkedLookup f ident l =
 featureCardinality :: Array Integer FeatureSymbol -> Integer
 featureCardinality a = let (lower, upper) = bounds a
                        in upper - lower + 1
+
+isLeafFeature :: FeatureSymbol -> Bool
+isLeafFeature = ((0, 0) ==) . _fsGroupCard
 
 extendContext :: FeatureSymbol -> FeatureContext -> FeatureContext
 extendContext fs = FeatureContext . L.cons fs . getFeatureSymbols
