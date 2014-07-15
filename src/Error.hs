@@ -39,6 +39,7 @@ data ErrorDesc
   | NotApplicable !BinOp !Type !Type
   | NotAFunction !LExpr
   | StandaloneFuntion !Function
+  | StandaloneMissingExpr
   | UnknownValues LExpr [LName]
   | MalformedLoopBody
   | AmbiguousDecomposition !Ident
@@ -86,6 +87,8 @@ instance Pretty ErrorDesc where
             pretty e <+> "is not a function"
         StandaloneFuntion f ->
             pretty f <+> "is a function, but no arguments are given"
+        StandaloneMissingExpr ->
+            "expansion operator '...' used outside of for loop"
         UnknownValues e names ->
             "the expression" <+> pretty e <+> "cannot be evaluated as the" <+>
             "values of the following variables is not known:" <> line <>

@@ -248,7 +248,7 @@ typeOf (FuncExpr f l)     = throw l $ StandaloneFuntion f
 typeOf (DecimalExpr _ _)  = return doubleType
 typeOf (IntegerExpr _ _)  = return intType
 typeOf (BoolExpr _ _)     = return boolType
-typeOf (MissingExpr _)    = error "Typechecker.typeOf: unresolved MissingExpr"
+typeOf (MissingExpr l)    = throw l StandaloneMissingExpr
 
 checkIfFeature :: ( Applicative m
                   , MonadReader r m
