@@ -21,6 +21,7 @@ module Typechecker
   , getSymbolInfo
   , lookupSymbolInfo
 
+  , getFeature
   , getContext
   ) where
 
@@ -52,7 +53,12 @@ data SymbolInfo = SymbolInfo
 
 -- | Evaluates the given range. The expressions must not contain loops or
 -- unexpanded formulas.
-evalRange :: (Applicative m, MonadReader Env m, MonadEither Error m)
+evalRange :: ( Applicative m
+             , MonadReader r m
+             , MonadEither Error m
+             , HasSymbolTable r
+             , HasScope r
+             )
           => LRange
           -> m (Integer, Integer)
 evalRange = both evalInteger
@@ -60,8 +66,10 @@ evalRange = both evalInteger
 -- | Evaluates the given expression as 'Integer'. The expression must not
 -- contain loops or unexpanded formulas.
 evalInteger :: ( Applicative m
-               , MonadReader Env m
+               , MonadReader r m
                , MonadEither Error m
+               , HasSymbolTable r
+               , HasScope r
                )
             => LExpr
             -> m Integer
@@ -74,8 +82,10 @@ evalInteger e = do
     return v
 
 checkInitialization :: ( Applicative m
-                       , MonadReader Env m
+                       , MonadReader r m
                        , MonadEither Error m
+                       , HasSymbolTable r
+                       , HasScope r
                        )
                     => Type
                     -> LExpr
@@ -107,8 +117,10 @@ unknownValues constTbl = go where
     go e = concatMap go (children e)
 
 checkIfType :: ( Applicative m
-               , MonadReader Env m
+               , MonadReader r m
                , MonadEither Error m
+               , HasSymbolTable r
+               , HasScope r
                )
             => (Type -> Bool)
             -> LExpr
@@ -121,8 +133,10 @@ checkIfType p e = do
     expected = filter p types
 
 checkIfType_ :: ( Applicative m
-                , MonadReader Env m
+                , MonadReader r m
                 , MonadEither Error m
+                , HasSymbolTable r
+                , HasScope r
                 )
              => (Type -> Bool)
              -> LExpr
@@ -130,8 +144,10 @@ checkIfType_ :: ( Applicative m
 checkIfType_ p e = void $ checkIfType p e
 
 typeOf :: ( Applicative m
-          , MonadReader Env m
+          , MonadReader r m
           , MonadEither Error m
+          , HasSymbolTable r
+          , HasScope r
           )
        => LExpr
        -> m Type
@@ -223,12 +239,15 @@ typeOf (IntegerExpr _ _)  = return intType
 typeOf (BoolExpr _ _)     = return boolType
 typeOf (MissingExpr _)    = error "Typechecker.typeOf: unresolved MissingExpr"
 
-checkIfFeature :: (Applicative m, MonadReader Env m, MonadEither Error m)
+checkIfFeature :: ( Applicative m
+                  , MonadReader r m
+                  , MonadEither Error m
+                  , HasSymbolTable r
+                  , HasScope r
+                  )
                => LExpr
                -> m ()
-checkIfFeature (NameExpr name l) = do
-    (_, name') <- getContext name
-    unless (isNothing name') . throw l . NotAFeature $ prettyText name
+checkIfFeature (NameExpr name _) = void $ getFeature name
 checkIfFeature e = throw (exprAnnot e) . NotAFeature $ prettyText e
 
 siType :: (MonadEither Error m) => SymbolInfo -> m Type
@@ -241,8 +260,10 @@ siType (SymbolInfo _ ident idx t) = case t of
         Nothing -> return t
 
 getSymbolInfo :: ( Applicative m
-                 , MonadReader Env m
+                 , MonadReader r m
                  , MonadEither Error m
+                 , HasSymbolTable r
+                 , HasScope r
                  )
               => LName
               -> m SymbolInfo
@@ -251,8 +272,10 @@ getSymbolInfo name@(Name _ l) = lookupSymbolInfo name >>= \case
     Nothing -> throw l $ UndefinedIdentifier (prettyText name)
 
 lookupSymbolInfo :: ( Applicative m
-                    , MonadReader Env m
+                    , MonadReader r m
                     , MonadEither Error m
+                    , HasSymbolTable r
+                    , HasScope r
                     )
                  => LName
                  -> m (Maybe SymbolInfo)
@@ -274,8 +297,10 @@ lookupSymbolInfo name@(Name _ l) = getContext name >>= \case
         throw l' $ NotAMember (prettyText ctx) (prettyText name')
 
 lookupType :: ( Applicative m
-              , MonadReader Env m
+              , MonadReader r m
               , MonadEither Error m
+              , HasSymbolTable r
+              , HasScope r
               )
            => Ident
            -> m (Maybe Type)
@@ -284,13 +309,17 @@ lookupType ident = view scope >>= \case
     LocalCtrlr -> lookupTypeCtrlr ident
     Global     -> return Nothing
 
-lookupTypeGlobal :: (MonadReader Env m) => Ident -> m (Maybe Type)
+lookupTypeGlobal :: (MonadReader r m, HasSymbolTable r)
+                 => Ident
+                 -> m (Maybe Type)
 lookupTypeGlobal ident = do
     symTbl <- view symbolTable
     return $ lookupOf gsType (symTbl^.globals) ident
          <|> lookupOf csType (symTbl^.constants) ident
 
-lookupTypeCtrlr:: (MonadReader Env m) => Ident -> m (Maybe Type)
+lookupTypeCtrlr :: (MonadReader r m, HasSymbolTable r)
+                => Ident
+                -> m (Maybe Type)
 lookupTypeCtrlr ident = do
     symTbl <- view symbolTable
     return $ symTbl^?controller._Just.ctsVars.at ident._Just.vsType
@@ -301,9 +330,24 @@ lookupTypeIn ctx = lookupOf vsType $ ctx^.this.fsVars
 lookupOf :: Getter a Type -> Table a -> Ident -> Maybe Type
 lookupOf g tbl ident = tbl^?at ident._Just.g
 
-getContext :: ( Applicative m
-              , MonadReader Env m
+getFeature :: ( Applicative m
+              , MonadReader r m
               , MonadEither Error m
+              , HasSymbolTable r
+              , HasScope r
+              )
+           => LName
+           -> m FeatureContext
+getFeature name@(Name _ l) = do
+    (ctx, name') <- getContext name
+    unless (isNothing name') . throw l . NotAFeature $ prettyText name
+    return ctx
+
+getContext :: ( Applicative m
+              , MonadReader r m
+              , MonadEither Error m
+              , HasSymbolTable r
+              , HasScope r
               )
            => LName
            -> m (FeatureContext, Maybe LName)

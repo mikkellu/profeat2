@@ -30,6 +30,7 @@ throw l = left . Error l
 
 data ErrorDesc
   = SyntaxError !Text
+  | InvalidConstraint
   | UndefinedIdentifier !Ident
   | MultipleDeclarations !Ident !SrcLoc
   | CyclicDependency !Ident
@@ -58,6 +59,7 @@ data ErrorDesc
 instance Pretty ErrorDesc where
     pretty desc = case desc of
         SyntaxError msg -> string msg
+        InvalidConstraint -> "invalid constraint"
         UndefinedIdentifier ident -> "undefined identifier" <+> text ident
         MultipleDeclarations ident l ->
             "multiple declarations of" <+> text ident <+> parens (

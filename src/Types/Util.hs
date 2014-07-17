@@ -17,7 +17,12 @@ import Types
 import Template
 import Typechecker
 
-fromVarType :: (Applicative m, MonadReader Env m, MonadEither Error m)
+fromVarType :: ( Applicative m
+               , MonadReader r m
+               , MonadEither Error m
+               , HasSymbolTable r
+               , HasScope r
+               )
             => LVarType
             -> m Type
 fromVarType vt = case vt of
@@ -30,7 +35,12 @@ fromVarType vt = case vt of
         BoolVarType      -> pure BoolType
         IntVarType range -> IntType . Just <$> fromRange range
 
-fromRange :: (Applicative m, MonadReader Env m, MonadEither Error m)
+fromRange :: ( Applicative m
+             , MonadReader r m
+             , MonadEither Error m
+             , HasSymbolTable r
+             , HasScope r
+             )
           => LRange
           -> m (Integer, Integer)
 fromRange = both preprocessExpr >=> evalRange >=> return . flipBounds

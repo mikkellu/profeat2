@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, LambdaCase, OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts, LambdaCase, OverloadedStrings, TemplateHaskell #-}
 
 module Translator
   ( translateModel
@@ -15,8 +15,11 @@ import Data.List ( genericTake, genericLength )
 import Data.Map ( assocs, member )
 import Data.Maybe
 import Data.Monoid
+import Data.Set ( Set )
+import qualified Data.Set as Set
 import Data.Traversable
 
+import Constraint
 import Error
 import Symbols
 import Syntax
@@ -24,22 +27,54 @@ import Template
 import Typechecker
 import Types
 
-type Trans = ReaderT Env (Either Error)
+data TrnsInfo = TrnsInfo
+  { _trnsSymbolTable :: SymbolTable
+  , _trnsScope       :: !Scope
+  , _constraints     :: Set Constraint
+  }
+
+makeLenses ''TrnsInfo
+
+instance HasSymbolTable TrnsInfo where
+    symbolTable = trnsSymbolTable
+
+instance HasScope TrnsInfo where
+    scope = trnsScope
+
+trnsInfo :: SymbolTable -> Set Constraint -> TrnsInfo
+trnsInfo symTbl = TrnsInfo symTbl Global
+
+data SeedInfo = SeedInfo
+  { _seedLoc         :: !Integer
+  , _seedVisited     :: Set FeatureContext
+  , _seedConstraints :: Set Constraint
+  }
+
+makeLenses ''SeedInfo
+
+seedInfo :: FeatureContext -> Set Constraint -> SeedInfo
+seedInfo = SeedInfo 0 . Set.singleton
+
+type Trans = ReaderT TrnsInfo (Either Error)
 
 type Translator a = a -> Trans a
 
 translateModel :: SymbolTable -> Either Error LModel
-translateModel symTbl = flip runReaderT (Env Global symTbl) $ do
-    constDefs     <- trnsConsts
-    globalDefs    <- trnsGlobals
-    moduleDefs    <- trnsModules
-    controllerDef <- trnsController
+translateModel symTbl = do
+    constrs <- flip runReaderT (Env Global symTbl) $
+        extractConstraints =<< view rootFeature
 
-    return . Model $ concat [ constDefs
-                            , globalDefs
-                            , moduleDefs
-                            , toList controllerDef
-                            ]
+    flip runReaderT (trnsInfo symTbl constrs) $ do
+        constDefs     <- trnsConsts
+        globalDefs    <- trnsGlobals
+        moduleDefs    <- trnsModules
+        controllerDef <- trnsController
+
+        return . Model $ concat [ constDefs
+                                , globalDefs
+                                , moduleDefs
+                                , toList controllerDef
+                                ]
 
 trnsConsts :: Trans [LDefinition]
 trnsConsts = fmap toConstDef <$> view (constants.to assocs)
@@ -95,37 +130,70 @@ genActiveVars = mapMaybe mkVarDecl . allContexts <$> view rootFeature where
 
 genSeeding :: Trans ([LStmt], Integer)
 genSeeding = do
-    root <- view rootFeature
-    return . flip runState 0 . fmap concat $ for (allContexts root) seed
+    rootCtx <- rootContext <$> view rootFeature
+    constrs <- view constraints
 
-seed :: FeatureContext -> State Integer [LStmt]
+    return . over _2 _seedLoc . runState (seed rootCtx) $
+        seedInfo rootCtx constrs
+
+seed :: FeatureContext -> State SeedInfo [LStmt]
 seed ctx = do
-    let fs      = ctx^.this
-        allMand = all (^.fsMandatory) $ fs^..fsChildren.traverse.traverse
-        confs   = configurations (^.fsOptional)
-                                 (fs^.fsGroupCard)
-                                 (fs^..fsChildren.traverse)
-    if isLeafFeature fs || allMand
+    let fs         = ctx^.this
+        childFeats = fs^..fsChildren.traverse.traverse
+        childCtxs  = fmap (`extendContext` ctx) childFeats
+        confs      = configurations _fsOptional
+                                    (fs^.fsGroupCard)
+                                    (fs^..fsChildren.traverse)
+        allMand    = all _fsMandatory childFeats
+
+    seedVisited %= Set.union (Set.fromList childCtxs)
+
+    constrs <- applicableConstraints
+
+    stmts <- if (isLeafFeature fs || allMand) && null constrs
         then return []
         else do
-            i <- get
-            let stmts = fmap (genStmt i) confs
-            modify (+1)
-
+            stmts <- for confs (genStmt constrs childCtxs)
+            seedLoc += 1
             return stmts
-  where
-    genStmt :: Integer -> [FeatureSymbol] -> LStmt
-    genStmt i conf =
-        let ctxs' = (`extendContext` ctx) <$> filter (not . _fsMandatory) conf
-            grd   = identExpr seedVarIdent noLoc `eq` intExpr i
-            upd   = genUpdate i ctxs'
-        in Stmt NoAction grd (Repeatable [One upd]) noLoc
 
-    genUpdate :: Integer -> [FeatureContext] -> LUpdate
+    stmts' <- concat <$> for childCtxs seed
+
+    return $ stmts ++ stmts'
+  where
+    genStmt constrs childCtxs conf = do
+        i <- use seedLoc
+        let confCtxs  = fmap (`extendContext` ctx) conf
+            constrs'  = fmap (specialize childCtxs confCtxs) constrs
+            constrGrd = conjunction $ fmap trnsConstraint constrs'
+            locGrd    = identExpr seedVarIdent noLoc `eq` intExpr i
+            grd       = if null constrs
+                            then locGrd
+                            else binaryExpr (LogicBinOp LAnd) locGrd constrGrd
+            upd   = genUpdate i confCtxs
+        return $ Stmt NoAction grd (Repeatable [One upd]) noLoc
+
     genUpdate i ctxs =
-        let sAsgn = One $ Assign seedVarName (intExpr $ i + 1) noLoc
-            asgns = fmap (\c -> One $ Assign (activeName c) 1 noLoc) ctxs
+        let ctxs' = filter (not . _fsMandatory . thisFeature) ctxs
+            sAsgn = One $ Assign seedVarName (intExpr $ i + 1) noLoc
+            asgns = fmap (\c -> One $ Assign (activeName c) 1 noLoc) ctxs'
         in Update Nothing (Repeatable $ sAsgn:asgns) noLoc
+
+    specialize childCtxs chosenCtxs = transform $ \case
+        FeatConstr ctx'
+          | ctx' `elem` childCtxs -> BoolConstr (ctx' `elem` chosenCtxs)
+        c -> c
+
+    applicableConstraints = do
+        visited <- use seedVisited
+        (appConstrs, constrs') <-
+            Set.partition (canEvalConstraint visited) <$> use seedConstraints
+
+        seedConstraints .= constrs'
+        return $ toList appConstrs
+
+    conjunction [] = BoolExpr True noLoc
+    conjunction es = foldr1 (binaryExpr $ LogicBinOp LAnd) es
 
 trnsModules :: Trans [LDefinition]
 trnsModules = do
@@ -265,6 +333,14 @@ trnsRepeatable trns r = do
     Repeatable ss <- unrollRepeatable r
     fmap Repeatable . for ss $ \(One x) ->
         One <$> trns x
+
+trnsConstraint :: Constraint -> LExpr
+trnsConstraint c = case c of
+    BinaryConstr binOp lhs rhs ->
+        binaryExpr (LogicBinOp binOp) (trnsConstraint lhs) (trnsConstraint rhs)
+    UnaryConstr unOp c' -> unaryExpr (LogicUnOp unOp) (trnsConstraint c')
+    FeatConstr ctx      -> activeExpr ctx
+    BoolConstr b        -> BoolExpr b noLoc
 
 fullyQualifiedName :: Scope -> Ident -> Maybe Integer -> SrcLoc -> LName
 fullyQualifiedName sc ident idx l =

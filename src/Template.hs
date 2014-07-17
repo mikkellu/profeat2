@@ -31,8 +31,10 @@ class Template n where
     parameters :: n a -> [Ident]
 
 preprocessExpr :: ( Applicative m
-                  , MonadReader Env m
+                  , MonadReader r m
                   , MonadEither Error m
+                  , HasSymbolTable r
+                  , HasScope r
                   )
                => LExpr
                -> m LExpr
@@ -41,8 +43,10 @@ preprocessExpr e = do
     expandFormulas frms e >>= unrollLoopExprs
 
 unrollRepeatable :: ( Applicative m
-                    , MonadReader Env m
+                    , MonadReader r m
                     , MonadEither Error m
+                    , HasSymbolTable r
+                    , HasScope r
                     , HasExprs b
                     )
                  => LRepeatable b
@@ -54,8 +58,10 @@ unrollRepeatable (Repeatable ss) = Repeatable <$> rewriteM f ss where
     f [] = return Nothing
 
 unrollRepeatableLoop :: ( Applicative m
-                        , MonadReader Env m
+                        , MonadReader r m
                         , MonadEither Error m
+                        , HasSymbolTable r
+                        , HasScope r
                         , HasExprs b
                         )
                      => LForLoop (Repeatable b)
@@ -64,8 +70,10 @@ unrollRepeatableLoop = unrollLoop f where
     f (Repeatable ss) = return . concatMap (\defs -> map (substitute defs) ss)
 
 unrollLoopExprs :: ( Applicative m
-                   , MonadReader Env m
+                   , MonadReader r m
                    , MonadEither Error m
+                   , HasSymbolTable r
+                   , HasScope r
                    )
                 => LExpr
                 -> m LExpr
@@ -74,8 +82,10 @@ unrollLoopExprs = rewriteM' $ \case
     _               -> return Nothing
 
 unrollExprLoop :: ( Applicative m
-                  , MonadReader Env m
+                  , MonadReader r m
                   , MonadEither Error m
+                  , HasSymbolTable r
+                  , HasScope r
                   )
                => LForLoop Expr
                -> m LExpr
@@ -91,7 +101,12 @@ unrollExpr defss e = case e of
         in foldr1 (binaryExpr binOp) e's
     _ -> e
 
-unrollLoop :: (Applicative m, MonadReader Env m, MonadEither Error m)
+unrollLoop :: ( Applicative m
+              , MonadReader r m
+              , MonadEither Error m
+              , HasSymbolTable r
+              , HasScope r
+              )
            => (a SrcLoc -> [Map Ident LExpr] -> m b)
            -> LForLoop a
            -> m b

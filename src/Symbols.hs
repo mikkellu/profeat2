@@ -30,6 +30,7 @@ module Symbols
   , fsOptional
   , fsModules
   , fsVars
+  , fsConstraints
 
   , ControllerSymbol(..)
   , ctsVars
@@ -58,11 +59,12 @@ module Symbols
   , this
   , parentContext
   , parentContexts
+  , rootContext
   , extendContext
   , allContexts
 
   , Scope(..)
-  , scope
+  , HasScope(..)
 
   , Env(..)
 
@@ -80,6 +82,7 @@ import Data.List.NonEmpty ( NonEmpty(..), toList )
 import qualified Data.List.NonEmpty as L
 import Data.Map ( Map, empty )
 import Data.Maybe
+import Data.Monoid ( mappend )
 import Data.Text.Lazy ( append, pack )
 import qualified Data.Text.Lazy as T
 
@@ -133,12 +136,17 @@ data FeatureSymbol = FeatureSymbol
   , _fsOptional       :: !Bool -- ^ the feature is marked as optional
   , _fsModules        :: Table LModuleBody
   , _fsVars           :: Table VarSymbol
+  , _fsConstraints    :: [LExpr]
   } deriving (Show)
 
 makeLenses ''FeatureSymbol
 
 instance Eq FeatureSymbol where
     x == y = _fsIdent x == _fsIdent y && _fsIndex x == _fsIndex y
+
+instance Ord FeatureSymbol where
+    compare x y = compare (x^.fsIdent) (y^.fsIdent) `mappend`
+                  compare (x^.fsIndex) (y^.fsIndex)
 
 data SymbolTable = SymbolTable
   { _globals     :: Table GlobalSymbol
@@ -155,7 +163,7 @@ makeClassy ''SymbolTable
 
 newtype FeatureContext = FeatureContext
   { getFeatureSymbols :: NonEmpty FeatureSymbol
-  } deriving (Eq)
+  } deriving (Eq, Ord)
 
 instance Pretty FeatureContext where
     pretty (FeatureContext fss) =
@@ -166,10 +174,16 @@ instance Pretty FeatureContext where
           | fs^.fsIsMultiFeature = brackets . integer $ fs^.fsIndex
           | otherwise            = PP.empty
 
+class HasScope a where
+    scope :: Lens' a Scope
+
 data Scope = Global | LocalCtrlr | Local FeatureContext deriving (Eq)
 
+instance HasScope Scope where
+    scope = id
+
 data Env = Env
-  { _scope          :: Scope
+  { _envScope       :: Scope
   , _envSymbolTable :: SymbolTable
   }
 
@@ -177,6 +191,9 @@ makeLenses ''Env
 
 instance HasSymbolTable Env where
     symbolTable = envSymbolTable
+
+instance HasScope Env where
+    scope = envScope
 
 emptySymbolTable :: SymbolTable
 emptySymbolTable = SymbolTable
@@ -201,6 +218,7 @@ emptyFeatureSymbol = FeatureSymbol
   , _fsOptional       = False
   , _fsModules        = empty
   , _fsVars           = empty
+  , _fsConstraints    = []
   }
 
 containsSymbol :: SymbolTable -> Ident -> Maybe SrcLoc
@@ -247,6 +265,9 @@ featureCardinality a = let (lower, upper) = bounds a
 isLeafFeature :: FeatureSymbol -> Bool
 isLeafFeature = ((0, 0) ==) . _fsGroupCard
 
+rootContext :: FeatureSymbol -> FeatureContext
+rootContext fs = FeatureContext (fs :| [])
+
 extendContext :: FeatureSymbol -> FeatureContext -> FeatureContext
 extendContext fs = FeatureContext . L.cons fs . getFeatureSymbols
 
@@ -268,14 +289,14 @@ parentContexts = fmap FeatureContext .
                  getFeatureSymbols
 
 allContexts :: FeatureSymbol -> [FeatureContext]
-allContexts root = go (\_ _ -> rootContext) rootContext root
+allContexts root = go (\_ _ -> rootCtx) rootCtx root
   where
     go mkContext ctx fs =
         let self  = mkContext fs ctx
             ctxs' = concatMap (go extendContext self) $
                               fs^..fsChildren.traverse.traverse
         in self:ctxs'
-    rootContext = FeatureContext (root :| [])
+    rootCtx = rootContext root
 
 contextIdent :: FeatureContext -> Ident
 contextIdent = T.concat . fmap (cons '_' . mkFsIdent) .

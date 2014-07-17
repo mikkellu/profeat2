@@ -58,7 +58,7 @@ data LogicBinOp
   | LEq
   | LAnd
   | LOr
-  deriving (Bounded, Enum, Eq, Show)
+  deriving (Bounded, Enum, Eq, Ord, Show)
 
 data TempBinOp
   = Until
@@ -100,7 +100,7 @@ data ArithUnOp
 
 data LogicUnOp
  = LNot
-  deriving (Bounded, Enum, Eq, Show)
+  deriving (Bounded, Enum, Eq, Ord, Show)
 
 data TempUnOp
   = Next
