@@ -5,6 +5,7 @@ module Constraint
 
   , extractConstraints
   , canEvalConstraint
+  , refersTo
   , fromExpr
   ) where
 
@@ -52,6 +53,9 @@ extractConstraints root = execWriterT $
 canEvalConstraint :: Set FeatureContext -> Constraint -> Bool
 canEvalConstraint ctxs c =
     fromList (universe c^..traverse._FeatConstr) `isSubsetOf` ctxs
+
+refersTo :: Constraint -> FeatureContext -> Bool
+refersTo c ctx = ctx `elem` universe c^..traverse._FeatConstr
 
 fromExpr :: ( Applicative m
             , MonadReader r m

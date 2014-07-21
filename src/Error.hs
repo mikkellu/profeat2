@@ -53,6 +53,8 @@ data ErrorDesc
   | NotAFeature !Ident
   | IllegalConstAssignment
   | IllegalWriteAccess
+  | IllegalMandatoryReconf
+  | IllegalReconf
   | DivisionByZero Valuation
   deriving (Show)
 
@@ -118,6 +120,10 @@ instance Pretty ErrorDesc where
             "illegal assignment to constant"
         IllegalWriteAccess ->
             "illegal write access"
+        IllegalMandatoryReconf ->
+            "illegal reconfiguration of a mandatory feature"
+        IllegalReconf ->
+            "illegal reconfiguration outside of controller"
         DivisionByZero val ->
             "division by zero with valuation" <+> prettyValuation val
 

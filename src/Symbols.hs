@@ -59,6 +59,7 @@ module Symbols
   , this
   , parentContext
   , parentContexts
+  , childContexts
   , rootContext
   , extendContext
   , allContexts
@@ -287,6 +288,11 @@ parentContexts = fmap FeatureContext .
                  tails .
                  toList .
                  getFeatureSymbols
+
+childContexts :: FeatureContext -> [FeatureContext]
+childContexts ctx =
+    let childFeats = ctx^..this.fsChildren.traverse.traverse
+    in fmap (`extendContext` ctx) childFeats
 
 allContexts :: FeatureSymbol -> [FeatureContext]
 allContexts root = go (\_ _ -> rootCtx) rootCtx root
