@@ -20,12 +20,17 @@ module Types
   , isAssignableTo
   , canBeCastedTo
 
+  , ReconfType(..)
+  , reconfType
+
   , Value(..)
   , Valuation
 
   , prettyValuation
   , prettyRange
   ) where
+
+import Control.Lens.Iso
 
 import Data.Map ( Map )
 import qualified Data.Map as Map
@@ -114,6 +119,18 @@ isAssignableTo _ _ = False
 canBeCastedTo :: Type -> Type -> Bool
 canBeCastedTo l r =
     (isBoolType l && isBoolType r) || (isNumericType l && isNumericType r)
+
+-- | A reconfiguration may either activate or deactivate features.
+data ReconfType = ReconfActivate | ReconfDeactivate
+
+-- | 'ReconfType' is isomorphic to 'Bool'.
+reconfType :: Iso' Bool ReconfType
+reconfType = iso fromBool toBool
+  where
+    toBool ReconfActivate   = True
+    toBool ReconfDeactivate = False
+    fromBool True  = ReconfActivate
+    fromBool False = ReconfDeactivate
 
 -- | A @Value@ of a variable.
 data Value

@@ -55,7 +55,7 @@ makeLenses ''SeedInfo
 seedInfo :: FeatureContext -> Set Constraint -> SeedInfo
 seedInfo = SeedInfo 0 . Set.singleton
 
-type Reconfiguration = Map FeatureContext Bool
+type Reconfiguration = Map FeatureContext ReconfType
 
 type Trans = ReaderT TrnsInfo (Either Error)
 
@@ -272,9 +272,8 @@ trnsStmt (Stmt action grd upds l) = do
     sumActiveExpr reconf = sum . fmap active'
       where
         active' childCtx = case reconf^.at childCtx of
-            Just b
-              | b         -> 1
-              | otherwise -> 0
+            Just ReconfActivate   -> 1
+            Just ReconfDeactivate -> 0
             Nothing -> identExpr (activeIdent childCtx) noLoc
 
     constraintGuard reconf =
@@ -285,7 +284,8 @@ trnsStmt (Stmt action grd upds l) = do
         view constraints
 
     specialize reconf = transform $ \c -> case c of
-        FeatConstr ctx -> maybe c BoolConstr $ reconf^.at ctx
+        FeatConstr ctx -> maybe c
+            (BoolConstr . view (from reconfType)) $ reconf^.at ctx
         _              -> c
 
 trnsUpdate :: LUpdate -> WriterT Reconfiguration Trans LUpdate
@@ -314,21 +314,23 @@ trnsAssign asgn = do
 
             let name' = fullyQualifiedName symSc ident i l
             return $ Assign name' e' l
-        Activate name l   -> reconf True name l
-        Deactivate name l -> reconf False name l
+        Activate   name l -> reconf ReconfActivate   name l
+        Deactivate name l -> reconf ReconfDeactivate name l
   where
-    reconf activate name l = do
+    reconf rt name l = do
         sc <- view scope
         unless (sc == LocalCtrlr) $ throw l IllegalReconf
 
         ctx <- getFeature name
         when (ctx^.this.fsMandatory) $ throw l IllegalMandatoryReconf
 
-        tell $ singleton ctx activate
-        return $ reconfAssign activate ctx
+        tell $ singleton ctx rt
+        return $ reconfAssign rt ctx
 
-    reconfAssign activate ctx =
-        let e = if activate then 1 else 0
+    reconfAssign rt ctx =
+        let e = case rt of
+                    ReconfActivate   -> 1
+                    ReconfDeactivate -> 0
         in Assign (activeName ctx) e noLoc
 
 trnsVarDecl :: Type -> LVarDecl -> Trans [LVarDecl]
