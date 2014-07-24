@@ -6,6 +6,8 @@ module Translator.Constraints
   , extractConstraints
   , canEvalConstraint
   , refersTo
+
+  , trnsConstraint
   , fromExpr
   ) where
 
@@ -21,6 +23,8 @@ import Error
 import Symbols
 import Syntax
 import Typechecker
+
+import Translator.Names
 
 data Constraint
   = BinaryConstr !LogicBinOp Constraint Constraint
@@ -56,6 +60,14 @@ canEvalConstraint ctxs c =
 
 refersTo :: Constraint -> FeatureContext -> Bool
 refersTo c ctx = ctx `elem` universe c^..traverse._FeatConstr
+
+trnsConstraint :: Constraint -> LExpr
+trnsConstraint c = case c of
+    BinaryConstr binOp lhs rhs ->
+        binaryExpr (LogicBinOp binOp) (trnsConstraint lhs) (trnsConstraint rhs)
+    UnaryConstr unOp c' -> unaryExpr (LogicUnOp unOp) (trnsConstraint c')
+    FeatConstr ctx      -> identExpr (activeIdent ctx) noLoc `eq` 1
+    BoolConstr b        -> BoolExpr b noLoc
 
 fromExpr :: ( Applicative m
             , MonadReader r m
