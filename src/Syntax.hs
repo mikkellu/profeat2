@@ -68,9 +68,11 @@ module Syntax
   , identExpr
   , intExpr
   , normalizeExpr
+  , conjunction
 
   , (?), ThenElse(..)
   , eq, neq, gt, lt, gte, lte
+  , lAnd
 
   , LModel
   , LSpecification
@@ -567,6 +569,10 @@ normalizeExpr = transform $ \e -> case e of
     UnaryExpr (ArithUnOp Neg) (DecimalExpr d a) _ -> DecimalExpr (negate d) a
     _ -> e
 
+conjunction :: [LExpr] -> LExpr
+conjunction [] = BoolExpr True noLoc
+conjunction es = foldr1 lAnd es
+
 infixl 0 ?
 infixl 1 :?
 
@@ -575,13 +581,17 @@ data ThenElse a = Expr a :? Expr a
 (?) :: Expr a -> ThenElse a -> Expr a
 cond ? (te :? ee) = CondExpr cond te ee $ exprAnnot cond
 
-eq, neq, gt, lt, gte, lte :: Expr a -> Expr a -> Expr a
+eq, neq, gt, lt, gte, lte, lAnd :: Expr a -> Expr a -> Expr a
 eq  = binaryExpr (EqBinOp Eq)
 neq = binaryExpr (EqBinOp Neq)
 gt  = binaryExpr (RelBinOp Gt)
 lt  = binaryExpr (RelBinOp Lt)
 gte = binaryExpr (RelBinOp Gte)
 lte = binaryExpr (RelBinOp Lte)
+
+lAnd (BoolExpr True _) rhs = rhs
+lAnd lhs (BoolExpr True _) = lhs
+lAnd lhs rhs               = binaryExpr (LogicBinOp LAnd) lhs rhs
 
 type LModel           = Model SrcLoc
 type LSpecification   = Specification SrcLoc

@@ -116,7 +116,7 @@ trnsController = local (scope .~ LocalCtrlr) $ do
         else Just . ModuleDef $ Module "_controller" [] [] body'
   where
     prependLocGuard locGrd (One (Stmt action grd upds l)) =
-        One $ Stmt action (binaryExpr (LogicBinOp LAnd) locGrd grd) upds l
+        One $ Stmt action (locGrd `lAnd` grd) upds l
     prependLocGuard _ s = s
 
 genActiveVars :: Trans [LVarDecl]
@@ -170,7 +170,7 @@ seed ctx = do
             locGrd    = identExpr seedVarIdent noLoc `eq` intExpr i
             grd       = if null constrs
                             then locGrd
-                            else binaryExpr (LogicBinOp LAnd) locGrd constrGrd
+                            else locGrd `lAnd` constrGrd
             upd   = genUpdate i confCtxs
         return $ Stmt NoAction grd (Repeatable [One upd]) noLoc
 
@@ -192,10 +192,6 @@ seed ctx = do
 
         seedConstraints .= constrs'
         return $ toList appConstrs
-
-conjunction :: [LExpr] -> LExpr
-conjunction [] = BoolExpr True noLoc
-conjunction es = foldr1 (binaryExpr $ LogicBinOp LAnd) es
 
 trnsModules :: Trans [LDefinition]
 trnsModules = do
@@ -265,7 +261,7 @@ trnsStmt (Stmt action grd (Repeatable ss) l) = do
 
             grdLower       = intExpr (lower - opt) `lte` sumMand
             grdUpper       = sumAll `lte` intExpr upper
-        in binaryExpr (LogicBinOp LAnd) grdLower grdUpper
+        in grdLower `lAnd` grdUpper
 
     sumActiveExpr reconf = sum . fmap active'
       where
@@ -388,9 +384,7 @@ trnsIndex _ ident _ l = return $ identExpr ident l
 activeExpr :: FeatureContext -> LExpr
 activeExpr ctx =
     let ctxs = filter (not . _fsMandatory . thisFeature) $ parentContexts ctx
-    in case ctxs of
-           [] -> BoolExpr True noLoc
-           _  -> foldr1 (binaryExpr (LogicBinOp LAnd)) $ fmap isActive ctxs
+    in conjunction $ fmap isActive ctxs
   where
     isActive ctx' = let ident = activeIdent ctx' in identExpr ident noLoc `eq` 1
 
