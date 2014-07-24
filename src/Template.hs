@@ -3,7 +3,9 @@
 module Template
   ( Template(..)
 
-  , preprocessExpr
+  , prepModuleBody
+  , prepExprs
+  , prepExpr
 
   , unrollRepeatable
   , unrollLoopExprs
@@ -21,6 +23,7 @@ import Control.Monad.Reader
 
 import Data.Map ( Map )
 import qualified Data.Map as Map
+import Data.Traversable
 
 import Error
 import Symbols
@@ -30,17 +33,83 @@ import Typechecker
 class Template n where
     parameters :: n a -> [Ident]
 
-preprocessExpr :: ( Applicative m
+prepModuleBody :: ( Applicative m
                   , MonadReader r m
                   , MonadEither Error m
                   , HasSymbolTable r
                   , HasScope r
                   )
-               => LExpr
-               -> m LExpr
-preprocessExpr e = do
+               => LModuleBody
+               -> m LModuleBody
+prepModuleBody (ModuleBody decls stmts a) =
+    ModuleBody <$> traverse prepExprs decls
+               <*> prepRepeatable prepStmt stmts
+               <*> pure a
+
+prepStmt :: ( Applicative m
+            , MonadReader r m
+            , MonadEither Error m
+            , HasSymbolTable r
+            , HasScope r
+            )
+         => LStmt
+         -> m LStmt
+prepStmt (Stmt action grd upds a) =
+    Stmt <$> prepExprs action
+         <*> prepExpr grd
+         <*> prepRepeatable prepUpdate upds
+         <*> pure a
+
+prepUpdate :: ( Applicative m
+              , MonadReader r m
+              , MonadEither Error m
+              , HasSymbolTable r
+              , HasScope r
+              )
+           => LUpdate
+           -> m LUpdate
+prepUpdate (Update e asgns a) =
+    Update <$> traverse prepExpr e
+           <*> prepRepeatable prepExprs asgns
+           <*> pure a
+
+prepExpr :: ( Applicative m
+            , MonadReader r m
+            , MonadEither Error m
+            , HasSymbolTable r
+            , HasScope r
+            )
+         => LExpr
+         -> m LExpr
+prepExpr = prepExprs
+
+prepExprs :: ( Applicative m
+             , MonadReader r m
+             , MonadEither Error m
+             , HasSymbolTable r
+             , HasScope r
+             , HasExprs n
+             )
+          => n SrcLoc
+          -> m (n SrcLoc)
+prepExprs n = do
     frms <- view formulas
-    expandFormulas frms e >>= unrollLoopExprs
+    exprs (expandFormulas frms >=> unrollLoopExprs) n
+
+prepRepeatable :: ( Applicative m
+                  , MonadReader r m
+                  , MonadEither Error m
+                  , HasSymbolTable r
+                  , HasScope r
+                  , HasExprs b
+                  )
+               => (b SrcLoc -> m (b SrcLoc))
+               -> LRepeatable b
+               -> m (LRepeatable b)
+prepRepeatable prep r = do
+    Repeatable ss <- unrollRepeatable r
+    fmap Repeatable . for ss $ \(One x) ->
+        One <$> prep x
 
 unrollRepeatable :: ( Applicative m
                     , MonadReader r m
@@ -169,7 +238,7 @@ substitute defs
 
 -- | Check whether the given expression contains exactly one expression of
 -- the form @e * ...@, where @*@ is any binary operator.
-checkLoopBody :: (Functor m, MonadEither Error m) => LExpr -> m ()
+checkLoopBody :: (Applicative m, MonadEither Error m) => LExpr -> m ()
 checkLoopBody e = go e >>= \cnt ->
     when (cnt /= 1) (throw (exprAnnot e) MalformedLoopBody)
   where
@@ -179,7 +248,7 @@ checkLoopBody e = go e >>= \cnt ->
                 throw (exprAnnot lhs) MalformedLoopBody
           | otherwise -> return (1 :: Integer)
         MissingExpr _ -> throw (exprAnnot e') MalformedLoopBody
-        _             -> sum <$> mapM go (e'^..plateBody)
+        _             -> sum <$> traverse go (e'^..plateBody)
 
 -- Traversal of the immediate children of the given expression, ommitting
 -- the body of nested 'LoopExpr's.

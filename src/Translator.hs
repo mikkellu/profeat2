@@ -23,7 +23,6 @@ import Constraint
 import Error
 import Symbols
 import Syntax
-import Template
 import Typechecker
 import Types
 
@@ -213,7 +212,7 @@ trnsModule ident body = do
 trnsModuleBody :: Translator LModuleBody
 trnsModuleBody (ModuleBody decls stmts l) =
     ModuleBody <$> trnsLocalVars decls
-               <*> trnsRepeatable trnsStmt stmts
+               <*> ones trnsStmt stmts
                <*> pure l
 
 trnsLocalVars :: Translator [LVarDecl]
@@ -230,8 +229,7 @@ trnsLocalVars decls = do
         Global -> error "Translator.trnsLocalVars: called with Global scope"
 
 trnsStmt :: Translator LStmt
-trnsStmt (Stmt action grd upds l) = do
-    Repeatable ss <- unrollRepeatable upds
+trnsStmt (Stmt action grd (Repeatable ss) l) = do
     res <- for ss $ \(One upd) -> do
         (upd', reconf) <- runWriterT (trnsUpdate upd)
         return (One upd', reconf)
@@ -291,7 +289,7 @@ trnsStmt (Stmt action grd upds l) = do
 trnsUpdate :: LUpdate -> WriterT Reconfiguration Trans LUpdate
 trnsUpdate (Update e asgns l) =
     Update <$> _Just (trnsExpr isNumericType) e
-           <*> trnsRepeatable trnsAssign asgns
+           <*> ones trnsAssign asgns
            <*> pure l
 
 trnsAssign :: LAssign -> WriterT Reconfiguration Trans LAssign
@@ -338,25 +336,20 @@ trnsVarDecl t (VarDecl ident vt e l) = do
     sc <- view scope
     let mkIdent = fullyQualifiedIdent sc ident
 
-    e' <- _Just preprocessExpr e
-    void $ _Just (checkInitialization t) e'
+    void $ _Just (checkInitialization t) e
 
-    case t of
-        CompoundType (ArrayType (Just (lower, upper)) _) -> do
+    return $ case t of
+        CompoundType (ArrayType (Just (lower, upper)) _) ->
             let CompoundVarType (ArrayVarType _ svt) = vt
-            vt' <- SimpleVarType <$> exprs preprocessExpr svt
-
-            return . flip fmap [lower .. upper] $ \i ->
-                VarDecl (mkIdent $ Just i) vt' e' l
-        _ -> do
-            vt' <- exprs preprocessExpr vt
-            return [VarDecl (mkIdent Nothing) vt' e' l]
+            in flip fmap [lower .. upper] $ \i ->
+                VarDecl (mkIdent $ Just i) (SimpleVarType svt) e l
+        _ -> [VarDecl (mkIdent Nothing) vt e l]
 
 trnsExpr :: (Applicative m, MonadReader TrnsInfo m, MonadEither Error m)
          => (Type -> Bool)
          -> LExpr
          -> m LExpr
-trnsExpr p = preprocessExpr >=> \e -> checkIfType_ p e *> go e
+trnsExpr p e = checkIfType_ p e *> go e
   where
     go (NameExpr name l) = do
         si <- getSymbolInfo name
@@ -365,7 +358,7 @@ trnsExpr p = preprocessExpr >=> \e -> checkIfType_ p e *> go e
         trnsIndex (siSymbolType si) ident' (siIndex si) l
     go (CallExpr (FuncExpr FuncActive _) [NameExpr name _] _) =
         activeExpr . fst <$> getContext name
-    go e = plate go e
+    go e' = plate go e'
 
 trnsIndex :: (Applicative m, MonadReader TrnsInfo m, MonadEither Error m)
           => Type
@@ -374,15 +367,14 @@ trnsIndex :: (Applicative m, MonadReader TrnsInfo m, MonadEither Error m)
           -> SrcLoc
           -> m LExpr
 trnsIndex (CompoundType (ArrayType (Just (lower, upper)) _)) ident (Just e) l = do
-    e'      <- preprocessExpr e
-    isConst <- isConstExpr e'
+    isConst <- isConstExpr e
     if isConst
         then do
-            i <- evalInteger e'
+            i <- evalInteger e
             return $ identExpr (indexedIdent ident i) l
         else do
-            e'' <- trnsExpr isIntType e'
-            return $ foldr (cond e'')
+            e' <- trnsExpr isIntType e
+            return $ foldr (cond e')
                            (identExpr (indexedIdent ident upper) noLoc)
                            [lower .. upper - 1]
   where
@@ -404,19 +396,6 @@ activeExpr ctx =
 
 trnsActionLabel :: Translator LActionLabel
 trnsActionLabel = return -- TODO: fully qualified label name for local labels
-
-trnsRepeatable :: ( Applicative m
-                  , MonadReader TrnsInfo m
-                  , MonadEither Error m
-                  , HasExprs a
-                  )
-               => (a SrcLoc -> m (a SrcLoc))
-               -> LRepeatable a
-               -> m (LRepeatable a)
-trnsRepeatable trns r = do
-    Repeatable ss <- unrollRepeatable r
-    fmap Repeatable . for ss $ \(One x) ->
-        One <$> trns x
 
 trnsConstraint :: Constraint -> LExpr
 trnsConstraint c = case c of

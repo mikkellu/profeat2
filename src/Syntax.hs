@@ -50,6 +50,8 @@ module Syntax
   , Name(..)
   , Range
 
+  , _One
+  , ones
   , _NameExpr
   , _MissingExpr
   , _Ident
@@ -468,6 +470,14 @@ instance HasExprs Name where
     exprs f (Name name a) = Name <$> (traverse._2._Just) f name <*> pure a
 
 type Range a = (Expr a, Expr a)
+
+_One :: Prism' (Some b a) (b a)
+_One = prism' One f where
+    f (One x) = Just x
+    f _       = Nothing
+
+ones :: Traversal' (Repeatable b a) (b a)
+ones f (Repeatable ss) = Repeatable <$> (traverse._One) f ss
 
 -- | This 'Prism' provides a 'Traversal' for 'NameExpr's.
 _NameExpr :: Prism' (Expr a) (Name a, a)

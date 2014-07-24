@@ -43,7 +43,7 @@ fromRange :: ( Applicative m
              )
           => LRange
           -> m (Integer, Integer)
-fromRange = both preprocessExpr >=> evalRange >=> return . flipBounds
+fromRange = both prepExpr >=> evalRange >=> return . flipBounds
   where
     flipBounds (x, y)
       | x > y     = (y, x)

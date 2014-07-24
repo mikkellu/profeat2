@@ -81,7 +81,9 @@ toFeatureSymbols mandatory (FeatureRef isOptional inst cntExpr _) = do
     cnt <- evalFeatureCardinality cntExpr
 
     fss <- for [0..cnt-1] $ \idx -> do
-        feat <- instantiateWithId idx ident args l =<< lookupFeature ident l
+        feat <- lookupFeature ident l >>=
+                instantiateWithId idx ident args l >>=
+                prepExprs
 
         (groupCard, childFeats) <- case featDecomp feat of
             Nothing -> return ((0, 0), Map.empty)
@@ -144,8 +146,8 @@ instantiateModule :: ( Applicative m
                   -> LInstance
                   -> m (LModuleBody, Table VarSymbol)
 instantiateModule idx (Instance ident args l) = do
-    mod' <- instantiateWithId idx ident args l =<< lookupModule ident l
-    let body'  = modBody mod'
+    mod'  <- instantiateWithId idx ident args l =<< lookupModule ident l
+    body' <- prepModuleBody $ modBody mod'
     let public = modProvides mod'
 
     varSyms <- fmap Map.fromList . for (modVars body') $ \decl ->
@@ -197,8 +199,7 @@ evalFeatureCardinality :: ( Applicative m
 evalFeatureCardinality cntExpr = case cntExpr of
     Nothing -> return 1
     Just e -> do
-        e' <- preprocessExpr e
-        v  <- evalInteger e'
+        v <- evalInteger e
         unless (v > 0) . throw (exprAnnot e) $ InvalidFeatureCardinality v
 
         return v
@@ -217,7 +218,7 @@ groupCardinality cnt decompOp = case decompOp of
     AllOf   -> return (cnt, cnt) -- and
     OneOf   -> return (  1,   1) -- xor
     SomeOf  -> return (  1, cnt) -- or
-    Group r -> both preprocessExpr r >>= evalRange
+    Group r -> evalRange r -- TODO bounds checking
 
 featRefIdent :: FeatureRef a -> Ident
 featRefIdent fr = fromMaybe (instIdent $ frInstance fr) (frAlias fr)
