@@ -19,13 +19,13 @@ import Data.Set ( Set )
 import qualified Data.Set as Set
 import Data.Traversable
 
-import Constraint
 import Error
 import Symbols
 import Syntax
 import Typechecker
 import Types
 
+import Translator.Constraints
 import Translator.Names
 
 data TrnsInfo = TrnsInfo

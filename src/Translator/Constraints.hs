@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts, TemplateHaskell #-}
 
-module Constraint
+module Translator.Constraints
   ( Constraint(..)
 
   , extractConstraints
