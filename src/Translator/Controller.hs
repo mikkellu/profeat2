@@ -8,21 +8,28 @@ import Control.Applicative
 import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.State
+import Control.Monad.Writer
 
 import Data.Array ( Array, bounds, elems )
 import Data.Foldable ( toList )
 import Data.List ( genericTake, genericLength )
 import Data.Maybe
+import Data.Map ( Map, keys, singleton )
 import Data.Set ( Set )
 import qualified Data.Set as Set
 import Data.Traversable
 
+import Error
 import Symbols
 import Syntax
+import Typechecker
+import Types
 
 import Translator.Common
 import Translator.Constraints
 import Translator.Names
+
+type Reconfiguration = Map FeatureContext ReconfType
 
 data SeedInfo = SeedInfo
   { _seedLoc         :: !Integer
@@ -39,7 +46,7 @@ trnsController :: Trans (Maybe LDefinition)
 trnsController = local (scope .~ LocalCtrlr) $ do
     (decls, stmts, l) <- view controller >>= \case
         Just cts -> do
-            body <- trnsModuleBody $ cts^.ctsBody
+            body <- trnsControllerBody $ cts^.ctsBody
             let ModuleBody decls (Repeatable stmts) l = body
             return (decls, stmts, l)
         Nothing -> return ([], [], noLoc)
@@ -65,6 +72,96 @@ trnsController = local (scope .~ LocalCtrlr) $ do
     prependLocGuard locGrd (One (Stmt action grd upds l)) =
         One $ Stmt action (locGrd `lAnd` grd) upds l
     prependLocGuard _ s = s
+
+trnsControllerBody :: Translator LModuleBody
+trnsControllerBody (ModuleBody decls stmts l) =
+    ModuleBody <$> trnsLocalVars decls
+               <*> ones trnsStmt stmts
+               <*> pure l
+
+trnsLocalVars :: Translator [LVarDecl]
+trnsLocalVars decls = do
+    cts <- view controller
+    fmap concat . for decls $ \decl ->
+        let t = cts^?!_Just.ctsVars.at (declIdent decl)._Just.vsType
+        in trnsVarDecl t decl
+
+trnsStmt :: Translator LStmt
+trnsStmt (Stmt action grd (Repeatable ss) l) = do
+    res <- for ss $ \(One upd) -> do
+        (upd', reconf) <- runWriterT (trnsUpdate trnsAssign upd)
+        return (One upd', reconf)
+
+    let upds'   = Repeatable $ fmap fst res
+        reconfs = fmap snd res
+
+    action' <- trnsActionLabel action
+    grd'    <- trnsExpr isBoolType grd
+
+    constrGrds  <- traverse constraintGuard reconfs
+    let cardGrds = fmap cardGuards reconfs
+        grd''    = conjunction $ grd' : cardGrds ++ constrGrds
+
+    return $ Stmt action' grd'' upds' l
+  where
+    cardGuards reconf =
+        let parentCtxs = toList . Set.fromList .
+                         catMaybes . fmap parentContext $ keys reconf
+        in conjunction $ fmap (cardGuard reconf) parentCtxs
+
+    cardGuard reconf parentCtx =
+        let fs             = parentCtx^.this
+            (lower, upper) = fs^.fsGroupCard
+            opt            = genericLength . filter (^.fsOptional) $
+                             fs^..fsChildren.traverse.traverse
+
+            childCtxs      = childContexts parentCtx
+            mandChildCtxs  = filter (not . _fsOptional . thisFeature) childCtxs
+
+            sumAll         = sumActiveExpr reconf childCtxs
+            sumMand        = sumActiveExpr reconf mandChildCtxs
+
+            grdLower       = intExpr (lower - opt) `lte` sumMand
+            grdUpper       = sumAll `lte` intExpr upper
+        in grdLower `lAnd` grdUpper
+
+    sumActiveExpr reconf = sum . fmap active'
+      where
+        active' childCtx = case reconf^.at childCtx of
+            Just ReconfActivate   -> 1
+            Just ReconfDeactivate -> 0
+            Nothing -> identExpr (activeIdent childCtx) noLoc
+
+    constraintGuard reconf =
+        conjunction .
+        fmap (trnsConstraint . specialize reconf) .
+        filter (\c -> any (refersTo c) $ keys reconf) .
+        toList <$>
+        view constraints
+
+    specialize reconf = transform $ \c -> case c of
+        FeatConstr ctx -> maybe c
+            (BoolConstr . view (from reconfType)) $ reconf^.at ctx
+        _              -> c
+
+trnsAssign :: LAssign -> WriterT Reconfiguration Trans LAssign
+trnsAssign asgn = case asgn of
+    Assign name e l   -> trnsVarAssign name e l
+    Activate   name l -> reconf ReconfActivate   name l
+    Deactivate name l -> reconf ReconfDeactivate name l
+  where
+    reconf rt name l = do
+        ctx <- getFeature name
+        when (ctx^.this.fsMandatory) $ throw l IllegalMandatoryReconf
+
+        tell $ singleton ctx rt
+        return $ reconfAssign rt ctx
+
+    reconfAssign rt ctx =
+        let e = case rt of
+                    ReconfActivate   -> 1
+                    ReconfDeactivate -> 0
+        in Assign (activeName ctx) e noLoc
 
 genActiveVars :: Trans [LVarDecl]
 genActiveVars = mapMaybe mkVarDecl . allContexts <$> view rootFeature where

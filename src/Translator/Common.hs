@@ -8,22 +8,19 @@ module Translator.Common
   , Trans
   , Translator
 
-  , trnsModuleBody
   , trnsVarDecl
+  , trnsUpdate
+  , trnsVarAssign
+  , trnsExpr
+  , trnsActionLabel
   ) where
 
 import Control.Applicative
 import Control.Lens
 import Control.Monad.Reader
-import Control.Monad.Writer
 
-import Data.Foldable ( toList )
-import Data.List ( genericLength )
-import Data.Map ( Map, keys, member, singleton )
-import Data.Maybe
+import Data.Map ( member )
 import Data.Set ( Set )
-import qualified Data.Set as Set
-import Data.Traversable
 
 import Error
 import Symbols
@@ -55,130 +52,6 @@ type Trans = ReaderT TrnsInfo (Either Error)
 
 type Translator a = a -> Trans a
 
-type Reconfiguration = Map FeatureContext ReconfType
-
-trnsModuleBody :: Translator LModuleBody
-trnsModuleBody (ModuleBody decls stmts l) =
-    ModuleBody <$> trnsLocalVars decls
-               <*> ones trnsStmt stmts
-               <*> pure l
-
-trnsLocalVars :: Translator [LVarDecl]
-trnsLocalVars decls = do
-    sc <- view scope
-    case sc of -- TODO: refactor
-        Local ctx -> fmap concat . for decls $ \decl ->
-            let t = ctx^?!this.fsVars.at (declIdent decl)._Just.vsType
-            in trnsVarDecl t decl
-        LocalCtrlr -> fmap concat . for decls $ \decl -> do
-            cts <- view controller
-            let t = cts^?!_Just.ctsVars.at (declIdent decl)._Just.vsType
-            trnsVarDecl t decl
-        Global -> error "Translator.trnsLocalVars: called with Global scope"
-
-trnsStmt :: Translator LStmt
-trnsStmt (Stmt action grd (Repeatable ss) l) = do
-    res <- for ss $ \(One upd) -> do
-        (upd', reconf) <- runWriterT (trnsUpdate upd)
-        return (One upd', reconf)
-
-    let upds'   = Repeatable $ fmap fst res
-        reconfs = fmap snd res
-
-    action' <- trnsActionLabel action
-    grd'    <- trnsExpr isBoolType grd
-
-    constrGrds  <- traverse constraintGuard reconfs
-    let cardGrds = fmap cardGuards reconfs
-        grd''    = conjunction $ grd' : cardGrds ++ constrGrds
-
-    return $ Stmt action' grd'' upds' l
-  where
-    cardGuards reconf =
-        let parentCtxs = toList . Set.fromList .
-                         catMaybes . fmap parentContext $ keys reconf
-        in conjunction $ fmap (cardGuard reconf) parentCtxs
-
-    cardGuard reconf parentCtx =
-        let fs             = parentCtx^.this
-            (lower, upper) = fs^.fsGroupCard
-            opt            = genericLength . filter (^.fsOptional) $
-                             fs^..fsChildren.traverse.traverse
-
-            childCtxs      = childContexts parentCtx
-            mandChildCtxs  = filter (not . _fsOptional . thisFeature) childCtxs
-
-            sumAll         = sumActiveExpr reconf childCtxs
-            sumMand        = sumActiveExpr reconf mandChildCtxs
-
-            grdLower       = intExpr (lower - opt) `lte` sumMand
-            grdUpper       = sumAll `lte` intExpr upper
-        in grdLower `lAnd` grdUpper
-
-    sumActiveExpr reconf = sum . fmap active'
-      where
-        active' childCtx = case reconf^.at childCtx of
-            Just ReconfActivate   -> 1
-            Just ReconfDeactivate -> 0
-            Nothing -> identExpr (activeIdent childCtx) noLoc
-
-    constraintGuard reconf =
-        conjunction .
-        fmap (trnsConstraint . specialize reconf) .
-        filter (\c -> any (refersTo c) $ keys reconf) .
-        toList <$>
-        view constraints
-
-    specialize reconf = transform $ \c -> case c of
-        FeatConstr ctx -> maybe c
-            (BoolConstr . view (from reconfType)) $ reconf^.at ctx
-        _              -> c
-
-trnsUpdate :: LUpdate -> WriterT Reconfiguration Trans LUpdate
-trnsUpdate (Update e asgns l) =
-    Update <$> _Just (trnsExpr isNumericType) e
-           <*> ones trnsAssign asgns
-           <*> pure l
-
-trnsAssign :: LAssign -> WriterT Reconfiguration Trans LAssign
-trnsAssign asgn = do
-    sc <- view scope
-    case asgn of
-        Assign name e l -> do
-            si@(SymbolInfo symSc ident idx _) <- getSymbolInfo name
-
-            unless (symSc == Global || symSc == sc) $
-                throw l IllegalWriteAccess
-
-            t <- siType si
-
-            constTbl <- view constants
-            when (ident `member` constTbl) $ throw l IllegalConstAssignment
-
-            e' <- trnsExpr (`isAssignableTo` t) e
-            i  <- _Just evalInteger idx
-
-            let name' = fullyQualifiedName symSc ident i l
-            return $ Assign name' e' l
-        Activate   name l -> reconf ReconfActivate   name l
-        Deactivate name l -> reconf ReconfDeactivate name l
-  where
-    reconf rt name l = do
-        sc <- view scope
-        unless (sc == LocalCtrlr) $ throw l IllegalReconf
-
-        ctx <- getFeature name
-        when (ctx^.this.fsMandatory) $ throw l IllegalMandatoryReconf
-
-        tell $ singleton ctx rt
-        return $ reconfAssign rt ctx
-
-    reconfAssign rt ctx =
-        let e = case rt of
-                    ReconfActivate   -> 1
-                    ReconfDeactivate -> 0
-        in Assign (activeName ctx) e noLoc
-
 trnsVarDecl :: Type -> LVarDecl -> Trans [LVarDecl]
 trnsVarDecl t (VarDecl ident vt e l) = do
     sc <- view scope
@@ -192,6 +65,38 @@ trnsVarDecl t (VarDecl ident vt e l) = do
             in flip fmap [lower .. upper] $ \i ->
                 VarDecl (mkIdent $ Just i) (SimpleVarType svt) e l
         _ -> [VarDecl (mkIdent Nothing) vt e l]
+
+trnsUpdate :: (Applicative m, MonadReader TrnsInfo m, MonadEither Error m)
+           => (LAssign -> m LAssign)
+           -> LUpdate
+           -> m LUpdate
+trnsUpdate trns (Update e asgns l) =
+    Update <$> _Just (trnsExpr isNumericType) e
+           <*> ones trns asgns
+           <*> pure l
+
+trnsVarAssign :: (Applicative m, MonadReader TrnsInfo m, MonadEither Error m)
+              => LName
+              -> LExpr
+              -> SrcLoc
+              -> m LAssign
+trnsVarAssign name e l = do
+    sc <- view scope
+    si@(SymbolInfo symSc ident idx _) <- getSymbolInfo name
+
+    unless (symSc == Global || symSc == sc) $
+        throw l IllegalWriteAccess
+
+    t <- siType si
+
+    constTbl <- view constants
+    when (ident `member` constTbl) $ throw l IllegalConstAssignment
+
+    e' <- trnsExpr (`isAssignableTo` t) e
+    i  <- _Just evalInteger idx
+
+    let name' = fullyQualifiedName symSc ident i l
+    return $ Assign name' e' l
 
 trnsExpr :: (Applicative m, MonadReader TrnsInfo m, MonadEither Error m)
          => (Type -> Bool)
