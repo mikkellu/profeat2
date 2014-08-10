@@ -320,8 +320,7 @@ stmt =  loc (Stmt <$> brackets actionLabel
 
 actionLabel :: Parser LActionLabel
 actionLabel = option NoAction . loc . choice $
-    [ ActInitialize <$ reserved "initialize"
-    , ActActivate   <$ reserved "activate"
+    [ ActActivate   <$ reserved "activate"
     , ActDeactivate <$ reserved "deactivate"
     , Action <$> name
     ]

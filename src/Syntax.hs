@@ -332,8 +332,7 @@ instance HasExprs Stmt where
         Stmt <$> exprs f action <*> f grd <*> exprs f upds <*> pure a
 
 data ActionLabel a
-  = ActInitialize !a
-  | ActActivate !a
+  = ActActivate !a
   | ActDeactivate !a
   | Action (Name a) !a
   | NoAction
@@ -756,7 +755,6 @@ instance Pretty (Stmt a) where
 
 instance Pretty (ActionLabel a) where
     pretty action = case action of
-        ActInitialize _ -> "initialize"
         ActActivate _   -> "activate"
         ActDeactivate _ -> "deactivate"
         Action n _      -> pretty n
