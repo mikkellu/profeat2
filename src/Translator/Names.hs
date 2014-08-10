@@ -9,6 +9,10 @@ module Translator.Names
 
   , moduleIdent
 
+  , labelInfoIdent
+
+  , reconfIdent
+
   , seedVarName
   , seedVarIdent
   ) where
@@ -19,6 +23,8 @@ import Control.Lens
 
 import Symbols
 import Syntax
+import Typechecker ( LabelInfo(..) )
+import Types
 
 fullyQualifiedName :: Scope -> Ident -> Maybe Integer -> SrcLoc -> LName
 fullyQualifiedName sc ident idx l =
@@ -38,11 +44,18 @@ fullyQualifiedIdent sc ident idx =
 activeName :: FeatureContext -> LName
 activeName ctx = review _Ident (activeIdent ctx, noLoc)
 
+labelInfoIdent :: LabelInfo -> Ident
+labelInfoIdent (LabelInfo sc ident idx) = fullyQualifiedIdent sc ident idx
+
 activeIdent :: FeatureContext -> Ident
 activeIdent = contextIdent
 
 moduleIdent :: FeatureContext -> Ident -> Ident
 moduleIdent ctx ident = contextIdent ctx <> ('_' `cons` ident)
+
+reconfIdent :: ReconfType -> Ident
+reconfIdent ReconfActivate   = "activate"
+reconfIdent ReconfDeactivate = "deactivate"
 
 seedVarName :: LName
 seedVarName = review _Ident (seedVarIdent, noLoc)

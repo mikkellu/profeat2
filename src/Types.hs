@@ -121,7 +121,7 @@ canBeCastedTo l r =
     (isBoolType l && isBoolType r) || (isNumericType l && isNumericType r)
 
 -- | A reconfiguration may either activate or deactivate features.
-data ReconfType = ReconfActivate | ReconfDeactivate
+data ReconfType = ReconfActivate | ReconfDeactivate deriving (Eq, Ord)
 
 -- | 'ReconfType' is isomorphic to 'Bool'.
 reconfType :: Iso' Bool ReconfType

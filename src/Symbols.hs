@@ -178,7 +178,7 @@ instance Pretty FeatureContext where
 class HasScope a where
     scope :: Lens' a Scope
 
-data Scope = Global | LocalCtrlr | Local FeatureContext deriving (Eq)
+data Scope = Global | LocalCtrlr | Local FeatureContext deriving (Eq, Ord)
 
 instance HasScope Scope where
     scope = id

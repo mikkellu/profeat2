@@ -30,10 +30,14 @@ trnsModule ident body = do
     Module (moduleIdent ctx ident) [] [] <$> trnsModuleBody body
 
 trnsModuleBody :: Translator LModuleBody
-trnsModuleBody (ModuleBody decls stmts l) =
-    ModuleBody <$> trnsLocalVars decls
-               <*> ones trnsStmt stmts
-               <*> pure l
+trnsModuleBody (ModuleBody decls (Repeatable ss) l) = do
+    ss' <- fmap concat . for ss $ \(One stmt) -> do
+        stmts' <- trnsStmt stmt
+        return $ fmap One stmts'
+
+    decls' <- trnsLocalVars decls
+
+    return $ ModuleBody decls' (Repeatable ss') l
 
 trnsLocalVars :: Translator [LVarDecl]
 trnsLocalVars decls = do
@@ -42,12 +46,13 @@ trnsLocalVars decls = do
         let t = ctx^?!this.fsVars.at (declIdent decl)._Just.vsType
         in trnsVarDecl t decl
 
-trnsStmt :: Translator LStmt
-trnsStmt (Stmt action grd upds l) =
-    Stmt <$> trnsActionLabel action
-         <*> trnsExpr isBoolType grd
-         <*> ones (trnsUpdate trnsAssign) upds
-         <*> pure l
+trnsStmt :: LStmt -> Trans [LStmt]
+trnsStmt (Stmt action grd upds l) = do
+    actions' <- trnsActionLabel action
+    for actions' $ \action' ->
+        Stmt action' <$> trnsExpr isBoolType grd
+                     <*> ones (trnsUpdate trnsAssign) upds
+                     <*> pure l
 
 trnsAssign :: Translator LAssign
 trnsAssign (Assign name e l) = trnsVarAssign name e l

@@ -8,6 +8,8 @@ module Typechecker
   ( SymbolInfo(..)
   , siType
 
+  , LabelInfo(..)
+
   , evalRange
   , evalInteger
 
@@ -20,6 +22,9 @@ module Typechecker
   , typeOf
   , getSymbolInfo
   , lookupSymbolInfo
+
+  , getLabelInfo
+  , lookupLabelInfo
 
   , getFeature
   , getContext
@@ -50,6 +55,12 @@ data SymbolInfo = SymbolInfo
   , siIndex      :: Maybe LExpr
   , siSymbolType :: !Type
   }
+
+data LabelInfo = LabelInfo
+  { liScope :: !Scope
+  , liIdent :: !Ident
+  , liIndex :: Maybe Integer
+  } deriving (Eq, Ord)
 
 -- | Evaluates the given range. The expressions must not contain loops or
 -- unexpanded formulas.
@@ -258,6 +269,31 @@ siType (SymbolInfo _ ident idx t) = case t of
     SimpleType _ -> case idx of
         Just e  -> throw (exprAnnot e) $ NotAnArray ident
         Nothing -> return t
+
+getLabelInfo :: ( Applicative m
+                , MonadReader r m
+                , MonadEither Error m
+                , HasSymbolTable r
+                , HasScope r
+                )
+             => LName
+             -> m LabelInfo
+getLabelInfo name@(Name _ l) = lookupLabelInfo name >>= \case -- TODO: merge with getSymbolInfo?
+    Just si -> return si
+    Nothing -> throw l $ UndefinedIdentifier (prettyText name)
+
+lookupLabelInfo :: ( Applicative m
+                   , MonadReader r m
+                   , MonadEither Error m
+                   , HasSymbolTable r
+                   , HasScope r
+                   )
+                => LName
+                -> m (Maybe LabelInfo)
+lookupLabelInfo (viewSimpleName -> Just (ident, idx, _)) = do
+    i <- _Just evalInteger idx
+    return . Just $ LabelInfo Global ident i
+lookupLabelInfo _ = error "Typechecker.lookupLabelInfo: not implemented"
 
 getSymbolInfo :: ( Applicative m
                  , MonadReader r m

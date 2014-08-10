@@ -1,4 +1,7 @@
-{-# LANGUAGE LambdaCase, OverloadedStrings, TemplateHaskell #-}
+{-# LANGUAGE FlexibleContexts
+           , LambdaCase
+           , OverloadedStrings
+           , TemplateHaskell #-}
 
 module Translator.Controller
   ( trnsController
@@ -14,7 +17,7 @@ import Data.Array ( Array, bounds, elems )
 import Data.Foldable ( toList )
 import Data.List ( genericTake, genericLength )
 import Data.Maybe
-import Data.Map ( Map, keys, singleton )
+import Data.Map ( Map, assocs, keys, singleton, unions )
 import Data.Set ( Set )
 import qualified Data.Set as Set
 import Data.Traversable
@@ -29,8 +32,6 @@ import Translator.Common
 import Translator.Constraints
 import Translator.Names
 
-type Reconfiguration = Map FeatureContext ReconfType
-
 data SeedInfo = SeedInfo
   { _seedLoc         :: !Integer
   , _seedVisited     :: Set FeatureContext
@@ -42,8 +43,13 @@ makeLenses ''SeedInfo
 seedInfo :: FeatureContext -> Set Constraint -> SeedInfo
 seedInfo = SeedInfo 0 . Set.singleton
 
-trnsController :: Trans (Maybe LDefinition)
-trnsController = local (scope .~ LocalCtrlr) $ do
+type Reconfiguration = Map FeatureContext ReconfType
+
+reconfsToLabelSet :: [Reconfiguration] -> Set Label
+reconfsToLabelSet = Set.fromList . fmap (uncurry ReconfLabel) . assocs . unions
+
+trnsController :: Trans (Maybe LDefinition, LabelSets)
+trnsController = flip runStateT Set.empty . local (scope .~ LocalCtrlr) $ do
     (decls, stmts, l) <- view controller >>= \case
         Just cts -> do
             body <- trnsControllerBody $ cts^.ctsBody
@@ -73,20 +79,22 @@ trnsController = local (scope .~ LocalCtrlr) $ do
         One $ Stmt action (locGrd `lAnd` grd) upds l
     prependLocGuard _ s = s
 
-trnsControllerBody :: Translator LModuleBody
+trnsControllerBody :: LModuleBody -> StateT LabelSets Trans LModuleBody
 trnsControllerBody (ModuleBody decls stmts l) =
     ModuleBody <$> trnsLocalVars decls
                <*> ones trnsStmt stmts
                <*> pure l
 
-trnsLocalVars :: Translator [LVarDecl]
+trnsLocalVars :: (Applicative m, MonadReader TrnsInfo m, MonadEither Error m)
+              => [LVarDecl]
+              -> m [LVarDecl]
 trnsLocalVars decls = do
     cts <- view controller
     fmap concat . for decls $ \decl ->
         let t = cts^?!_Just.ctsVars.at (declIdent decl)._Just.vsType
         in trnsVarDecl t decl
 
-trnsStmt :: Translator LStmt
+trnsStmt :: LStmt -> StateT LabelSets Trans LStmt
 trnsStmt (Stmt action grd (Repeatable ss) l) = do
     res <- for ss $ \(One upd) -> do
         (upd', reconf) <- runWriterT (trnsUpdate trnsAssign upd)
@@ -95,7 +103,7 @@ trnsStmt (Stmt action grd (Repeatable ss) l) = do
     let upds'   = Repeatable $ fmap fst res
         reconfs = fmap snd res
 
-    action' <- trnsActionLabel action
+    action' <- genActionLabel action (reconfsToLabelSet reconfs)
     grd'    <- trnsExpr isBoolType grd
 
     constrGrds  <- traverse constraintGuard reconfs
@@ -144,7 +152,13 @@ trnsStmt (Stmt action grd (Repeatable ss) l) = do
             (BoolConstr . view (from reconfType)) $ reconf^.at ctx
         _              -> c
 
-trnsAssign :: LAssign -> WriterT Reconfiguration Trans LAssign
+trnsAssign :: ( Applicative m
+              , MonadReader TrnsInfo m
+              , MonadWriter Reconfiguration m
+              , MonadEither Error m
+              )
+           => LAssign
+           -> m LAssign
 trnsAssign asgn = case asgn of
     Assign name e l   -> trnsVarAssign name e l
     Activate   name l -> reconf ReconfActivate   name l
@@ -163,7 +177,23 @@ trnsAssign asgn = case asgn of
                     ReconfDeactivate -> 0
         in Assign (activeName ctx) e noLoc
 
-genActiveVars :: Trans [LVarDecl]
+genActionLabel :: LActionLabel
+               -> Set Label
+               -> StateT LabelSets Trans LActionLabel
+genActionLabel action ls = do
+    lbl <- case action of
+        Action n _      -> Set.singleton . Label <$> getLabelInfo n
+        NoAction        -> return Set.empty
+        ActActivate l   -> throw l IllegalReconfLabel
+        ActDeactivate l -> throw l IllegalReconfLabel
+
+    let ls' = ls `Set.union` lbl
+    modify (Set.insert ls')
+
+    return $ labelSetToAction ls'
+
+genActiveVars :: (Functor m, MonadReader TrnsInfo m, MonadEither Error m)
+              => m [LVarDecl]
 genActiveVars = mapMaybe mkVarDecl . allContexts <$> view rootFeature where
     mkVarDecl ctx
       | ctx^.this.fsMandatory = Nothing
@@ -173,7 +203,8 @@ genActiveVars = mapMaybe mkVarDecl . allContexts <$> view rootFeature where
             e     = Just 0
         in Just $ VarDecl ident vt e noLoc
 
-genSeeding :: Trans ([LStmt], Integer)
+genSeeding :: (Functor m, MonadReader TrnsInfo m, MonadEither Error m)
+           => m ([LStmt], Integer)
 genSeeding = do
     rootCtx <- rootContext <$> view rootFeature
     constrs <- view constraints

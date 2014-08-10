@@ -55,6 +55,7 @@ data ErrorDesc
   | IllegalWriteAccess
   | IllegalMandatoryReconf
   | IllegalReconf
+  | IllegalReconfLabel
   | DivisionByZero Valuation
   deriving (Show)
 
@@ -124,6 +125,8 @@ instance Pretty ErrorDesc where
             "illegal reconfiguration of a mandatory feature"
         IllegalReconf ->
             "illegal reconfiguration outside of controller"
+        IllegalReconfLabel ->
+            "illegal reconfiguration label"
         DivisionByZero val ->
             "division by zero with valuation" <+> prettyValuation val
 

@@ -27,16 +27,17 @@ translateModel symTbl = do
         extractConstraints =<< view rootFeature
 
     flip runReaderT (trnsInfo symTbl constrs) $ do
-        constDefs     <- trnsConsts
-        globalDefs    <- trnsGlobals
-        moduleDefs    <- trnsModules
-        controllerDef <- trnsController
+        (controllerDef, lss) <- trnsController
+        local (labelSets .~ lss) $ do
+            constDefs     <- trnsConsts
+            globalDefs    <- trnsGlobals
+            moduleDefs    <- trnsModules
 
-        return . Model $ concat [ constDefs
-                                , globalDefs
-                                , moduleDefs
-                                , toList controllerDef
-                                ]
+            return . Model $ concat [ constDefs
+                                    , globalDefs
+                                    , moduleDefs
+                                    , toList controllerDef
+                                    ]
 
 trnsConsts :: Trans [LDefinition]
 trnsConsts = fmap toConstDef <$> view (constants.to assocs)
