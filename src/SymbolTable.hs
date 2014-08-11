@@ -49,15 +49,17 @@ extendSymbolTable symTbl defs = flip evalStateT symTbl $ do -- TODO: refactor
 
     checkIfNonCyclicFeatures =<< use features
 
-    forOf_ (traverse._ControllerDef) defs $ \(Controller body) ->
-        ifNot containsController "controller" (modAnnot body) $
-            controller .= Just (ControllerSymbol Map.empty body)
-
     expandExprsOf $ constants.traverse.csExpr
     checkIfNonCyclicConstants =<< use constants
     evalConstValues
 
     symTbl' <- get
+
+    forOf_ (traverse._ControllerDef) defs $ \(Controller body) ->
+        ifNot containsController "controller" (modAnnot body) $ do
+            body' <- runReaderT (prepModuleBody body) (Env LocalCtrlr symTbl')
+            controller .= Just (ControllerSymbol Map.empty body')
+
     symTbl'' <- flip runReaderT (Env Global symTbl') .
                 forOf (globals.traverse) symTbl' $ \gs -> do
         t   <- fromVarType $ gs^.gsDecl.to declType
