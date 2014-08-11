@@ -35,12 +35,12 @@ import Translator.Names
 data SeedInfo = SeedInfo
   { _seedLoc         :: !Integer
   , _seedVisited     :: Set FeatureContext
-  , _seedConstraints :: Set Constraint
+  , _seedConstraints :: Set ConstraintExpr
   }
 
 makeLenses ''SeedInfo
 
-seedInfo :: FeatureContext -> Set Constraint -> SeedInfo
+seedInfo :: FeatureContext -> Set ConstraintExpr -> SeedInfo
 seedInfo = SeedInfo 0 . Set.singleton
 
 type Reconfiguration = Map FeatureContext ReconfType
@@ -142,7 +142,7 @@ trnsStmt (Stmt action grd (Repeatable ss) l) = do
 
     constraintGuard reconf =
         conjunction .
-        fmap (trnsConstraint . specialize reconf) .
+        fmap (trnsConstraintExpr . specialize reconf) .
         filter (\c -> any (refersTo c) $ keys reconf) .
         toList <$>
         view constraints
@@ -241,7 +241,7 @@ seed ctx = do
         i <- use seedLoc
         let confCtxs  = fmap (`extendContext` ctx) conf
             constrs'  = fmap (specialize childCtxs confCtxs) constrs
-            constrGrd = conjunction $ fmap trnsConstraint constrs'
+            constrGrd = conjunction $ fmap trnsConstraintExpr constrs'
             locGrd    = identExpr seedVarIdent noLoc `eq` intExpr i
             grd       = if null constrs
                             then locGrd

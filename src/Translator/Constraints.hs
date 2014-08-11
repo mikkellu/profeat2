@@ -1,13 +1,13 @@
 {-# LANGUAGE FlexibleContexts, TemplateHaskell #-}
 
 module Translator.Constraints
-  ( Constraint(..)
+  ( ConstraintExpr(..)
 
   , extractConstraints
   , canEvalConstraint
   , refersTo
 
-  , trnsConstraint
+  , trnsConstraintExpr
   , fromExpr
   ) where
 
@@ -26,16 +26,16 @@ import Typechecker
 
 import Translator.Names
 
-data Constraint
-  = BinaryConstr !LogicBinOp Constraint Constraint
-  | UnaryConstr !LogicUnOp Constraint
+data ConstraintExpr
+  = BinaryConstr !LogicBinOp ConstraintExpr ConstraintExpr
+  | UnaryConstr !LogicUnOp ConstraintExpr
   | FeatConstr FeatureContext
   | BoolConstr !Bool
   deriving (Eq, Ord)
 
-makePrisms ''Constraint
+makePrisms ''ConstraintExpr
 
-instance Plated Constraint where
+instance Plated ConstraintExpr where
     plate f c = case c of
         BinaryConstr binOp lhs rhs -> BinaryConstr binOp <$> f lhs
                                                          <*> f rhs
@@ -49,23 +49,23 @@ extractConstraints :: ( Applicative m
                       , HasScope r
                       )
                    => FeatureSymbol
-                   -> m (Set Constraint)
+                   -> m (Set ConstraintExpr)
 extractConstraints root = execWriterT $
     void . for (allContexts root) $ \ctx -> local (scope .~ Local ctx) $
         tell . fromList =<< traverse fromExpr (ctx^.this.fsConstraints)
 
-canEvalConstraint :: Set FeatureContext -> Constraint -> Bool
+canEvalConstraint :: Set FeatureContext -> ConstraintExpr -> Bool
 canEvalConstraint ctxs c =
     fromList (universe c^..traverse._FeatConstr) `isSubsetOf` ctxs
 
-refersTo :: Constraint -> FeatureContext -> Bool
+refersTo :: ConstraintExpr -> FeatureContext -> Bool
 refersTo c ctx = ctx `elem` universe c^..traverse._FeatConstr
 
-trnsConstraint :: Constraint -> LExpr
-trnsConstraint c = case c of
-    BinaryConstr binOp lhs rhs ->
-        binaryExpr (LogicBinOp binOp) (trnsConstraint lhs) (trnsConstraint rhs)
-    UnaryConstr unOp c' -> unaryExpr (LogicUnOp unOp) (trnsConstraint c')
+trnsConstraintExpr :: ConstraintExpr -> LExpr
+trnsConstraintExpr c = case c of
+    BinaryConstr binOp lhs rhs -> binaryExpr (LogicBinOp binOp)
+       (trnsConstraintExpr lhs) (trnsConstraintExpr rhs)
+    UnaryConstr unOp c' -> unaryExpr (LogicUnOp unOp) (trnsConstraintExpr c')
     FeatConstr ctx      -> identExpr (activeIdent ctx) noLoc `eq` 1
     BoolConstr b        -> BoolExpr b noLoc
 
@@ -76,7 +76,7 @@ fromExpr :: ( Applicative m
             , HasScope r
             )
          => LExpr
-         -> m Constraint
+         -> m ConstraintExpr
 fromExpr e = case e of
     BinaryExpr (LogicBinOp binOp) lhs rhs _ ->
         BinaryConstr binOp <$> fromExpr lhs <*> fromExpr rhs

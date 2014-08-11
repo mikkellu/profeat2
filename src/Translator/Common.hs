@@ -54,7 +54,7 @@ data TrnsInfo = TrnsInfo
   { _trnsSymbolTable :: SymbolTable
   , _trnsScope       :: !Scope
   , _labelSets       :: LabelSets
-  , _constraints     :: Set Constraint
+  , _constraints     :: Set ConstraintExpr
   }
 
 makeLenses ''TrnsInfo
@@ -65,7 +65,7 @@ instance HasSymbolTable TrnsInfo where
 instance HasScope TrnsInfo where
     scope = trnsScope
 
-trnsInfo :: SymbolTable -> Set Constraint -> TrnsInfo
+trnsInfo :: SymbolTable -> Set ConstraintExpr -> TrnsInfo
 trnsInfo symTbl = TrnsInfo symTbl Global Set.empty
 
 type Trans = ReaderT TrnsInfo (Either Error)
