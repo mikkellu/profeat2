@@ -11,7 +11,8 @@ import Data.Monoid
 
 import Control.Monad.Trans
 import Control.Monad.Trans.Reader
-import Control.Monad.Trans.State
+import Control.Monad.Trans.State.Lazy as Lazy
+import Control.Monad.Trans.State.Strict as Strict
 import Control.Monad.Trans.Writer.Lazy as Lazy
 import Control.Monad.Trans.Writer.Strict as Strict
 
@@ -24,7 +25,10 @@ instance MonadEither e (Either e) where
 instance (MonadEither e m) => MonadEither e (ReaderT r m) where
     left = lift . left
 
-instance (MonadEither e m) => MonadEither e (StateT s m) where
+instance (MonadEither e m) => MonadEither e (Lazy.StateT s m) where
+    left = lift . left
+
+instance (MonadEither e m) => MonadEither e (Strict.StateT s m) where
     left = lift . left
 
 instance (Monoid w, MonadEither e m) => MonadEither e (Lazy.WriterT w m) where
