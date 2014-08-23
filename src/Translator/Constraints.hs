@@ -2,6 +2,8 @@
 
 module Translator.Constraints
   ( ConstraintExpr(..)
+  , ConstraintSet
+  , InitialConstraintSet(..)
 
   , extractConstraints
   , canEvalConstraint
@@ -14,9 +16,10 @@ module Translator.Constraints
 import Control.Applicative
 import Control.Lens
 import Control.Monad.Reader
-import Control.Monad.Writer.Strict
+import Control.Monad.State.Strict
 
 import Data.Set ( Set, fromList, isSubsetOf )
+import qualified Data.Set as Set
 import Data.Traversable
 
 import Error
@@ -42,6 +45,9 @@ instance Plated ConstraintExpr where
         UnaryConstr unOp c'        -> UnaryConstr unOp <$> f c'
         _                          -> pure c
 
+type    ConstraintSet        = Set ConstraintExpr
+newtype InitialConstraintSet = InitialConstraintSet ConstraintSet
+
 extractConstraints :: ( Applicative m
                       , MonadReader r m
                       , MonadEither Error m
@@ -49,10 +55,15 @@ extractConstraints :: ( Applicative m
                       , HasScope r
                       )
                    => FeatureSymbol
-                   -> m (Set ConstraintExpr)
-extractConstraints root = execWriterT $
-    void . for (allContexts root) $ \ctx -> local (scope .~ Local ctx) $
-        tell . fromList =<< traverse fromExpr (ctx^.this.fsConstraints)
+                   -> m (InitialConstraintSet, ConstraintSet)
+extractConstraints root =
+    fmap (_1 %~ InitialConstraintSet) . flip execStateT (Set.empty, Set.empty) $
+        void . for (allContexts root) $ \ctx -> local (scope .~ Local ctx) $
+            for (ctx^.this.fsConstraints) $ \constr -> do
+                c <- fromExpr (constrExpr constr)
+
+                let l = if constrInitial constr then _1 else _2
+                l %= Set.insert c
 
 canEvalConstraint :: Set FeatureContext -> ConstraintExpr -> Bool
 canEvalConstraint ctxs c =

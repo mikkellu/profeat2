@@ -23,6 +23,7 @@ module Syntax
   , Feature(..)
   , Decomposition(..)
   , DecompOp(..)
+  , Constraint(..)
   , FeatureRef(..)
   , Instance(..)
   , Rewards(..)
@@ -80,6 +81,7 @@ module Syntax
   , LFeature
   , LDecomposition
   , LDecompOp
+  , LConstraint
   , LFeatureRef
   , LInstance
   , LRewards
@@ -142,7 +144,7 @@ data Feature a = Feature
   { featIdent       :: !Ident
   , featParams      :: [Ident]
   , featDecomp      :: Maybe (Decomposition a)
-  , featConstraints :: [Expr a]
+  , featConstraints :: [Constraint a]
   , featModules     :: [Instance a]
   , featRewards     :: [Rewards a]
   , featAnnot       :: !a
@@ -151,7 +153,7 @@ data Feature a = Feature
 instance HasExprs Feature where
     exprs f (Feature ident params decomp constrs mods rws a) =
         Feature ident params <$> traverse (exprs f) decomp
-                             <*> traverse f constrs
+                             <*> traverse (exprs f) constrs
                              <*> traverse (exprs f) mods
                              <*> traverse (exprs f) rws
                              <*> pure a
@@ -179,6 +181,15 @@ instance HasExprs DecompOp where
     exprs f decompOp = case decompOp of
         Group range -> Group <$> both (exprs f) range
         _           -> pure decompOp
+
+data Constraint a = Constraint
+  { constrInitial :: !Bool
+  , constrExpr    :: Expr a
+  , constrAnnot   :: !a
+  } deriving (Eq, Functor, Show)
+
+instance HasExprs Constraint where
+    exprs f (Constraint initial e a) = Constraint initial <$> f e <*> pure a
 
 data FeatureRef a = FeatureRef
   { frOptional :: !Bool
@@ -598,6 +609,7 @@ type LDefinition      = Definition SrcLoc
 type LFeature         = Feature SrcLoc
 type LDecomposition   = Decomposition SrcLoc
 type LDecompOp        = DecompOp SrcLoc
+type LConstraint      = Constraint SrcLoc
 type LFeatureRef      = FeatureRef SrcLoc
 type LInstance        = Instance SrcLoc
 type LRewards         = Rewards SrcLoc
@@ -650,14 +662,11 @@ instance Pretty (Feature a) where
         body = pretty decomp <> line <> constrList <> line <> line <>
                modList <> line <> line <>
                vsep (fmap pretty rws)
-        constrList = vsep (fmap prettyConstraint constrs)
+        constrList = vsep (fmap pretty constrs)
         modList
           | null mods = empty
           | otherwise = "modules" <+>
             hang 4 (fillSep . punctuate comma $ fmap pretty mods) <> semi
-
-prettyConstraint :: Expr a -> Doc
-prettyConstraint e = "constraint" <+> pretty e <> semi
 
 instance Pretty (Decomposition a) where
     pretty (Decomposition decompOp cs _) = pretty decompOp <+> "of" <+>
@@ -669,6 +678,11 @@ instance Pretty (DecompOp a) where
         OneOf       -> "one"
         SomeOf      -> "some"
         Group range -> prettyRange range
+
+instance Pretty (Constraint a) where
+    pretty (Constraint initial e _) =
+        (if initial then "initial" else empty) <+>
+        "constraint" <+> pretty e <> semi
 
 instance Pretty (FeatureRef a) where
     pretty (FeatureRef optional inst cnt alias) =

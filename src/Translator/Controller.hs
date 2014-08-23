@@ -45,39 +45,38 @@ seedInfo = SeedInfo 0 . Set.singleton
 
 type Reconfiguration = Map FeatureContext ReconfType
 
-reconfsToLabelSet :: [Reconfiguration] -> Set Label
-reconfsToLabelSet = Set.fromList . fmap (uncurry ReconfLabel) . assocs . unions
+trnsController :: InitialConstraintSet
+               -> Trans (Maybe LDefinition, LabelSets)
+trnsController initConstrs =
+    flip runStateT Set.empty . local (scope .~ LocalCtrlr) $ do
+        (decls, stmts, l) <- view controller >>= \case
+            Just cts -> do
+                body <- trnsControllerBody $ cts^.ctsBody
+                let ModuleBody decls (Repeatable stmts) l = body
+                return (decls, stmts, l)
+            Nothing -> return ([], [], noLoc)
 
-trnsController :: Trans (Maybe LDefinition, LabelSets)
-trnsController = flip runStateT Set.empty . local (scope .~ LocalCtrlr) $ do
-    (decls, stmts, l) <- view controller >>= \case
-        Just cts -> do
-            body <- trnsControllerBody $ cts^.ctsBody
-            let ModuleBody decls (Repeatable stmts) l = body
-            return (decls, stmts, l)
-        Nothing -> return ([], [], noLoc)
+        actDecls       <- genActiveVars
+        (seedStmts, i) <- genSeeding initConstrs
 
-    actDecls       <- genActiveVars
-    (seedStmts, i) <- genSeeding
+        let seedVar = VarDecl seedVarIdent
+                      (SimpleVarType $ IntVarType (0, intExpr i))
+                      (Just 0)
+                      noLoc
+            locGrd  = identExpr seedVarIdent noLoc `eq` intExpr i
 
-    let seedVar = VarDecl seedVarIdent
-                  (SimpleVarType $ IntVarType (0, intExpr i))
-                  (Just 0)
-                  noLoc
-        locGrd  = identExpr seedVarIdent noLoc `eq` intExpr i
+        let decls'  = actDecls ++ decls
+            stmts'  = fmap (prependLocGuard locGrd) stmts
+            stmts'' = Repeatable (fmap One seedStmts ++ stmts')
+            body'   = ModuleBody (seedVar:decls') stmts'' l
 
-    let decls'  = actDecls ++ decls
-        stmts'  = fmap (prependLocGuard locGrd) stmts
-        stmts'' = Repeatable (fmap One seedStmts ++ stmts')
-        body'   = ModuleBody (seedVar:decls') stmts'' l
-
-    return $ if null decls' && null stmts
-        then Nothing
-        else Just . ModuleDef $ Module "_controller" [] [] body'
-  where
-    prependLocGuard locGrd (One (Stmt action grd upds l)) =
-        One $ Stmt action (locGrd `lAnd` grd) upds l
-    prependLocGuard _ s = s
+        return $ if null decls' && null stmts
+            then Nothing
+            else Just . ModuleDef $ Module "_controller" [] [] body'
+      where
+        prependLocGuard locGrd (One (Stmt action grd upds l)) =
+            One $ Stmt action (locGrd `lAnd` grd) upds l
+        prependLocGuard _ s = s
 
 trnsControllerBody :: LModuleBody -> StateT LabelSets Trans LModuleBody
 trnsControllerBody (ModuleBody decls stmts l) =
@@ -204,13 +203,13 @@ genActiveVars = mapMaybe mkVarDecl . allContexts <$> view rootFeature where
         in Just $ VarDecl ident vt e noLoc
 
 genSeeding :: (Functor m, MonadReader TrnsInfo m, MonadEither Error m)
-           => m ([LStmt], Integer)
-genSeeding = do
+           => InitialConstraintSet -> m ([LStmt], Integer)
+genSeeding (InitialConstraintSet initConstrs) = do
     rootCtx <- rootContext <$> view rootFeature
     constrs <- view constraints
 
     return . over _2 _seedLoc . runState (seed rootCtx) $
-        seedInfo rootCtx constrs
+        seedInfo rootCtx (constrs `Set.union` initConstrs)
 
 seed :: FeatureContext -> State SeedInfo [LStmt]
 seed ctx = do
@@ -267,6 +266,9 @@ seed ctx = do
 
         seedConstraints .= constrs'
         return $ toList appConstrs
+
+reconfsToLabelSet :: [Reconfiguration] -> Set Label
+reconfsToLabelSet = Set.fromList . fmap (uncurry ReconfLabel) . assocs . unions
 
 configurations :: (a -> Bool)
                -> (Integer, Integer)

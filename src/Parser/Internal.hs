@@ -83,7 +83,7 @@ toSyntaxError = SyntaxError . pack .
 reservedNames, reservedOpNames :: [String]
 reservedNames =
     [ "feature", "endfeature", "global", "const", "formula", "modules", "all"
-    , "one", "some", "of", "optional", "as", "constraint", "rewards"
+    , "one", "some", "of", "optional", "as", "constraint", "initial", "rewards"
     , "endrewards", "controller", "endcontroller", "module", "endmodule"
     , "public", "active", "activate", "deactivate", "array", "bool", "int"
     , "double", "initialize" , "for", "endfor", "id", "min", "max"
@@ -200,8 +200,9 @@ feature = loc $ do
   where
     moduleList = option [] $ reserved "modules" *> commaSep1 inst <* semi
 
-constraint :: Parser LExpr
-constraint = reserved "constraint" *> expr <* semi
+constraint :: Parser LConstraint
+constraint = loc $ Constraint <$> option False (True <$ reserved "initial")
+                              <*> (reserved "constraint" *> expr <* semi)
 
 decomposition :: Parser LDecomposition
 decomposition = loc (Decomposition <$> (decompOp <* reserved "of")

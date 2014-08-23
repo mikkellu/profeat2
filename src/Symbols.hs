@@ -137,7 +137,7 @@ data FeatureSymbol = FeatureSymbol
   , _fsOptional       :: !Bool -- ^ the feature is marked as optional
   , _fsModules        :: Table LModuleBody
   , _fsVars           :: Table VarSymbol
-  , _fsConstraints    :: [LExpr]
+  , _fsConstraints    :: [LConstraint]
   } deriving (Show)
 
 makeLenses ''FeatureSymbol
