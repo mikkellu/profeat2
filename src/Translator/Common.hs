@@ -18,6 +18,8 @@ module Translator.Common
   , trnsExpr
   , trnsActionLabel
 
+  , operatingGuard
+
   , labelSetToAction
   , labelSetName
   , labelIdent
@@ -167,6 +169,9 @@ activeExpr ctx =
     in conjunction $ fmap isActive ctxs
   where
     isActive ctx' = let ident = activeIdent ctx' in identExpr ident noLoc `eq` 1
+
+operatingGuard :: LExpr
+operatingGuard = NameExpr operatingName noLoc
 
 trnsActionLabel :: LActionLabel -> Trans [LActionLabel]
 trnsActionLabel action =

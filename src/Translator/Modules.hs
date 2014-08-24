@@ -50,7 +50,7 @@ trnsStmt :: LStmt -> Trans [LStmt]
 trnsStmt (Stmt action grd upds l) = do
     actions' <- trnsActionLabel action
     for actions' $ \action' ->
-        Stmt action' <$> trnsExpr isBoolType grd
+        Stmt action' <$> fmap (operatingGuard `lAnd`) (trnsExpr isBoolType grd)
                      <*> ones (trnsUpdate trnsAssign) upds
                      <*> pure l
 

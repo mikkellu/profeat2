@@ -7,6 +7,7 @@ module Translator.Names
   , activeName
   , activeIdent
 
+  , controllerIdent
   , moduleIdent
 
   , labelInfoIdent
@@ -15,6 +16,9 @@ module Translator.Names
 
   , seedVarName
   , seedVarIdent
+
+  , operatingName
+  , operatingIdent
   ) where
 
 import Data.Monoid
@@ -50,6 +54,9 @@ labelInfoIdent (LabelInfo sc ident idx) = fullyQualifiedIdent sc ident idx
 activeIdent :: FeatureContext -> Ident
 activeIdent = contextIdent
 
+controllerIdent :: Ident
+controllerIdent = "_ident"
+
 moduleIdent :: FeatureContext -> Ident -> Ident
 moduleIdent ctx ident = contextIdent ctx <> ('_' `cons` ident)
 
@@ -62,4 +69,10 @@ seedVarName = review _Ident (seedVarIdent, noLoc)
 
 seedVarIdent :: Ident
 seedVarIdent = "__loc"
+
+operatingName :: LName
+operatingName = review _Ident (operatingIdent, noLoc)
+
+operatingIdent :: Ident
+operatingIdent = "_operating"
 

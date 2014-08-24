@@ -43,7 +43,7 @@ makeLenses ''SeedInfo
 type Reconfiguration = Map FeatureContext ReconfType
 
 trnsController :: InitialConstraintSet
-               -> Trans (Maybe LDefinition, LabelSets)
+               -> Trans ([LDefinition], LabelSets)
 trnsController initConstrs =
     flip runStateT Set.empty . local (scope .~ LocalCtrlr) $ do
         (decls, stmts, l) <- view controller >>= \case
@@ -56,24 +56,35 @@ trnsController initConstrs =
         actDecls       <- genActiveVars
         (seedStmts, i) <- genSeeding initConstrs
 
-        let seedVar = VarDecl seedVarIdent
-                      (SimpleVarType $ IntVarType (0, intExpr i))
-                      (Just 0)
-                      noLoc
-            locGrd  = identExpr seedVarIdent noLoc `eq` intExpr i
 
-        let decls'  = actDecls ++ decls
-            stmts'  = fmap (prependLocGuard locGrd) stmts
-            stmts'' = Repeatable (fmap One seedStmts ++ stmts')
-            body'   = ModuleBody (seedVar:decls') stmts'' l
+        let seedVar = genSeedVar i
+            decls'  = actDecls ++ decls
+            stmts'  = Repeatable (fmap One seedStmts ++ stmts)
+            body'   = ModuleBody (seedVar:decls') stmts' l
 
         return $ if null decls' && null stmts
-            then Nothing
-            else Just . ModuleDef $ Module "_controller" [] [] body'
-      where
-        prependLocGuard locGrd (One (Stmt action grd upds l)) =
-            One $ Stmt action (locGrd `lAnd` grd) upds l
-        prependLocGuard _ s = s
+            then [ genOperatingFormula Nothing ]
+            else [ genOperatingFormula (Just i)
+                 , ModuleDef $ Module controllerIdent [] [] body'
+                 ]
+
+genSeedVar :: Integer -> LVarDecl
+genSeedVar i = VarDecl
+    { declIdent = seedVarIdent
+    , declType  = SimpleVarType $ IntVarType (0, intExpr i)
+    , declInit  = Just 0
+    , declAnnot = noLoc
+    }
+
+genOperatingFormula :: Maybe Integer -> LDefinition
+genOperatingFormula i = FormulaDef Formula
+    { frmIdent  = operatingIdent
+    , frmParams = []
+    , frmExpr   = maybe (BoolExpr True noLoc) locGrd i
+    , frmAnnot  = noLoc
+    }
+  where
+    locGrd = eq (identExpr seedVarIdent noLoc) . intExpr
 
 trnsControllerBody :: LModuleBody -> StateT LabelSets Trans LModuleBody
 trnsControllerBody (ModuleBody decls stmts l) =
@@ -106,7 +117,7 @@ trnsStmt (Stmt action grd (Repeatable ss) l) = do
     let cardGrds = fmap cardGuards reconfs
         grd''    = conjunction $ grd' : cardGrds ++ constrGrds
 
-    return $ Stmt action' grd'' upds' l
+    return $ Stmt action' (operatingGuard `lAnd` grd'') upds' l
   where
     cardGuards reconf =
         let parentCtxs = toList . Set.fromList .
