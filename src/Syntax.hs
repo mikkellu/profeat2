@@ -754,7 +754,7 @@ instance Pretty ConstType where
 
 instance Pretty (Formula a) where
     pretty (Formula ident params e _) =
-        "formula" <> prettyParams params <+> text ident <+> equals <+>
+        ("formula" <> prettyParams params) <+> text ident <+> equals <+>
         pretty e <> semi
 
 instance Pretty (Property a) where
