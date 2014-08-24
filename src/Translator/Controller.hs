@@ -33,15 +33,12 @@ import Translator.Constraints
 import Translator.Names
 
 data SeedInfo = SeedInfo
-  { _seedLoc         :: !Integer
-  , _seedVisited     :: Set FeatureContext
-  , _seedConstraints :: Set ConstraintExpr
+  { _seedLoc         :: !Integer           -- ^ the next seeding step
+  , _seedVisited     :: Set FeatureContext -- ^ visited roots of atomic sets
+  , _seedConstraints :: Set ConstraintExpr -- ^ remaining constraints
   }
 
 makeLenses ''SeedInfo
-
-seedInfo :: FeatureContext -> Set ConstraintExpr -> SeedInfo
-seedInfo = SeedInfo 0 . Set.singleton
 
 type Reconfiguration = Map FeatureContext ReconfType
 
@@ -202,50 +199,52 @@ genActiveVars = mapMaybe mkVarDecl . allContexts <$> view rootFeature where
             e     = Just 0
         in Just $ VarDecl ident vt e noLoc
 
-genSeeding :: (Functor m, MonadReader TrnsInfo m, MonadEither Error m)
-           => InitialConstraintSet -> m ([LStmt], Integer)
+genSeeding :: (MonadReader TrnsInfo m)
+           => InitialConstraintSet
+           -> m ([LStmt], Integer)
 genSeeding (InitialConstraintSet initConstrs) = do
-    rootCtx <- rootContext <$> view rootFeature
+    root    <- view rootFeature
     constrs <- view constraints
 
-    return . over _2 _seedLoc . runState (seed rootCtx) $
-        seedInfo rootCtx (constrs `Set.union` initConstrs)
+    let seedInfo = SeedInfo 0 Set.empty (constrs `Set.union` initConstrs)
+
+    return . over _2 _seedLoc . flip runState seedInfo . fmap concat $
+        for (allContexts root) seed
 
 seed :: FeatureContext -> State SeedInfo [LStmt]
 seed ctx = do
     let fs         = ctx^.this
         childFeats = fs^..fsChildren.traverse.traverse
-        childCtxs  = childContexts ctx
-        confs      = configurations _fsOptional
-                                    (fs^.fsGroupCard)
-                                    (fs^..fsChildren.traverse)
-        allMand    = all _fsMandatory childFeats
+        atomicSets = filter (not . _fsMandatory) childFeats
 
-    seedVisited %= Set.union (Set.fromList childCtxs)
+    if null atomicSets
+        then return []
+        else seedAtomicSets ctx atomicSets
+
+seedAtomicSets :: FeatureContext -> [FeatureSymbol] -> State SeedInfo [LStmt]
+seedAtomicSets ctx atomicSets = do
+    let fs    = ctx^.this
+        confs = configurations (^.fsOptional)
+                               (fs^.fsGroupCard)
+                               (fs^..fsChildren.traverse)
+        atomicCtxs = fmap (`extendContext` ctx) atomicSets
+
+    seedVisited %= Set.union (Set.fromList atomicCtxs)
 
     constrs <- applicableConstraints
 
-    stmts <- if (isLeafFeature fs || allMand) && null constrs
-        then return []
-        else do
-            stmts <- for confs (genStmt constrs childCtxs)
-            seedLoc += 1
-            return stmts
-
-    stmts' <- concat <$> for childCtxs seed
-
-    return $ stmts ++ stmts'
+    stmts <- for confs (genStmt constrs atomicCtxs)
+    seedLoc += 1
+    return stmts
   where
-    genStmt constrs childCtxs conf = do
+    genStmt constrs atomicCtxs conf = do
         i <- use seedLoc
         let confCtxs  = fmap (`extendContext` ctx) conf
-            constrs'  = fmap (specialize childCtxs confCtxs) constrs
+            constrs'  = fmap (specialize atomicCtxs confCtxs) constrs
             constrGrd = conjunction $ fmap trnsConstraintExpr constrs'
             locGrd    = identExpr seedVarIdent noLoc `eq` intExpr i
-            grd       = if null constrs
-                            then locGrd
-                            else locGrd `lAnd` constrGrd
-            upd   = genUpdate i confCtxs
+            grd       = locGrd `lAnd` constrGrd
+            upd       = genUpdate i confCtxs
         return $ Stmt NoAction grd (Repeatable [One upd]) noLoc
 
     genUpdate i ctxs =
@@ -254,9 +253,12 @@ seed ctx = do
             asgns = fmap (\c -> One $ Assign (activeName c) 1 noLoc) ctxs'
         in Update Nothing (Repeatable $ sAsgn:asgns) noLoc
 
-    specialize childCtxs chosenCtxs = transform $ \case
-        FeatConstr ctx'
-          | ctx' `elem` childCtxs -> BoolConstr (ctx' `elem` chosenCtxs)
+    specialize atomicCtxs chosenCtxs = transform $ \case
+        FeatConstr ctx' -> case atomicSetRoot ctx' of
+            Nothing -> BoolConstr True
+            Just ctx''
+              | ctx'' `elem` atomicCtxs -> BoolConstr (ctx'' `elem` chosenCtxs)
+              | otherwise               -> FeatConstr ctx''
         c -> c
 
     applicableConstraints = do

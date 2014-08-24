@@ -91,7 +91,7 @@ toFeatureSymbols mandatory (FeatureRef isOptional inst cntExpr _) = do
                 checkDecomposition decomp
 
                 let mandatory' = case decompOp of
-                                     AllOf -> mandatory
+                                     AllOf -> True
                                      _     -> False
 
                 cfs <- fmap fromList . for refs $ \ref ->

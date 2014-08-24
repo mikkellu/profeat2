@@ -54,6 +54,8 @@ module Symbols
   , FeatureContext
   , getFeatureSymbols
 
+  , atomicSetRoot
+
   , isLeafFeature
   , thisFeature
   , this
@@ -133,7 +135,7 @@ data FeatureSymbol = FeatureSymbol
   , _fsIsMultiFeature :: !Bool
   , _fsGroupCard      :: (Integer, Integer)
   , _fsChildren       :: Table (Array Integer FeatureSymbol)
-  , _fsMandatory      :: !Bool -- ^ the feature is contained in every product
+  , _fsMandatory      :: !Bool -- ^ the feature is mandatory (relative to its parent)
   , _fsOptional       :: !Bool -- ^ the feature is marked as optional
   , _fsModules        :: Table LModuleBody
   , _fsVars           :: Table VarSymbol
@@ -262,6 +264,11 @@ checkedLookup f ident l =
 featureCardinality :: Array Integer FeatureSymbol -> Integer
 featureCardinality a = let (lower, upper) = bounds a
                        in upper - lower + 1
+
+atomicSetRoot :: FeatureContext -> Maybe FeatureContext
+atomicSetRoot ctx
+  | not $ ctx^.this.fsMandatory = Just ctx
+  | otherwise                   = atomicSetRoot =<< parentContext ctx
 
 isLeafFeature :: FeatureSymbol -> Bool
 isLeafFeature = ((0, 0) ==) . _fsGroupCard

@@ -18,6 +18,7 @@ import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.State.Strict
 
+import Data.Maybe
 import Data.Set ( Set, fromList, isSubsetOf )
 import qualified Data.Set as Set
 import Data.Traversable
@@ -67,7 +68,9 @@ extractConstraints root =
 
 canEvalConstraint :: Set FeatureContext -> ConstraintExpr -> Bool
 canEvalConstraint ctxs c =
-    fromList (universe c^..traverse._FeatConstr) `isSubsetOf` ctxs
+    let constrCtxs = universe c^..traverse._FeatConstr
+        asRoots    = catMaybes $ fmap atomicSetRoot constrCtxs -- project all features to their atomic set
+    in fromList asRoots `isSubsetOf` ctxs
 
 refersTo :: ConstraintExpr -> FeatureContext -> Bool
 refersTo c ctx = ctx `elem` universe c^..traverse._FeatConstr
