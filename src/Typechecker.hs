@@ -101,7 +101,11 @@ checkInitialization :: ( Applicative m
                     => Type
                     -> LExpr
                     -> m ()
-checkInitialization t e = checkIfType_ (`isAssignableTo` t) e >> checkIfConst e
+checkInitialization t e =
+    let t' = case t of
+            CompoundType (ArrayType _ st) -> SimpleType st
+            _                             -> t
+    in checkIfType_ (`isAssignableTo` t') e >> checkIfConst e
 
 checkIfConst :: (MonadReader r m, MonadEither Error m, HasSymbolTable r)
              => LExpr
