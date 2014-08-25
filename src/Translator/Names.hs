@@ -63,7 +63,7 @@ activeIdent :: FeatureContext -> Ident
 activeIdent = contextIdent
 
 controllerIdent :: Ident
-controllerIdent = "_ident"
+controllerIdent = "_controller"
 
 moduleIdent :: FeatureContext -> Ident -> Ident
 moduleIdent ctx ident = contextIdent ctx <> ('_' `cons` ident)
