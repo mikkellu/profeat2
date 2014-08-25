@@ -62,8 +62,9 @@ extendSymbolTable symTbl defs = flip evalStateT symTbl $ do -- TODO: refactor
 
     symTbl'' <- flip runReaderT (Env Global symTbl') .
                 forOf (globals.traverse) symTbl' $ \gs -> do
-        t   <- fromVarType $ gs^.gsDecl.to declType
+        t <- fromVarType $ gs^.gsDecl.to declType
         return (gs & gsType .~ t)
+    put symTbl''
 
     root <- rootFeatureSymbol symTbl''
     setControllerVarTypes

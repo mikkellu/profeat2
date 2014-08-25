@@ -91,6 +91,8 @@ trnsVarDecl t (VarDecl ident vt e l) = do
             let CompoundVarType (ArrayVarType _ svt) = vt
             in flip fmap [lower .. upper] $ \i ->
                 VarDecl (mkIdent $ Just i) (SimpleVarType svt) e l
+        CompoundType (ArrayType Nothing _) ->
+            error "Translator.Common.trnsVarDecl: unevaluated type"
         _ -> [VarDecl (mkIdent Nothing) vt e l]
 
 trnsUpdate :: (Applicative m, MonadReader TrnsInfo m, MonadEither Error m)
