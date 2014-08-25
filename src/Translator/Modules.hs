@@ -7,6 +7,7 @@ import Control.Lens
 import Control.Monad.Reader
 
 import Data.Map ( assocs )
+import Data.Set ( member )
 import Data.Traversable
 
 import Error
@@ -48,11 +49,22 @@ trnsLocalVars decls = do
 
 trnsStmt :: LStmt -> Trans [LStmt]
 trnsStmt (Stmt action grd upds l) = do
-    actions' <- trnsActionLabel action
-    for actions' $ \action' ->
-        Stmt action' <$> fmap (operatingGuard `lAnd`) (trnsExpr isBoolType grd)
-                     <*> ones (trnsUpdate trnsAssign) upds
-                     <*> pure l
+    Local ctx <- view scope
+    actions'  <- trnsActionLabel action
+
+    for actions' $ \(action', labelSet) -> do
+        let actGrd  = activeGuard ctx
+            actGrd' = if localActivateLabel ctx `member` labelSet
+                          then unaryExpr (LogicUnOp LNot) actGrd
+                          else actGrd
+
+        grd'  <- trnsExpr isBoolType grd
+        upds' <- ones (trnsUpdate trnsAssign) upds
+
+        return $
+            Stmt action' (conjunction [operatingGuard, actGrd', grd']) upds' l
+  where
+    localActivateLabel ctx = ReconfLabel ctx ReconfActivate
 
 trnsAssign :: Translator LAssign
 trnsAssign (Assign name e l) = trnsVarAssign name e l

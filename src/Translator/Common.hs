@@ -19,6 +19,7 @@ module Translator.Common
   , trnsActionLabel
 
   , operatingGuard
+  , activeGuard
 
   , labelSetToAction
   , labelSetName
@@ -26,6 +27,7 @@ module Translator.Common
   ) where
 
 import Control.Applicative
+import Control.Arrow ( (&&&) )
 import Control.Lens
 import Control.Monad.Reader
 
@@ -134,8 +136,8 @@ trnsExpr p e = checkIfType_ p e *> go e
 
         let ident' = fullyQualifiedIdent (siScope si) (siIdent si) Nothing
         trnsIndex (siSymbolType si) ident' (siIndex si) l
-    go (CallExpr (FuncExpr FuncActive _) [NameExpr name _] l) =
-        flip NameExpr l . activeFormulaName <$> getFeature name
+    go (CallExpr (FuncExpr FuncActive _) [NameExpr name _] _) =
+        activeGuard <$> getFeature name
     go e' = plate go e'
 
 trnsIndex :: (Applicative m, MonadReader TrnsInfo m, MonadEither Error m)
@@ -163,25 +165,21 @@ trnsIndex (CompoundType (ArrayType (Just (lower, upper)) _)) ident (Just e) l = 
                  noLoc
 trnsIndex _ ident _ l = return $ identExpr ident l
 
-activeExpr :: FeatureContext -> LExpr
-activeExpr ctx =
-    let ctxs = filter (not . _fsMandatory . thisFeature) $ parentContexts ctx
-    in conjunction $ fmap isActive ctxs
-  where
-    isActive ctx' = let ident = activeIdent ctx' in identExpr ident noLoc `eq` 1
-
 operatingGuard :: LExpr
 operatingGuard = NameExpr operatingName noLoc
 
-trnsActionLabel :: LActionLabel -> Trans [LActionLabel]
+activeGuard :: FeatureContext -> LExpr
+activeGuard = flip NameExpr noLoc . activeFormulaName
+
+trnsActionLabel :: LActionLabel -> Trans [(LActionLabel, Set Label)]
 trnsActionLabel action =
     actionToLabel action >>= \case
-        Nothing  -> return [NoAction]
+        Nothing  -> return [(NoAction, Set.empty)]
         Just lbl -> do
-            actions <- fmap labelSetToAction . toList <$> getLabelSetsFor lbl
-            return $ case actions of
-                [] -> [Action (labelName lbl) noLoc]
-                _  -> actions
+            lss <- toList <$> getLabelSetsFor lbl
+            return $ case lss of
+                [] -> [(Action (labelName lbl) noLoc, Set.singleton lbl)]
+                _  -> fmap (labelSetToAction &&& id) lss
 
 labelSetToAction :: Set Label -> LActionLabel
 labelSetToAction ls = Action (labelSetName ls) noLoc
