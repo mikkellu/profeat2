@@ -27,7 +27,7 @@ translateModel symTbl = do
         extractConstraints =<< view rootFeature
 
     flip runReaderT (trnsInfo symTbl constrs) $ do
-        (controllerDef, lss) <- trnsController initConstrs
+        (controllerDef, lss) <- trnsControllerDef initConstrs
         local (labelSets .~ lss) $ do
             constDefs     <- trnsConsts
             globalDefs    <- trnsGlobals

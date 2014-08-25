@@ -134,8 +134,8 @@ trnsExpr p e = checkIfType_ p e *> go e
 
         let ident' = fullyQualifiedIdent (siScope si) (siIdent si) Nothing
         trnsIndex (siSymbolType si) ident' (siIndex si) l
-    go (CallExpr (FuncExpr FuncActive _) [NameExpr name _] _) =
-        activeExpr . fst <$> getContext name
+    go (CallExpr (FuncExpr FuncActive _) [NameExpr name _] l) =
+        flip NameExpr l . activeFormulaName <$> getFeature name
     go e' = plate go e'
 
 trnsIndex :: (Applicative m, MonadReader TrnsInfo m, MonadEither Error m)

@@ -4,7 +4,7 @@
            , TemplateHaskell #-}
 
 module Translator.Controller
-  ( trnsController
+  ( trnsControllerDef
   ) where
 
 import Control.Applicative
@@ -42,6 +42,13 @@ makeLenses ''SeedInfo
 
 type Reconfiguration = Map FeatureContext ReconfType
 
+trnsControllerDef :: InitialConstraintSet
+                  -> Trans ([LDefinition], LabelSets)
+trnsControllerDef initConstrs = do
+    (defs, lss)    <- trnsController initConstrs
+    activeFormulas <- genActiveFormulas
+    return (defs ++ activeFormulas, lss)
+
 trnsController :: InitialConstraintSet
                -> Trans ([LDefinition], LabelSets)
 trnsController initConstrs =
@@ -56,7 +63,6 @@ trnsController initConstrs =
         actDecls       <- genActiveVars
         (seedStmts, i) <- genSeeding initConstrs
 
-
         let seedVar = genSeedVar i
             decls'  = actDecls ++ decls
             stmts'  = Repeatable (fmap One seedStmts ++ stmts)
@@ -67,24 +73,6 @@ trnsController initConstrs =
             else [ genOperatingFormula (Just i)
                  , ModuleDef $ Module controllerIdent [] [] body'
                  ]
-
-genSeedVar :: Integer -> LVarDecl
-genSeedVar i = VarDecl
-    { declIdent = seedVarIdent
-    , declType  = SimpleVarType $ IntVarType (0, intExpr i)
-    , declInit  = Just 0
-    , declAnnot = noLoc
-    }
-
-genOperatingFormula :: Maybe Integer -> LDefinition
-genOperatingFormula i = FormulaDef Formula
-    { frmIdent  = operatingIdent
-    , frmParams = []
-    , frmExpr   = maybe (BoolExpr True noLoc) locGrd i
-    , frmAnnot  = noLoc
-    }
-  where
-    locGrd = eq (identExpr seedVarIdent noLoc) . intExpr
 
 trnsControllerBody :: LModuleBody -> StateT LabelSets Trans LModuleBody
 trnsControllerBody (ModuleBody decls stmts l) =
@@ -300,4 +288,41 @@ subsequences (a:as) = let (lower, upper) = bounds a in do
     i  <- enumFromTo lower (upper + 1)
     return $ genericTake i (elems a) ++ ss
 subsequences [] = return []
+
+genSeedVar :: Integer -> LVarDecl
+genSeedVar i = VarDecl
+  { declIdent = seedVarIdent
+  , declType  = SimpleVarType $ IntVarType (0, intExpr i)
+  , declInit  = Just 0
+  , declAnnot = noLoc
+  }
+
+genOperatingFormula :: Maybe Integer -> LDefinition
+genOperatingFormula i = FormulaDef Formula
+  { frmIdent  = operatingIdent
+  , frmParams = []
+  , frmExpr   = maybe (BoolExpr True noLoc) locGrd i
+  , frmAnnot  = noLoc
+  }
+  where
+    locGrd = eq (identExpr seedVarIdent noLoc) . intExpr
+
+genActiveFormulas :: (Functor m, MonadReader r m, HasSymbolTable r)
+                  => m [LDefinition]
+genActiveFormulas = fmap genActiveFormula . allContexts <$> view rootFeature
+
+genActiveFormula :: FeatureContext -> LDefinition
+genActiveFormula ctx = FormulaDef Formula
+  { frmIdent  = activeFormulaIdent ctx
+  , frmParams = []
+  , frmExpr   = activeExpr ctx
+  , frmAnnot  = noLoc
+  }
+
+activeExpr :: FeatureContext -> LExpr
+activeExpr ctx =
+    let ctxs = filter (not . _fsMandatory . thisFeature) $ parentContexts ctx
+    in conjunction $ fmap isActive ctxs
+  where
+    isActive ctx' = let ident = activeIdent ctx' in identExpr ident noLoc `eq` 1
 

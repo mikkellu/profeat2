@@ -1,9 +1,11 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, TupleSections #-}
 
 module Translator.Names
   ( fullyQualifiedName
   , fullyQualifiedIdent
 
+  , activeFormulaName
+  , activeFormulaIdent
   , activeName
   , activeIdent
 
@@ -45,11 +47,17 @@ fullyQualifiedIdent sc ident idx =
            Just i  -> indexedIdent ident' i
            Nothing -> ident'
 
-activeName :: FeatureContext -> LName
-activeName ctx = review _Ident (activeIdent ctx, noLoc)
-
 labelInfoIdent :: LabelInfo -> Ident
 labelInfoIdent (LabelInfo sc ident idx) = fullyQualifiedIdent sc ident idx
+
+activeFormulaName :: FeatureContext -> LName
+activeFormulaName = toName . activeFormulaIdent
+
+activeFormulaIdent :: FeatureContext -> Ident
+activeFormulaIdent ctx = activeIdent ctx <> "_active"
+
+activeName :: FeatureContext -> LName
+activeName = toName . activeIdent
 
 activeIdent :: FeatureContext -> Ident
 activeIdent = contextIdent
@@ -65,14 +73,17 @@ reconfIdent ReconfActivate   = "activate"
 reconfIdent ReconfDeactivate = "deactivate"
 
 seedVarName :: LName
-seedVarName = review _Ident (seedVarIdent, noLoc)
+seedVarName = toName seedVarIdent
 
 seedVarIdent :: Ident
 seedVarIdent = "__loc"
 
 operatingName :: LName
-operatingName = review _Ident (operatingIdent, noLoc)
+operatingName = toName operatingIdent
 
 operatingIdent :: Ident
 operatingIdent = "_operating"
+
+toName :: Ident -> LName
+toName = review _Ident . (,noLoc)
 
