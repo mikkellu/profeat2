@@ -42,6 +42,7 @@ data ErrorDesc
   | StandaloneMissingExpr
   | UnknownValues LExpr [LName]
   | MalformedLoopBody
+  | NoNeutralElement !BinOp
   | AmbiguousDecomposition !Ident
   | AmbiguousIdentifier !Ident
   | AmbiguousFeature !Ident [Ident]
@@ -95,6 +96,9 @@ instance Pretty ErrorDesc where
             sep (punctuate comma $ map pretty names)
         MalformedLoopBody ->
             "malformed loop"
+        NoNeutralElement binOpT ->
+            "the loop generates an empty expression," <> line <> "but the" <+>
+            pretty binOpT <+> "operator does not have a neutral element"
         AmbiguousDecomposition ident ->
             "the feature" <+> text ident <+> "is referenced more than once"
         AmbiguousIdentifier ident ->

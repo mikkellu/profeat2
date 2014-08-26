@@ -162,14 +162,16 @@ unrollExprLoop :: ( Applicative m
 unrollExprLoop = unrollLoop f where
     f e defss = do
         checkLoopBody e
-        return $ transformOf plateBody (unrollExpr defss) e
+        flip (transformMOf plateBody) e $ \case
+            BinaryExpr binOp e' (MissingExpr _) l ->
+                maybe (throw l $ NoNeutralElement binOp) return $
+                    unrollExpr binOp defss e'
+            e' -> return e'
 
-unrollExpr :: [Map Ident LExpr] -> LExpr -> LExpr
-unrollExpr defss e = case e of
-    BinaryExpr binOp e' (MissingExpr _) _ ->
-        let e's = map (`substitute` e') defss
-        in foldr1 (binaryExpr binOp) e's
-    _ -> e
+unrollExpr :: BinOp -> [Map Ident LExpr] -> LExpr -> Maybe LExpr
+unrollExpr binOp defss e = case defss of
+    [] -> neutralElement binOp
+    _  -> Just . foldr1 (binaryExpr binOp) . map (`substitute` e) $ defss
 
 unrollLoop :: ( Applicative m
               , MonadReader r m
@@ -181,13 +183,8 @@ unrollLoop :: ( Applicative m
            -> LForLoop a
            -> m b
 unrollLoop f (ForLoop ident range body _) = do
-    range' <- both unrollLoopExprs range
-
-    (lower, upper) <- evalRange range'
-    let is | lower <= upper = [lower .. upper]
-           | otherwise      = [lower, lower - 1 .. upper]
-
-    f body (map (Map.singleton ident . flip IntegerExpr noLoc) is)
+    (lower, upper) <- evalRange =<< both unrollLoopExprs range
+    f body (map (Map.singleton ident . flip IntegerExpr noLoc) [lower .. upper])
 
 expandFormulas :: (Applicative m, HasExprs n, MonadEither Error m)
                => Map Ident LFormula

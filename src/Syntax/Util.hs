@@ -1,5 +1,10 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Syntax.Util
   ( identExpr
+
+  , neutralElement
+
   , normalizeExpr
   , conjunction
 
@@ -25,6 +30,21 @@ import Syntax
 -- | Generates a 'NameExpr' with the given identifier.
 identExpr :: Ident -> SrcLoc -> LExpr
 identExpr ident l = NameExpr (_Ident # (ident, l)) l
+
+-- | Returns the neutral element for the given 'BinOp' if it exists.
+neutralElement :: BinOp -> Maybe LExpr
+neutralElement = \case
+    ArithBinOp binOp -> Just $ case binOp of
+        Mul   -> intExpr 1
+        Div   -> intExpr 1
+        Add   -> intExpr 0
+        Sub   -> intExpr 0
+    LogicBinOp binOp -> case binOp of
+        LImpl -> Nothing
+        LEq   -> Nothing
+        LAnd  -> Just $ BoolExpr True noLoc
+        LOr   -> Just $ BoolExpr False noLoc
+    _ -> Nothing
 
 -- | Normalizes the given expression. The following rewrite rules are
 -- applied:
