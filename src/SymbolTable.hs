@@ -60,6 +60,7 @@ extendSymbolTable symTbl defs = flip evalStateT symTbl $ do -- TODO: refactor
         ifNot containsController "controller" (modAnnot body) $ do
             body' <- runReaderT (prepModuleBody body) (Env LocalCtrlr symTbl')
             controller .= Just (ControllerSymbol Map.empty body')
+    symTbl' <- get
 
     symTbl'' <- flip runReaderT (Env Global symTbl') .
                 forOf (globals.traverse) symTbl' $ \gs -> do
