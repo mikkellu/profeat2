@@ -29,6 +29,7 @@ import Control.Lens
 
 import Symbols
 import Syntax
+import Syntax.Util
 import Typechecker ( LabelInfo(..) )
 import Types
 

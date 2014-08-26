@@ -21,6 +21,7 @@ import Eval
 import ProductLine
 import Symbols
 import Syntax
+import Syntax.Util
 import Template
 import Typechecker
 import Types.Util

@@ -24,6 +24,7 @@ import Data.Map ( (!) )
 
 import Error
 import Syntax
+import Syntax.Util
 import Types
 
 -- | Evaluates an expression under a given variable valuation. If

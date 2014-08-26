@@ -47,6 +47,7 @@ import Error
 import Eval
 import Symbols
 import Syntax
+import Syntax.Util
 import Types
 
 data SymbolInfo = SymbolInfo

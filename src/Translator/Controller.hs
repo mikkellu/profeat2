@@ -21,6 +21,7 @@ import Data.Traversable
 import Error
 import Symbols
 import Syntax
+import Syntax.Util
 import Typechecker
 import Types
 

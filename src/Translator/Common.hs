@@ -41,6 +41,7 @@ import qualified Data.Text.Lazy as T
 import Error
 import Symbols
 import Syntax
+import Syntax.Util
 import Typechecker
 import Types
 

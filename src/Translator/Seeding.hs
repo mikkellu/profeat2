@@ -20,6 +20,7 @@ import Data.Traversable
 
 import Symbols
 import Syntax
+import Syntax.Util
 
 import Translator.Common
 import Translator.Constraints

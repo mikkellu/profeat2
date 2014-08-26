@@ -56,6 +56,7 @@ import qualified Text.Parsec.Token as T
 
 import Error
 import Syntax
+import Syntax.Util
 
 parseFile :: Parser a -> SourceName -> Text -> Either Error a
 parseFile p src = over _Left toError . parse (whiteSpace *> p <* eof) src
