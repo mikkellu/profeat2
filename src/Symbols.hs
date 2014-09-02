@@ -65,6 +65,8 @@ module Symbols
   , rootContext
   , extendContext
   , allContexts
+  , forAllContexts_
+  , forAllContexts
 
   , Scope(..)
   , HasScope(..)
@@ -310,6 +312,23 @@ allContexts root = go (\_ _ -> rootCtx) rootCtx root
                               fs^..fsChildren.traverse.traverse
         in self:ctxs'
     rootCtx = rootContext root
+
+forAllContexts_ :: ( Applicative m
+                   , MonadReader r m
+                   , HasSymbolTable r
+                   , HasScope r
+                   )
+                => (FeatureContext -> m a)
+                -> m ()
+forAllContexts_ = void . forAllContexts
+
+forAllContexts :: (Applicative m, MonadReader r m, HasSymbolTable r, HasScope r)
+               => (FeatureContext -> m a)
+               -> m [a]
+forAllContexts m =
+    traverse inLocalCtx . allContexts =<< view rootFeature
+  where
+    inLocalCtx ctx = local (scope .~ Local ctx) (m ctx)
 
 contextIdent :: FeatureContext -> Ident
 contextIdent = T.concat . fmap (cons '_' . mkFsIdent) .

@@ -56,16 +56,14 @@ extractConstraints :: ( Applicative m
                       , HasSymbolTable r
                       , HasScope r
                       )
-                   => FeatureSymbol
-                   -> m (InitialConstraintSet, ConstraintSet)
-extractConstraints root =
+                   => m (InitialConstraintSet, ConstraintSet)
+extractConstraints =
     fmap (_1 %~ InitialConstraintSet) . flip execStateT (Set.empty, Set.empty) $
-        void . for (allContexts root) $ \ctx -> local (scope .~ Local ctx) $
-            for (ctx^.this.fsConstraints) $ \constr -> do
-                c <- fromExpr (constrExpr constr)
+        forAllContexts_ $ \ctx -> for (ctx^.this.fsConstraints) $ \constr -> do
+            c <- fromExpr (constrExpr constr)
 
-                let l = if constrInitial constr then _1 else _2
-                l %= Set.insert c
+            let l = if constrInitial constr then _1 else _2
+            l %= Set.insert c
 
 canEvalConstraint :: Set FeatureContext -> ConstraintExpr -> Bool
 canEvalConstraint ctxs c =

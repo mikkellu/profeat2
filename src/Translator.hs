@@ -23,8 +23,7 @@ import Translator.Modules
 
 translateModel :: SymbolTable -> Either Error LModel
 translateModel symTbl = do
-    (initConstrs, constrs) <- flip runReaderT (Env Global symTbl) $
-        extractConstraints =<< view rootFeature
+    (initConstrs, constrs) <- runReaderT extractConstraints (Env Global symTbl)
 
     flip runReaderT (trnsInfo symTbl constrs) $ do
         (controllerDef, lss) <- trnsControllerDef initConstrs

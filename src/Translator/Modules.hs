@@ -20,9 +20,8 @@ import Translator.Common
 import Translator.Names
 
 trnsModules :: Trans [LDefinition]
-trnsModules = do
-    root <- view rootFeature
-    fmap concat . for (allContexts root) $ \ctx -> local (scope .~ Local ctx) $
+trnsModules =
+    fmap concat . forAllContexts $ \ctx -> local (scope .~ Local ctx) $
         for (ctx^.this.fsModules.to assocs) $ \(ident, body) ->
             ModuleDef <$> trnsModule ident body
 
