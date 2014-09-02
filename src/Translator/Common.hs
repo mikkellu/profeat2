@@ -174,7 +174,9 @@ operatingGuard = NameExpr operatingName noLoc
 activeGuard :: FeatureContext -> LExpr
 activeGuard = flip NameExpr noLoc . activeFormulaName
 
-trnsActionLabel :: LActionLabel -> Trans [(LActionLabel, Set Label)]
+trnsActionLabel :: (Applicative m, MonadReader TrnsInfo m, MonadEither Error m)
+                => LActionLabel
+                -> m [(LActionLabel, Set Label)]
 trnsActionLabel action =
     actionToLabel action >>= \case
         Nothing  -> return [(NoAction, Set.empty)]
@@ -187,12 +189,14 @@ trnsActionLabel action =
 labelSetToAction :: Set Label -> LActionLabel
 labelSetToAction ls = Action (labelSetName ls) noLoc
 
-getLabelSetsFor :: Label -> Trans LabelSets
+getLabelSetsFor :: (MonadReader TrnsInfo m) => Label -> m LabelSets
 getLabelSetsFor lbl = do
     lss <- view labelSets
     return $ Set.filter (Set.member lbl) lss
 
-actionToLabel :: LActionLabel -> Trans (Maybe Label)
+actionToLabel :: ( Applicative m, MonadReader TrnsInfo m, MonadEither Error m)
+              => LActionLabel
+              -> m (Maybe Label)
 actionToLabel action = case action of
     ActActivate l   -> toReconfLabel ReconfActivate l
     ActDeactivate l -> toReconfLabel ReconfDeactivate l

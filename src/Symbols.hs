@@ -31,6 +31,7 @@ module Symbols
   , fsModules
   , fsVars
   , fsConstraints
+  , fsRewards
 
   , ControllerSymbol(..)
   , ctsVars
@@ -142,6 +143,7 @@ data FeatureSymbol = FeatureSymbol
   , _fsModules        :: Table LModuleBody
   , _fsVars           :: Table VarSymbol
   , _fsConstraints    :: [LConstraint]
+  , _fsRewards        :: [LRewards]
   } deriving (Show)
 
 makeLenses ''FeatureSymbol
@@ -224,6 +226,7 @@ emptyFeatureSymbol = FeatureSymbol
   , _fsModules        = empty
   , _fsVars           = empty
   , _fsConstraints    = []
+  , _fsRewards        = []
   }
 
 containsSymbol :: SymbolTable -> Ident -> Maybe SrcLoc

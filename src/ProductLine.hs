@@ -116,6 +116,7 @@ toFeatureSymbols mandatory (FeatureRef isOptional inst cntExpr _) = do
             , _fsModules        = mods
             , _fsVars           = varSyms
             , _fsConstraints    = featConstraints feat
+            , _fsRewards        = featRewards feat
             }
 
     return $ listArray (0, cnt - 1) fss

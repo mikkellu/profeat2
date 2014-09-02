@@ -123,6 +123,7 @@ data Definition a
   | GlobalDef     (VarDecl a)
   | ConstDef      (Constant a)
   | FormulaDef    (Formula a)
+  | RewardsDef    (Rewards a)
   | PropertyDef   (Property a)
   deriving (Eq, Functor, Show)
 
@@ -552,7 +553,7 @@ type LRange           = Range SrcLoc
 makePrisms ''Definition
 
 instance Pretty (Model a) where
-    pretty (Model defs ) = vsep (punctuate line $ fmap pretty defs) <> line
+    pretty (Model defs) = vsep (punctuate line $ fmap pretty defs) <> line
 
 instance Pretty (Specification a) where
     pretty (Specification defs) =
@@ -566,6 +567,7 @@ instance Pretty (Definition a) where
         GlobalDef   g   -> "global" <+> pretty g
         ConstDef    c   -> pretty c
         FormulaDef  f   -> pretty f
+        RewardsDef  r   -> pretty r
         PropertyDef p   -> pretty p
 
 instance Pretty (Feature a) where
@@ -609,9 +611,9 @@ instance Pretty (Instance a) where
 
 instance Pretty (Rewards a) where
     pretty (Rewards ident rws) =
-        "costs" <+> dquotes (text ident) <> line <>
+        "rewards" <+> dquotes (text ident) <> line <>
         indent 4 (vsep $ fmap pretty rws) <> line <>
-        "endcosts"
+        "endrewards"
 
 instance Pretty (Reward a) where
     pretty (Reward action grd e _) =

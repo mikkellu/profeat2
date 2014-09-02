@@ -20,6 +20,7 @@ import Translator.Common
 import Translator.Constraints
 import Translator.Controller
 import Translator.Modules
+import Translator.Rewards
 
 translateModel :: SymbolTable -> Either Error LModel
 translateModel symTbl = do
@@ -31,11 +32,13 @@ translateModel symTbl = do
             constDefs     <- trnsConsts
             globalDefs    <- trnsGlobals
             moduleDefs    <- trnsModules
+            rewardsDefs   <- trnsRewards
 
             return . Model $ concat [ constDefs
                                     , globalDefs
                                     , moduleDefs
                                     , toList controllerDef
+                                    , rewardsDefs
                                     ]
 
 trnsConsts :: Trans [LDefinition]
