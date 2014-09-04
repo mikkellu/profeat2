@@ -181,15 +181,15 @@ instance HasExprs Constraint where
 data FeatureRef a = FeatureRef
   { frOptional :: !Bool
   , frInstance :: Instance a
-  , frCount    :: Maybe (Expr a)
   , frAlias    :: Maybe Ident
+  , frCount    :: Maybe (Expr a)
   } deriving (Eq, Functor, Show)
 
 instance HasExprs FeatureRef where
-    exprs f (FeatureRef opt inst cnt alias) =
+    exprs f (FeatureRef opt inst alias cnt) =
         FeatureRef opt <$> exprs f inst
-                       <*> traverse (exprs f) cnt
                        <*> pure alias
+                       <*> traverse (exprs f) cnt
 
 data Instance a = Instance
   { instIdent :: !Ident
@@ -601,10 +601,10 @@ instance Pretty (Constraint a) where
         "constraint" <+> pretty e <> semi
 
 instance Pretty (FeatureRef a) where
-    pretty (FeatureRef optional inst cnt alias) =
+    pretty (FeatureRef optional inst alias cnt) =
         (if optional then "optional" else empty) <+>
-        pretty inst <> maybe empty (brackets . pretty) cnt <+>
-        maybe empty (("as" <+>) . text) alias
+        pretty inst <+> maybe empty (("as" <+>) . text) alias <>
+        maybe empty (brackets . pretty) cnt
 
 instance Pretty (Instance a) where
     pretty (Instance ident args _) = text ident <> prettyArgs args

@@ -76,7 +76,7 @@ toFeatureSymbols :: ( Applicative m
                  => Bool
                  -> LFeatureRef
                  -> m (Array Integer FeatureSymbol)
-toFeatureSymbols mandatory (FeatureRef isOptional inst cntExpr _) = do
+toFeatureSymbols mandatory (FeatureRef isOptional inst _ cntExpr) = do
     let Instance ident args l = inst
     cnt <- evalFeatureCardinality cntExpr
 

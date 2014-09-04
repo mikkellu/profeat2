@@ -220,8 +220,8 @@ decompOp =  AllOf  <$  reserved "all"
 featureRef :: Parser LFeatureRef
 featureRef = FeatureRef <$> option False (True <$ reserved "optional")
                         <*> inst
-                        <*> optionMaybe (brackets expr)
                         <*> optionMaybe (reserved "as" *> identifier)
+                        <*> optionMaybe (brackets expr)
 
 inst :: Parser LInstance
 inst = loc $ Instance <$> identifier <*> option [] args
