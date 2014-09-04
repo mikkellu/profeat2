@@ -76,7 +76,7 @@ toFeatureSymbols :: ( Applicative m
                  => Bool
                  -> LFeatureRef
                  -> m (Array Integer FeatureSymbol)
-toFeatureSymbols mandatory (FeatureRef isOptional inst _ cntExpr) = do
+toFeatureSymbols mandatory ref@(FeatureRef isOptional inst _ cntExpr) = do
     let Instance ident args l = inst
     cnt <- evalFeatureCardinality cntExpr
 
@@ -94,8 +94,8 @@ toFeatureSymbols mandatory (FeatureRef isOptional inst _ cntExpr) = do
                                      AllOf -> True
                                      _     -> False
 
-                cfs <- fmap fromList . for refs $ \ref ->
-                    (featRefIdent ref,) <$> toFeatureSymbols mandatory' ref
+                cfs <- fmap fromList . for refs $ \ref' ->
+                    (featRefIdent ref',) <$> toFeatureSymbols mandatory' ref'
 
                 let numChilds = sum $ cfs^..traverse.to featureCardinality
                 card <- groupCardinality numChilds decompOp
@@ -106,7 +106,7 @@ toFeatureSymbols mandatory (FeatureRef isOptional inst _ cntExpr) = do
         (mods, varSyms) <- instantiateModules idx (featModules feat)
 
         return FeatureSymbol
-            { _fsIdent          = ident
+            { _fsIdent          = featRefIdent ref
             , _fsIndex          = idx
             , _fsIsMultiFeature = cnt > 1
             , _fsGroupCard      = groupCard
