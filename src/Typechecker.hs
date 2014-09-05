@@ -38,7 +38,7 @@ import Data.Array
 import Data.List.NonEmpty ( NonEmpty(..), nonEmpty )
 import Data.Map ( member )
 import Data.Maybe
-import Data.Text.Lazy ( Text )
+import Data.Text.Lazy ( Text, unpack )
 import Data.Traversable
 
 import Text.PrettyPrint.Leijen.Text ( Pretty, displayT, renderOneLine, pretty )
@@ -420,11 +420,15 @@ getContext (Name name l) = do
 findContext :: ( MonadReader r m
                , MonadEither Error m
                , HasSymbolTable r
+               , HasScope r
                )
             => Ident
             -> Maybe Integer
             -> SrcLoc
             -> m FeatureContext
+findContext (unpack -> "this") Nothing l = view scope >>= \case
+    Local ctx -> return ctx
+    _         -> throw l NonLocalThis
 findContext ident idx l = do
     root <- view rootFeature
     let ctxs = filter (match . thisFeature) $ allContexts root

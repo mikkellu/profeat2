@@ -85,7 +85,7 @@ reservedNames, reservedOpNames :: [String]
 reservedNames =
     [ "feature", "endfeature", "global", "const", "formula", "modules", "all"
     , "one", "some", "of", "optional", "as", "constraint", "initial", "rewards"
-    , "endrewards", "controller", "endcontroller", "module", "endmodule"
+    , "endrewards", "controller", "endcontroller", "module", "endmodule", "this"
     , "public", "active", "activate", "deactivate", "array", "bool", "int"
     , "double", "initialize" , "for", "endfor", "id", "min", "max"
     , "true", "false", "P", "Pmin", "Pmax", "S" , "E", "A", "U", "W", "R"
@@ -438,10 +438,12 @@ bound =  Query QueryProb <$ reservedOp "=?"
     s --> bOp = bOp <$ reservedOp s
 
 name :: Parser LName
-name =  loc (toName <$> qualifier <*> many (reservedOp "." *> qualifier))
+name =  loc (toName <$> (this <|> qualifier)
+                    <*> many (reservedOp "." *> qualifier))
     <?> "name"
   where
     toName q qs = Name (q :| qs)
+    this        = ("this", Nothing) <$ reserved "this"
     qualifier   = (,) <$> identifier <*> optionMaybe (brackets expr)
 
 args :: Parser [LExpr]

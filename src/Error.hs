@@ -53,6 +53,7 @@ data ErrorDesc
   | NotAVariable !Ident
   | NotAMember !Ident !Ident
   | NotAFeature !Ident
+  | NonLocalThis
   | IllegalConstAssignment
   | IllegalWriteAccess
   | IllegalMandatoryReconf
@@ -124,6 +125,8 @@ instance Pretty ErrorDesc where
             text ident <+> "is not a member of" <+> text fIdent
         NotAFeature ident ->
             text ident <+> "is not a feature"
+        NonLocalThis ->
+            "the 'this' keyword is not defined in this context"
         IllegalConstAssignment ->
             "illegal assignment to constant"
         IllegalWriteAccess ->
