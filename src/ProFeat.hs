@@ -3,8 +3,12 @@
 -- | The main module of ProFeat.
 
 module ProFeat
-  ( proFeatMain
+  ( module Export
+
+  , proFeatMain
+
   , translate
+  , translate'
   ) where
 
 import Control.Exception.Lens
@@ -23,17 +27,24 @@ import System.IO.Error.Lens
 
 import Text.PrettyPrint.Leijen.Text ( Pretty, pretty, renderPretty, displayT )
 
-import Error
-import Parser
+import Error      as Export
+import Parser     as Export
 import SymbolTable
-import Syntax
-import Translator
+import Syntax     as Export
+import Translator as Export
 
+-- | Translates the given ProFeat model into a PRISM model.
 translate :: String -> Text -> Either Error Text
-translate proFeatModelName proFeatModel = do
+translate proFeatModelName = fmap render . translate' proFeatModelName
+
+-- | Translates the given ProFeat model into an AST representing the
+-- generated PRISM model.
+translate' :: String -> Text -> Either Error LModel
+translate' proFeatModelName proFeatModel = do
     Model defs <- parseModel proFeatModelName proFeatModel
     symTbl     <- extendSymbolTable emptySymbolTable defs
-    render <$> translateModel symTbl
+    translateModel symTbl
+
 -- ProFeat CLI
 --
 -- profeat [options] (<model-file> | -)
