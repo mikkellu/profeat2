@@ -62,5 +62,10 @@ test-suite profeat-tests
   -- other-modules:
   hs-source-dirs:      tests
   build-depends:       base >=4.3 && <5,
+                       filepath,
+                       tasty >=0.10,
+                       tasty-hunit >=0.9,
+                       text >=1.1,
+                       wl-pprint-text >=1.1,
                        profeat
 
