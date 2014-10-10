@@ -18,6 +18,7 @@ import Data.Maybe
 import Data.Monoid
 import Data.Text.Lazy ( Text )
 import qualified Data.Text.Lazy.IO as L
+import Data.Version ( showVersion )
 
 import Options.Applicative
 
@@ -32,6 +33,11 @@ import Parser     as Export
 import SymbolTable
 import Syntax     as Export
 import Translator as Export
+
+import Paths_profeat ( version )
+
+proFeatVersion :: String
+proFeatVersion = showVersion version
 
 -- | Translates the given ProFeat model into a PRISM model.
 translate :: String -> Text -> Either Error Text
@@ -80,7 +86,9 @@ proFeatMain :: IO ()
 proFeatMain = handling _IOException ioeHandler $
     execParser options >>= translateWithOptions
   where
-    options      = info (helper <*> proFeatOptions) mempty
+    options      = info (helper <*> versionOpt <*> proFeatOptions) mempty
+    versionOpt   = infoOption proFeatVersion
+                       (long "version" <> help "Display version information")
     ioeHandler e = do
         let file = fromMaybe "<unknown source>" $ e^.fileName
         putStrLn $ e^.description ++ ": " ++ file
