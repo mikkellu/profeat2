@@ -1,0 +1,29 @@
+Compiling ProFeat from source
+=============================
+
+To build ProFeat from source code you will need GHC and cabal. The easiest way
+to obtain these is to install the Haskell Platform. For download and
+instructions see
+
+  haskell.org/platform
+
+
+You can build ProFeat by executing the following commands in the project's root
+directory (the directory containing the profeat.cabal file):
+
+  cabal sandbox init
+  cabal install --only-dependencies
+  cabal build
+  cabal install
+
+The executable will be written to .cabal-sandbox/bin/ inside the project's
+root directory.
+
+
+Running ProFeat
+===============
+
+To generate a PRISM model from a ProFeat model "example.profeat", run
+
+  profeat example.profeat -o example.prism
+
