@@ -98,7 +98,7 @@ reservedNames =
     , "one", "some", "of", "optional", "as", "constraint", "initial", "rewards"
     , "endrewards", "controller", "endcontroller", "module", "endmodule", "this"
     , "public", "active", "activate", "deactivate", "array", "bool", "int"
-    , "double", "initialize" , "for", "endfor", "id", "min", "max"
+    , "double", "init" , "for", "endfor", "in", "id", "min", "max"
     , "true", "false", "P", "Pmin", "Pmax", "S" , "E", "A", "U", "W", "R"
     , "X", "F", "G"
     ]
