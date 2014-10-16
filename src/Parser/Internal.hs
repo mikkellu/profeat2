@@ -1,7 +1,9 @@
-{-# LANGUAGE ExistentialQuantification, OverloadedStrings #-}
+{-# LANGUAGE ExistentialQuantification, LambdaCase, OverloadedStrings #-}
 
 module Parser.Internal
-  ( parseFile
+  ( Language(..)
+  , parseFile
+  , parseFile'
 
   , model
   , specification
@@ -51,15 +53,24 @@ import Data.Text.Lens
 import Text.Parsec hiding ( Error, (<|>), many )
 import Text.Parsec.Error ( errorMessages, showErrorMessages )
 import Text.Parsec.Expr
-import Text.Parsec.Text.Lazy
 import qualified Text.Parsec.Token as T
+import Text.Parsec.Text.Lazy ()
 
 import Error
 import Syntax
 import Syntax.Util
 
+data Language = PrismLang | ProFeat
+
+type UserState = Language
+type Parser    = Parsec Text UserState
+
 parseFile :: Parser a -> SourceName -> Text -> Either Error a
-parseFile p src = over _Left toError . parse (whiteSpace *> p <* eof) src
+parseFile = parseFile' ProFeat
+
+parseFile' :: Language -> Parser a -> SourceName -> Text -> Either Error a
+parseFile' lang p src =
+    over _Left toError . runParser (whiteSpace *> p <* eof) lang src
 
 -- | Converts a 'ParseError' to an 'Error'.
 toError :: ParseError -> Error
@@ -96,13 +107,15 @@ reservedOpNames =
     , "=>", "<=>", "->", "..", "...", "?", ".", "=?"
     ]
 
-languageDef :: T.GenLanguageDef Text () Identity
+languageDef :: T.GenLanguageDef Text UserState Identity
 languageDef = T.LanguageDef
     { T.commentStart    = "/*"
     , T.commentEnd      = "*/"
     , T.commentLine     = "//"
     , T.nestedComments  = True
-    , T.identStart      = letter
+    , T.identStart      = getState >>= \case
+                              PrismLang -> char '_' <|> letter
+                              ProFeat   -> letter
     , T.identLetter     = alphaNum <|> char '_'
     , T.opStart         = oneOf "/*-+=!><&|.?"
     , T.opLetter        = oneOf "=.>?"
@@ -111,7 +124,7 @@ languageDef = T.LanguageDef
     , T.caseSensitive   = True
     }
 
-lexer :: T.GenTokenParser Text () Identity
+lexer :: T.GenTokenParser Text UserState Identity
 lexer = T.makeTokenParser languageDef
 
 integer :: (Integral a) => Parser a
@@ -455,7 +468,7 @@ params = option [] . parens $ commaSep1 identifier
 range :: Parser LRange
 range = brackets ((,) <$> expr <*> (reservedOp ".." *> expr))
 
-exprOpTable :: OperatorTable Text () Identity LExpr
+exprOpTable :: OperatorTable Text UserState Identity LExpr
 exprOpTable = -- operators listed in descending precedence, operators in same group have the same precedence
     [ [ unaryOp "-" $ ArithUnOp Neg
       ]
@@ -486,7 +499,7 @@ exprOpTable = -- operators listed in descending precedence, operators in same gr
     unaryOp s     = unary $ reservedOp s
     (-->) s = binary AssocLeft $ reservedOp s
 
-pctlOpTable :: OperatorTable Text () Identity LExpr
+pctlOpTable :: OperatorTable Text UserState Identity LExpr
 pctlOpTable =
     [ [ Prefix tempUnOps ]
     , [ "U" --> TempBinOp Until
