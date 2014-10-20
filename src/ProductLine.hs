@@ -82,8 +82,7 @@ toFeatureSymbols mandatory ref@(FeatureRef isOptional inst _ cntExpr) = do
 
     fss <- for [0..cnt-1] $ \idx -> do
         feat <- lookupFeature ident l >>=
-                instantiateWithId idx ident args l >>=
-                prepExprs
+                instantiateWithId idx ident args l
 
         (groupCard, childFeats) <- case featDecomp feat of
             Nothing -> return ((0, 0), Map.empty)
@@ -200,7 +199,8 @@ evalFeatureCardinality :: ( Applicative m
 evalFeatureCardinality cntExpr = case cntExpr of
     Nothing -> return 1
     Just e -> do
-        v <- evalInteger e
+        e' <- prepExpr e
+        v  <- evalInteger e'
         unless (v > 0) . throw (exprAnnot e) $ InvalidFeatureCardinality v
 
         return v
@@ -219,7 +219,7 @@ groupCardinality cnt decompOp = case decompOp of
     AllOf   -> return (cnt, cnt) -- and
     OneOf   -> return (  1,   1) -- xor
     SomeOf  -> return (  1, cnt) -- or
-    Group r -> evalRange r -- TODO bounds checking
+    Group r -> both prepExpr r >>= evalRange -- TODO bounds checking
 
 featRefIdent :: FeatureRef a -> Ident
 featRefIdent fr = fromMaybe (instIdent $ frInstance fr) (frAlias fr)
