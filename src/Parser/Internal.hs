@@ -185,13 +185,23 @@ loc p = do
     ($ srcLoc src line column) <$> p
 
 model :: Parser LModel
-model = Model <$> many (choice [ featureDef
-                               , controllerDef
-                               , moduleDef
-                               , globalDef
-                               , constantDef
-                               , formulaDef
-                               ])
+model = do
+    lang <- getState
+    Model <$> many (choice $ definitions lang)
+  where
+    definitions ProFeat   = [ featureDef
+                            , controllerDef
+                            , moduleDef
+                            , globalDef
+                            , constantDef
+                            , formulaDef
+                            ]
+    definitions PrismLang = [ moduleDef
+                            , globalDef
+                            , constantDef
+                            , formulaDef
+                            , rewardsDef
+                            ]
 
 specification :: Parser LSpecification
 specification = Specification <$> many (choice [ constantDef
@@ -238,6 +248,9 @@ featureRef = FeatureRef <$> option False (True <$ reserved "optional")
 
 inst :: Parser LInstance
 inst = loc $ Instance <$> identifier <*> option [] args
+
+rewardsDef :: Parser LDefinition
+rewardsDef = RewardsDef <$> rewards
 
 rewards :: Parser LRewards
 rewards = Rewards <$> (reserved "rewards" *> doubleQuotes identifier)
