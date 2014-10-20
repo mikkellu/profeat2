@@ -1,0 +1,21 @@
+const int n = 3;
+
+feature root {
+    modules root_impl;
+}
+
+module root_impl {
+    s    : [1..n] init 1;
+    last : array [1..n] of bool init false;
+
+    for i in [1..n-1] {
+        [] s = i -> (s' = i + 1);
+    }
+
+    [] s = n -> for i in [1..n] {
+                    (1/n):(s' = i) & for k in [1..n] {
+                        (last[k]' = i = k)
+                    }
+                };
+}
+

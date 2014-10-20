@@ -1,0 +1,4 @@
+const int result = 1 + 2 + 3;
+
+formula _operating = true;
+formula _active    = true;

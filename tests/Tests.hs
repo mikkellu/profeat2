@@ -32,6 +32,9 @@ testCases = testGroup "TestCases" [translatorTestCases]
 -- Translator -- {{
 translatorTestCases = testGroup "Translator" $ map translatorTestCase
   [ "Constants"
+  , "Formulas"
+  , "Meta"
+  , "Templates"
   ]
 
 -- }}
