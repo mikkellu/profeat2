@@ -98,7 +98,7 @@ reservedNames =
     , "one", "some", "of", "optional", "as", "constraint", "initial", "rewards"
     , "endrewards", "controller", "endcontroller", "module", "endmodule", "this"
     , "public", "active", "activate", "deactivate", "array", "bool", "int"
-    , "double", "init" , "for", "endfor", "in", "id", "min", "max"
+    , "double", "init" , "for", "endfor", "in", "id", "filter", "min", "max"
     , "true", "false", "P", "Pmin", "Pmax", "S" , "E", "A", "U", "W", "R"
     , "X", "F", "G"
     ]
@@ -154,9 +154,10 @@ reservedOp = T.reservedOp lexer
 symbol :: String -> Parser String
 symbol = T.symbol lexer
 
-semi, colon :: Parser String
+semi, colon, comma :: Parser String
 semi  = T.semi lexer
 colon = T.colon lexer
+comma = T.comma lexer
 
 parens, brackets, braces, doubleQuotes :: forall a. Parser a -> Parser a
 parens       = T.parens lexer
@@ -205,6 +206,7 @@ model = do
 
 specification :: Parser LSpecification
 specification = Specification <$> many (choice [ constantDef
+                                               , formulaDef
                                                , propertyDef
                                                ])
 
@@ -247,7 +249,7 @@ featureRef = FeatureRef <$> option False (True <$ reserved "optional")
                         <*> optionMaybe (brackets expr)
 
 inst :: Parser LInstance
-inst = loc $ Instance <$> identifier <*> option [] args
+inst = loc $ Instance <$> identifier <*> option [] (args expr)
 
 rewardsDef :: Parser LDefinition
 rewardsDef = RewardsDef <$> rewards
@@ -393,7 +395,8 @@ expr' allowPctl = simpleExpr >>= condExpr
 term :: Bool -> Parser LExpr
 term allowPctl = atom allowPctl >>= callExpr
   where
-    callExpr e = option e $ CallExpr e <$> args <*> pure (exprAnnot e)
+    callExpr e = option e $ CallExpr e <$> args (expr' allowPctl)
+                                       <*> pure (exprAnnot e)
 
 atom :: Bool -> Parser LExpr
 atom allowPctl
@@ -405,6 +408,7 @@ atom allowPctl
                    , DecimalExpr     <$> try float
                    , IntegerExpr     <$> integer
                    , LoopExpr        <$> forLoop (expr' allowPctl)
+                   , filterExpr allowPctl
                    , FuncExpr        <$> function
                    , NameExpr        <$> name
                    ])
@@ -440,17 +444,46 @@ forLoop p = loc (ForLoop <$> (reserved "for" *> identifier)
                          <*> block "for" p)
          <?> "for loop"
 
+filterExpr :: Bool -> Parser (SrcLoc -> LExpr)
+filterExpr False = parserZero
+filterExpr True  = reserved "filter" *> parens
+    (FilterExpr <$> filterOp
+                <*> (comma *> property)
+                <*> optionMaybe (comma *> expr))
+
+filterOp :: Parser FilterOp
+filterOp = choice
+    [ "min"      --> FilterMin
+    , "max"      --> FilterMax
+    , "argmin"   --> FilterArgmin
+    , "argmax"   --> FilterArgmax
+    , "count"    --> FilterCount
+    , "sum"      --> FilterSum
+    , "avg"      --> FilterAvg
+    , "first"    --> FilterFirst
+    , "range"    --> FilterRange
+    , "forall"   --> FilterForall
+    , "exists"   --> FilterExists
+    , "print"    --> FilterPrint
+    , "printall" --> FilterPrintall
+    , "state"    --> FilterState
+    ] <?> "filter operator"
+  where
+    s --> fOp = fOp <$ reserved s
+
 function :: Parser Function
 function = choice
-    [ FuncMin    <$ reserved "min"
-    , FuncMax    <$ reserved "max"
-    , FuncFloor  <$ reserved "floor"
-    , FuncCeil   <$ reserved "ceil"
-    , FuncPow    <$ reserved "pow"
-    , FuncMod    <$ reserved "mod"
-    , FuncLog    <$ reserved "log"
-    , FuncActive <$ reserved "active"
+    [ "min"    --> FuncMin
+    , "max"    --> FuncMax
+    , "floor"  --> FuncFloor
+    , "ceil"   --> FuncCeil
+    , "pow"    --> FuncPow
+    , "mod"    --> FuncMod
+    , "log"    --> FuncLog
+    , "active" --> FuncActive
     ] <?> "function call"
+  where
+    s --> func = func <$ reserved s
 
 bound :: Parser Bound
 bound =  Query QueryProb <$ reservedOp "=?"
@@ -472,8 +505,8 @@ name =  loc (toName <$> (this <|> qualifier)
     this        = ("this", Nothing) <$ reserved "this"
     qualifier   = (,) <$> identifier <*> optionMaybe (brackets expr)
 
-args :: Parser [LExpr]
-args = parens (commaSep expr)
+args :: Parser LExpr -> Parser [LExpr]
+args = parens . commaSep
 
 params :: Parser [Ident]
 params = option [] . parens $ commaSep1 identifier

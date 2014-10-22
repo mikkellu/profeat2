@@ -1,8 +1,9 @@
 {-# LANGUAGE FlexibleContexts
            , LambdaCase
-           , ViewPatterns
+           , MultiWayIf
            , RankNTypes
-           , TupleSections #-}
+           , TupleSections
+           , ViewPatterns #-}
 
 module Typechecker
   ( SymbolInfo(..)
@@ -247,6 +248,15 @@ typeOf (CallExpr (FuncExpr function _) args l) = case function of
       | otherwise    = return ()
 
 typeOf (CallExpr e _ l) = throw l $ NotAFunction e
+
+typeOf (FilterExpr fOp prop grd _) = do
+    t <- typeOf prop
+    _ <- _Just (checkIfType_ isBoolType) grd
+    if | fOp `elem` [FilterForall, FilterExists, FilterArgmin, FilterArgmax] ->
+             return boolType
+       | fOp == FilterCount -> return intType
+       | otherwise          -> return t
+
 
 typeOf (NameExpr name _)  = getSymbolInfo name >>= siType
 typeOf (FuncExpr f l)     = throw l $ StandaloneFuntion f

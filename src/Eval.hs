@@ -155,6 +155,7 @@ evalImpl (NameExpr name _) = case name^?_Ident._1 of
     Just ident -> (! ident) <$> ask
     Nothing    -> error "Eval.eval: illegal name"
 evalImpl (FuncExpr _ _)    = typeError
+evalImpl FilterExpr {}     = error "Eval.eval: FilterExpr"
 evalImpl (DecimalExpr d _) = return $ DblVal d
 evalImpl (IntegerExpr i _) = return $ IntVal i
 evalImpl (BoolExpr b _)    = return $ BoolVal b

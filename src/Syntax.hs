@@ -371,6 +371,7 @@ data Expr a
   | CallExpr (Expr a) [Expr a] !a
   | NameExpr (Name a) !a
   | FuncExpr !Function !a
+  | FilterExpr !FilterOp (Expr a) (Maybe (Expr a)) !a
   | DecimalExpr !Double !a
   | IntegerExpr !Integer !a
   | BoolExpr !Bool !a
@@ -421,6 +422,8 @@ instance Plated (Expr a) where
         CallExpr e' args a         ->
             CallExpr <$> f e' <*> traverse f args <*> pure a
         NameExpr name a            -> NameExpr <$> exprs f name <*> pure a
+        FilterExpr fOp prop grd a  ->
+            FilterExpr fOp <$> f prop <*> traverse f grd <*> pure a
         _                          -> pure e
 
 instance HasExprs Expr where
@@ -479,6 +482,7 @@ exprAnnot e = case e of
     CallExpr _ _ a     -> a
     NameExpr _ a       -> a
     FuncExpr _ a       -> a
+    FilterExpr _ _ _ a -> a
     DecimalExpr _ a    -> a
     IntegerExpr _ a    -> a
     BoolExpr _ a       -> a
@@ -732,6 +736,9 @@ prettyExpr prec e = case e of
         parens (align . cat . punctuate comma $ fmap pretty args)
     NameExpr n _          -> pretty n
     FuncExpr func _       -> pretty func
+    FilterExpr fOp p s _  -> "filter" <> parens (pretty fOp <> comma <+>
+                                                 pretty p <> comma <+>
+                                                 pretty s)
     DecimalExpr d _       -> double d
     IntegerExpr i _       -> integer i
     BoolExpr True _       -> "true"

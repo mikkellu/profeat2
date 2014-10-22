@@ -19,6 +19,8 @@ module Syntax.Operators
   , QueryType(..)
   , unOpPrec
 
+  , FilterOp(..)
+
   , callPrec
   ) where
 
@@ -146,6 +148,23 @@ unOpPrec unOpT = case unOpT of
         Forall   -> 2
     ProbUnOp _   -> 2
 
+data FilterOp
+ = FilterMin
+ | FilterMax
+ | FilterArgmin
+ | FilterArgmax
+ | FilterCount
+ | FilterSum
+ | FilterAvg
+ | FilterFirst
+ | FilterRange
+ | FilterForall
+ | FilterExists
+ | FilterPrint
+ | FilterPrintall
+ | FilterState
+ deriving (Eq, Show)
+
 instance Pretty BinOp where
     pretty binOpT = case binOpT of
         ArithBinOp binOp -> pretty binOp
@@ -230,4 +249,21 @@ instance Pretty QueryType where
         QueryProb    -> "=?"
         QueryMinProb -> "min=?"
         QueryMaxProb -> "max=?"
+
+instance Pretty FilterOp where
+    pretty fOp = case fOp of
+        FilterMin      -> "min"
+        FilterMax      -> "max"
+        FilterArgmin   -> "argmin"
+        FilterArgmax   -> "argmax"
+        FilterCount    -> "count"
+        FilterSum      -> "sum"
+        FilterAvg      -> "avg"
+        FilterFirst    -> "first"
+        FilterRange    -> "range"
+        FilterForall   -> "forall"
+        FilterExists   -> "exists"
+        FilterPrint    -> "print"
+        FilterPrintall -> "printall"
+        FilterState    -> "state"
 
