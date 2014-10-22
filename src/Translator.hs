@@ -2,6 +2,7 @@
 
 module Translator
   ( translateModel
+  , translateSpec
   ) where
 
 import Control.Applicative
@@ -10,6 +11,7 @@ import Control.Monad.Reader
 
 import Data.Foldable ( toList )
 import Data.Map ( assocs )
+import qualified Data.Set as Set
 import Data.Traversable
 
 import Error
@@ -20,6 +22,7 @@ import Translator.Common
 import Translator.Constraints
 import Translator.Controller
 import Translator.Modules
+import Translator.Properties
 import Translator.Rewards
 
 translateModel :: SymbolTable -> Either Error LModel
@@ -40,6 +43,16 @@ translateModel symTbl = do
                                     , toList controllerDef
                                     , rewardsDefs
                                     ]
+
+translateSpec :: SymbolTable
+              -> LSpecification
+              -> Either Error LSpecification
+translateSpec symTbl (Specification defs) =
+    flip runReaderT (trnsInfo symTbl Set.empty) $ do
+        constDefs <- trnsConsts
+        propDefs  <- (traverse._PropertyDef) trnsProperty defs
+
+        return . Specification $ constDefs ++ propDefs
 
 trnsConsts :: Trans [LDefinition]
 trnsConsts = fmap toConstDef <$> view (constants.to assocs)
