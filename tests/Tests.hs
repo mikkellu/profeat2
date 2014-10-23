@@ -58,8 +58,9 @@ translatorTestCase name = testCase name $ do
             prismModel   <- LIO.hGetContents hPrismModel
 
             let result = do
-                expected <- parsePrismModel prismModelPath prismModel
-                actual   <- translate' proFeatModelPath proFeatModel
+                expected    <- parsePrismModel prismModelPath prismModel
+                (actual, _) <-
+                    parseAndTranslateModel proFeatModelPath proFeatModel
 
                 return (void expected, void actual)
 

@@ -1,123 +1,193 @@
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
+{-# LANGUAGE LambdaCase #-}
 
 -- | The main module of ProFeat.
 
 module ProFeat
-  ( module Export
+  ( proFeatMain
 
-  , proFeatMain
-
-  , translate
-  , translate'
+  , parseAndTranslateModel
+  , parseAndTranslateSpec
   ) where
 
 import Control.Exception.Lens
 import Control.Lens hiding ( argument )
+import Control.Monad.Reader
+import Control.Monad.State
 
 import Data.Maybe
 import Data.Monoid
-import Data.Text.Lazy ( Text )
+import Data.Text.Lazy
 import qualified Data.Text.Lazy.IO as L
 
 import Options.Applicative
 
 import System.Exit
-import System.IO
+import System.IO hiding ( withFile )
+import qualified System.IO as S
 import System.IO.Error.Lens
 
-import Text.PrettyPrint.Leijen.Text ( Pretty, pretty, renderPretty, displayT )
+import Text.PrettyPrint.Leijen.Text ( Pretty, displayT, pretty, renderPretty )
 
-import Error      as Export
-import Parser     as Export
+import Error
+import Parser
 import SymbolTable
-import Syntax     as Export
-import Translator as Export
+import Syntax
+import Translator
 
--- | Translates the given ProFeat model into a PRISM model.
-translate :: String -> Text -> Either Error Text
-translate proFeatModelName = fmap render . translate' proFeatModelName
-
--- | Translates the given ProFeat model into an AST representing the
--- generated PRISM model.
-translate' :: String -> Text -> Either Error LModel
-translate' proFeatModelName proFeatModel = do
-    Model defs <- parseModel proFeatModelName proFeatModel
+parseAndTranslateModel :: String -> Text -> Either Error (LModel, SymbolTable)
+parseAndTranslateModel name content = do
+    Model defs <- parseModel name content
     symTbl     <- extendSymbolTable emptySymbolTable defs
-    translateModel symTbl
+    prismModel <- translateModel symTbl
+    return (prismModel, symTbl)
+
+parseAndTranslateSpec :: String
+                      -> Text
+                      -> SymbolTable
+                      -> Either Error (LSpecification, SymbolTable)
+parseAndTranslateSpec name content symTbl = do
+    spec@(Specification defs) <- parseSpecification name content
+    symTbl'   <- extendSymbolTable symTbl defs
+    prismSpec <- translateSpec symTbl' spec
+    return (prismSpec, symTbl')
 
 -- ProFeat CLI
 --
--- profeat [options] (<model-file> | -)
+-- profeat [options] (<model-file> | -) <properties-file>
 --
 -- <model-file>
 helpModelFile = "The ProFeat model file (if '-' is given, the model is read from stdin)"
+-- <properties-file>
+helpPropsFile = "The properties file"
 --
 -- Options:
---  -o <outfile>
-helpModelOutput = "Write the generated PRISM model to <outfile>"
+--  -o <file>
+helpModelOutput = "Write the generated PRISM model to <file>"
+--  -p <file>
+helpPropsOutput = "Write the translated properties to <file>"
+
+-- | The proFeatMain function is the application's main entry point.
+proFeatMain :: IO ()
+proFeatMain = handling _IOException ioeHandler $
+    execParser options >>= runApp proFeat
+  where
+    options      = info (helper <*> proFeatOptions) mempty
+    ioeHandler e = do
+        let file = fromMaybe "<unknown source>" $ e^.fileName
+        hPutStrLn stderr $ e^.description ++ ": " ++ file
+        exitWith $ ExitFailure 2
 
 -- | Stores the command line arguments.
 data ProFeatOptions = ProFeatOptions
-  { inModelPath  :: FilePath
-  , outModelPath :: Maybe FilePath
-  }
-
--- | Stores the handles to read from and to write to.
-data FileHandles = FileHandles
-  { hInModel  :: Handle
-  , hOutModel :: Handle
-  }
+  { proFeatModelPath :: FilePath
+  , proFeatPropsPath :: Maybe FilePath
+  , prismModelPath   :: Maybe FilePath
+  , prismPropsPath   :: Maybe FilePath
+  } deriving (Show)
 
 proFeatOptions :: Parser ProFeatOptions
 proFeatOptions = ProFeatOptions
   <$>           argument str ( metavar "<model-file>"
                             <> help helpModelFile )
+  <*> optional (argument str ( metavar "<properties-file>"
+                            <> help helpPropsFile ))
   <*> optional (strOption    ( short 'o'
-                            <> metavar "<outfile>"
+                            <> metavar "<file>"
                             <> help helpModelOutput ))
+  <*> optional (strOption    ( short 'p'
+                            <> metavar "<file>"
+                            <> help helpPropsOutput ))
 
-proFeatMain :: IO ()
-proFeatMain = handling _IOException ioeHandler $
-    execParser options >>= translateWithOptions
-  where
-    options      = info (helper <*> proFeatOptions) mempty
-    ioeHandler e = do
-        let file = fromMaybe "<unknown source>" $ e^.fileName
-        putStrLn $ e^.description ++ ": " ++ file
-        exitWith $ ExitFailure 2
+type ProFeat = StateT SymbolTable (ExceptT Error (ReaderT ProFeatOptions IO))
 
-translateWithOptions :: ProFeatOptions -> IO ()
-translateWithOptions opts = withHandles opts $
-    translateWithHandles (inModelPath opts)
+proFeat :: ProFeat ()
+proFeat = do
+    path  <- asks proFeatModelPath
+    maybeWithFile ReadMode (pathToMaybe path) $ \hIn -> do
+        proFeatModel <- liftIO $ L.hGetContents hIn
+        prismModel   <- translateProFeatModel path proFeatModel
+        translateProFeatProps
 
-translateWithHandles :: FilePath -> FileHandles -> IO ()
-translateWithHandles modelName hs = do
-    proFeatModel <- L.hGetContents $ hInModel hs
-    case translate modelName proFeatModel of
+        maybeWriteFile prismModel =<< asks prismModelPath
+
+translateProFeatModel :: FilePath -> Text -> ProFeat Text
+translateProFeatModel path contents = do
+    (prismModel, symTbl) <- liftEither' $
+        parseAndTranslateModel path contents
+    put symTbl
+    return $ render prismModel
+
+translateProFeatProps :: ProFeat ()
+translateProFeatProps = asks proFeatPropsPath >>= \case
+    Nothing   -> return ()
+    Just path -> withFile path ReadMode $ \hIn -> do
+        proFeatSpec <- liftIO $ L.hGetContents hIn
+        symTbl      <- get
+
+        (prismSpec, symTbl') <- liftEither' $
+            parseAndTranslateSpec path proFeatSpec symTbl
+        put symTbl'
+
+        maybeWriteFile (render prismSpec) =<< asks prismPropsPath
+
+runApp :: ProFeat () -> ProFeatOptions -> IO ()
+runApp m opts = do
+    result <- run m emptySymbolTable opts
+    case result of
+        Right _  -> return ()
         Left err -> do
-            print $ pretty err
-            exitWith $ ExitFailure 1
-        Right prismModel ->
-            L.hPutStrLn (hOutModel hs) prismModel
+            hPrint stderr $ pretty err
+            exitWith $ ExitFailure 2
 
-withHandles :: ProFeatOptions -> (FileHandles -> IO ()) -> IO ()
-withHandles opts m =
-    withModel (inModelPath opts)                $ \im ->
-    maybeWithFile WriteMode (outModelPath opts) $ \om ->
-    m (FileHandles im om)
+run :: ProFeat a
+    -> SymbolTable
+    -> ProFeatOptions
+    -> IO (Either Error (a, SymbolTable))
+run m = runReaderT . runExceptT . runStateT m
 
-withModel :: String -> (Handle -> IO ()) -> IO ()
-withModel arg = maybeWithFile ReadMode $ case arg of
-    "-"  -> Nothing
-    name -> Just name
+-- | Write the given 'Text' to a file if 'Just' a path is given, else write
+-- to 'stdout'.
+maybeWriteFile :: Text -> Maybe FilePath -> ProFeat ()
+maybeWriteFile content path = maybeWithFile WriteMode path $
+    liftIO . flip L.hPutStrLn content
 
-maybeWithFile :: IOMode -> Maybe FilePath -> (Handle -> IO ()) -> IO ()
+-- | @maybeWithFile mode path act@ opens a file if 'Just' given a path and
+-- passes the resulting handle to @act@. If @path@ is 'Nothing', the
+-- resulting handle is either 'stdin' or 'stdout', depending on the
+-- requested 'IOMode'.
+maybeWithFile :: IOMode -> Maybe FilePath -> (Handle -> ProFeat a) -> ProFeat a
 maybeWithFile mode (Just path) = withFile path mode
 maybeWithFile mode Nothing     = case mode of
-    ReadMode  -> \m -> m stdin
-    WriteMode -> \m -> m stdout
-    _         -> error "Spslc.maybeWithFile: illegal IOMode"
+    ReadMode  -> ($ stdin)
+    WriteMode -> ($ stdout)
+    _         -> error "ProFeat.maybeWithFile: illegal IOMode"
 
-render :: (Pretty a) => a -> Text
+-- | A version of withFile that works in the ProFeat monad.
+withFile :: FilePath -> IOMode -> (Handle -> ProFeat a) -> ProFeat a
+withFile file mode m = do
+    opts   <- ask
+    symTbl <- get
+
+    liftIO (S.withFile file mode (\h -> run (m h) symTbl opts)) >>= \case
+        Left err                 -> throwError err
+        Right (result, symTbl') -> do
+            put symTbl'
+            return result
+
+-- | @pathToMaybe path@ returns 'Nothing', if the @path@ is "-", otherwise
+-- 'Just' @path@ is returned.
+pathToMaybe :: FilePath -> Maybe FilePath
+pathToMaybe path = case path of
+    "-" -> Nothing
+    _   -> Just path
+
+liftEither' :: Either Error a -> ProFeat a
+liftEither' = lift . liftEither
+
+liftEither :: (Monad m) => Either e a -> ExceptT e m a
+liftEither = ExceptT . return
+
+render :: (Pretty p) => p -> Text
 render = displayT . renderPretty 0.4 80 . pretty
 
