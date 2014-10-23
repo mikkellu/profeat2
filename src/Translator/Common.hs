@@ -77,7 +77,7 @@ type Trans = ReaderT TrnsInfo (Either Error)
 
 type Translator a = a -> Trans a
 
-trnsVarDecl :: (Applicative m, MonadReader TrnsInfo m, MonadEither Error m)
+trnsVarDecl :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
             => Type
             -> LVarDecl
             -> m [LVarDecl]
@@ -96,7 +96,7 @@ trnsVarDecl t (VarDecl ident vt e l) = do
             error "Translator.Common.trnsVarDecl: unevaluated type"
         _ -> [VarDecl (mkIdent Nothing) vt e l]
 
-trnsUpdate :: (Applicative m, MonadReader TrnsInfo m, MonadEither Error m)
+trnsUpdate :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
            => (LAssign -> m LAssign)
            -> LUpdate
            -> m LUpdate
@@ -105,7 +105,7 @@ trnsUpdate trns (Update e asgns l) =
            <*> ones trns asgns
            <*> pure l
 
-trnsVarAssign :: (Applicative m, MonadReader TrnsInfo m, MonadEither Error m)
+trnsVarAssign :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
               => LName
               -> LExpr
               -> SrcLoc
@@ -128,7 +128,7 @@ trnsVarAssign name e l = do
     let name' = fullyQualifiedName symSc ident i l
     return $ Assign name' e' l
 
-trnsExpr :: (Applicative m, MonadReader TrnsInfo m, MonadEither Error m)
+trnsExpr :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
          => (Type -> Bool)
          -> LExpr
          -> m LExpr
@@ -143,7 +143,7 @@ trnsExpr p e = checkIfType_ p e *> go e
         activeGuard <$> getFeature name
     go e' = plate go e'
 
-trnsIndex :: (Applicative m, MonadReader TrnsInfo m, MonadEither Error m)
+trnsIndex :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
           => Type
           -> Ident
           -> Maybe LExpr
@@ -174,7 +174,7 @@ operatingGuard = NameExpr operatingName noLoc
 activeGuard :: FeatureContext -> LExpr
 activeGuard = flip NameExpr noLoc . activeFormulaName
 
-trnsActionLabel :: (Applicative m, MonadReader TrnsInfo m, MonadEither Error m)
+trnsActionLabel :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
                 => LActionLabel
                 -> m [(LActionLabel, Set LabelSymbol)]
 trnsActionLabel action =
@@ -194,7 +194,7 @@ getLabelSetsFor lbl = do
     lss <- view labelSets
     return $ Set.filter (Set.member lbl) lss
 
-actionToLabel :: (Applicative m, MonadReader TrnsInfo m, MonadEither Error m)
+actionToLabel :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
               => LActionLabel
               -> m (Maybe LabelSymbol)
 actionToLabel action = case action of

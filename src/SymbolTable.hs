@@ -85,7 +85,7 @@ extendSymbolTable symTbl defs = flip evalStateT symTbl $ do -- TODO: refactor
 
 setControllerVarTypes :: ( Applicative m
                          , MonadState SymbolTable m
-                         , MonadEither Error m
+                         , MonadError Error m
                          )
                       => m ()
 setControllerVarTypes = do
@@ -97,7 +97,7 @@ setControllerVarTypes = do
                 vs <- VarSymbol l False <$> fromVarType vt
                 controller._Just.ctsVars.at ident .= Just vs
 
-expandExprsOf :: (Applicative m, MonadState SymbolTable m, MonadEither Error m)
+expandExprsOf :: (Applicative m, MonadState SymbolTable m, MonadError Error m)
               => Traversal' SymbolTable LExpr
               -> m ()
 expandExprsOf t = do
@@ -106,7 +106,7 @@ expandExprsOf t = do
 
 evalConstValues :: ( Applicative m
                    , MonadState SymbolTable m
-                   , MonadEither Error m
+                   , MonadError Error m
                    )
                 => m ()
 evalConstValues = do
@@ -117,7 +117,7 @@ evalConstValues = do
 evalConstValue :: ( Applicative m
                   , MonadState SymbolTable m
                   , MonadReader Env m
-                  , MonadEither Error m
+                  , MonadError Error m
                   )
                => Ident
                -> m ()
@@ -142,19 +142,19 @@ evalConstValue ident = do
                     constValues.at ident            .= Just v
                     constants.at ident._Just.csExpr .= e'
 
-checkIfNonCyclicFormulas :: (Applicative m, MonadEither Error m)
+checkIfNonCyclicFormulas :: (Applicative m, MonadError Error m)
                          => Table LFormula
                          -> m ()
 checkIfNonCyclicFormulas = checkIfNonCyclic post frmAnnot where
     post (Formula _ params e _) = universe e^..traverse.identifiers \\ params
 
-checkIfNonCyclicConstants :: (Applicative m, MonadEither Error m)
+checkIfNonCyclicConstants :: (Applicative m, MonadError Error m)
                           => Table ConstSymbol
                           -> m ()
 checkIfNonCyclicConstants = checkIfNonCyclic post (view csLoc) where
     post cs = universe (cs^.csExpr)^..traverse.identifiers
 
-checkIfNonCyclicFeatures :: (Applicative m, MonadEither Error m)
+checkIfNonCyclicFeatures :: (Applicative m, MonadError Error m)
                          => Table LFeature
                          -> m ()
 checkIfNonCyclicFeatures = checkIfNonCyclic post featAnnot where
@@ -162,7 +162,7 @@ checkIfNonCyclicFeatures = checkIfNonCyclic post featAnnot where
         Just (Decomposition _ refs _) -> map (instIdent . frInstance) refs
         Nothing                       -> []
 
-checkIfNonCyclic :: (Applicative m, MonadEither Error m)
+checkIfNonCyclic :: (Applicative m, MonadError Error m)
                  => (a -> [Ident])
                  -> (a -> SrcLoc)
                  -> Map Ident a

@@ -19,7 +19,7 @@ import Typechecker
 
 fromVarType :: ( Applicative m
                , MonadReader r m
-               , MonadEither Error m
+               , MonadError Error m
                , HasSymbolTable r
                , HasScope r
                )
@@ -37,7 +37,7 @@ fromVarType vt = case vt of
 
 fromRange :: ( Applicative m
              , MonadReader r m
-             , MonadEither Error m
+             , MonadError Error m
              , HasSymbolTable r
              , HasScope r
              )

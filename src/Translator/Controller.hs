@@ -70,7 +70,7 @@ trnsControllerBody (ModuleBody decls stmts l) =
                <*> ones trnsStmt stmts
                <*> pure l
 
-trnsLocalVars :: (Applicative m, MonadReader TrnsInfo m, MonadEither Error m)
+trnsLocalVars :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
               => [LVarDecl]
               -> m [LVarDecl]
 trnsLocalVars decls = do
@@ -140,7 +140,7 @@ trnsStmt (Stmt action grd (Repeatable ss) l) = do
 trnsAssign :: ( Applicative m
               , MonadReader TrnsInfo m
               , MonadWriter Reconfiguration m
-              , MonadEither Error m
+              , MonadError Error m
               )
            => LAssign
            -> m LAssign
@@ -177,7 +177,7 @@ genActionLabel action ls = do
 
     return $ labelSetToAction ls'
 
-genActiveVars :: (Functor m, MonadReader TrnsInfo m, MonadEither Error m)
+genActiveVars :: (Functor m, MonadReader TrnsInfo m, MonadError Error m)
               => m [LVarDecl]
 genActiveVars = mapMaybe mkVarDecl . allContexts <$> view rootFeature where
     mkVarDecl ctx

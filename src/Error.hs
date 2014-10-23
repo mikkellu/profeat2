@@ -1,14 +1,14 @@
 {-# LANGUAGE FlexibleContexts, OverloadedStrings #-}
 
 module Error
-  ( module Control.Monad.Either
+  ( module Control.Monad.Except
 
   , Error(..)
   , ErrorDesc(..)
   , throw
   ) where
 
-import Control.Monad.Either
+import Control.Monad.Except
 
 import Data.Text.Lazy ( Text )
 
@@ -25,8 +25,8 @@ instance Pretty Error where
     pretty (Error l desc) = pretty l <> colon <> line <> pretty desc
 
 -- | Throws an 'Error'.
-throw :: (MonadEither Error m) => SrcLoc -> ErrorDesc -> m a
-throw l = left . Error l
+throw :: (MonadError Error m) => SrcLoc -> ErrorDesc -> m a
+throw l = throwError . Error l
 
 data ErrorDesc
   = SyntaxError !Text

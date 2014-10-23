@@ -52,7 +52,7 @@ newtype InitialConstraintSet = InitialConstraintSet ConstraintSet
 
 extractConstraints :: ( Applicative m
                       , MonadReader r m
-                      , MonadEither Error m
+                      , MonadError Error m
                       , HasSymbolTable r
                       , HasScope r
                       )
@@ -84,7 +84,7 @@ trnsConstraintExpr c = case c of
 
 fromExpr :: ( Applicative m
             , MonadReader r m
-            , MonadEither Error m
+            , MonadError Error m
             , HasSymbolTable r
             , HasScope r
             )

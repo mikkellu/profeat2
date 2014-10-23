@@ -33,7 +33,7 @@ extractRewards :: FeatureContext -> StateT RewardStructs Trans ()
 extractRewards ctx = void . for (ctx^.this.fsRewards) $ \(Rewards ident rws) ->
     for rws $ trnsReward >=> modify . Map.insertWith mappend ident
 
-trnsReward :: (Applicative m, MonadReader TrnsInfo m, MonadEither Error m)
+trnsReward :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
            => LReward
            -> m [LReward]
 trnsReward (Reward action grd e a) = do

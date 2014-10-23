@@ -249,25 +249,25 @@ containsFeature symTbl ident = symTbl^?features.at ident._Just.to featAnnot
 containsController :: SymbolTable -> Ident -> Maybe SrcLoc
 containsController symTbl _ = symTbl^?controller._Just.ctsBody.to modAnnot
 
-lookupLabel :: (MonadReader r m, MonadEither Error m, HasSymbolTable r)
+lookupLabel :: (MonadReader r m, MonadError Error m, HasSymbolTable r)
             => Ident
             -> SrcLoc
             -> m LLabel
 lookupLabel = checkedLookup labels
 
-lookupModule :: (MonadReader r m, MonadEither Error m, HasSymbolTable r)
+lookupModule :: (MonadReader r m, MonadError Error m, HasSymbolTable r)
              => Ident
              -> SrcLoc
              -> m LModule
 lookupModule = checkedLookup modules
 
-lookupFeature :: (MonadReader r m, MonadEither Error m, HasSymbolTable r)
+lookupFeature :: (MonadReader r m, MonadError Error m, HasSymbolTable r)
               => Ident
               -> SrcLoc
               -> m LFeature
 lookupFeature = checkedLookup features
 
-checkedLookup :: (MonadReader r m, MonadEither Error m, HasSymbolTable r)
+checkedLookup :: (MonadReader r m, MonadError Error m, HasSymbolTable r)
               => Lens' SymbolTable (Table a)
               -> Ident
               -> SrcLoc

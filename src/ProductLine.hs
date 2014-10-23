@@ -23,7 +23,7 @@ import Template
 import Typechecker
 import Types.Util
 
-rootFeatureSymbol :: (Applicative m, MonadEither Error m)
+rootFeatureSymbol :: (Applicative m, MonadError Error m)
                   => SymbolTable
                   -> m FeatureSymbol
 rootFeatureSymbol symTbl =
@@ -55,7 +55,7 @@ rootFeatures symTbl =
 
 toFeatureSymbol' :: ( Applicative m
                     , MonadReader r m
-                    , MonadEither Error m
+                    , MonadError Error m
                     , HasSymbolTable r
                     , HasScope r
                     )
@@ -69,7 +69,7 @@ toFeatureSymbol' mandatory ident =
 
 toFeatureSymbols :: ( Applicative m
                     , MonadReader r m
-                    , MonadEither Error m
+                    , MonadError Error m
                     , HasSymbolTable r
                     , HasScope r
                     )
@@ -122,7 +122,7 @@ toFeatureSymbols mandatory ref@(FeatureRef isOptional inst _ cntExpr) = do
 
 instantiateModules :: ( Applicative m
                       , MonadReader r m
-                      , MonadEither Error m
+                      , MonadError Error m
                       , HasSymbolTable r
                       , HasScope r
                       )
@@ -138,7 +138,7 @@ instantiateModules idx insts = flip runStateT Map.empty $
 
 instantiateModule :: ( Applicative m
                      , MonadReader r m
-                     , MonadEither Error m
+                     , MonadError Error m
                      , HasSymbolTable r
                      , HasScope r
                      )
@@ -155,7 +155,7 @@ instantiateModule idx (Instance ident args l) = do
 
     return (body', varSyms)
 
-unionVarTable :: (MonadEither Error m)
+unionVarTable :: (MonadError Error m)
               => SrcLoc
               -> Table VarSymbol
               -> Table VarSymbol
@@ -168,7 +168,7 @@ unionVarTable l t1 t2 =
 
 varSymbol :: ( Applicative m
              , MonadReader r m
-             , MonadEither Error m
+             , MonadError Error m
              , HasSymbolTable r
              , HasScope r
              )
@@ -179,7 +179,7 @@ varSymbol public (VarDecl ident vt _ l) =
     VarSymbol l (ident `elem` public) <$> fromVarType vt
 
 -- | Check if the referenced features are unambiguous.
-checkDecomposition :: (MonadEither Error m) => LDecomposition -> m ()
+checkDecomposition :: (MonadError Error m) => LDecomposition -> m ()
 checkDecomposition (Decomposition _ refs l) =
     let ambigiousRefs = filter ((> 1) . length) .
                         group . sort .
@@ -190,7 +190,7 @@ checkDecomposition (Decomposition _ refs l) =
 
 evalFeatureCardinality :: ( Applicative m
                           , MonadReader r m
-                          , MonadEither Error m
+                          , MonadError Error m
                           , HasSymbolTable r
                           , HasScope r
                           )
@@ -208,7 +208,7 @@ evalFeatureCardinality cntExpr = case cntExpr of
 -- | Returns the group cardinality for the given decomposition operator.
 groupCardinality :: ( Applicative m
                     , MonadReader r m
-                    , MonadEither Error m
+                    , MonadError Error m
                     , HasSymbolTable r
                     , HasScope r
                     )

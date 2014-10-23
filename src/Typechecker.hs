@@ -68,7 +68,7 @@ data LabelInfo = LabelInfo
 -- unexpanded formulas.
 evalRange :: ( Applicative m
              , MonadReader r m
-             , MonadEither Error m
+             , MonadError Error m
              , HasSymbolTable r
              , HasScope r
              )
@@ -80,7 +80,7 @@ evalRange = both evalInteger
 -- contain loops or unexpanded formulas.
 evalInteger :: ( Applicative m
                , MonadReader r m
-               , MonadEither Error m
+               , MonadError Error m
                , HasSymbolTable r
                , HasScope r
                )
@@ -96,7 +96,7 @@ evalInteger e = do
 
 checkInitialization :: ( Applicative m
                        , MonadReader r m
-                       , MonadEither Error m
+                       , MonadError Error m
                        , HasSymbolTable r
                        , HasScope r
                        )
@@ -109,7 +109,7 @@ checkInitialization t e =
             _                             -> t
     in checkIfType_ (`isAssignableTo` t') e >> checkIfConst e
 
-checkIfConst :: (MonadReader r m, MonadEither Error m, HasSymbolTable r)
+checkIfConst :: (MonadReader r m, MonadError Error m, HasSymbolTable r)
              => LExpr
              -> m ()
 checkIfConst e
@@ -121,7 +121,7 @@ checkIfConst e
 
 isConstExpr :: ( Functor m
                , MonadReader r m
-               , MonadEither Error m
+               , MonadError Error m
                , HasSymbolTable r
                )
         => LExpr
@@ -138,7 +138,7 @@ unknownValues constTbl = go where
 
 checkIfType :: ( Applicative m
                , MonadReader r m
-               , MonadEither Error m
+               , MonadError Error m
                , HasSymbolTable r
                , HasScope r
                )
@@ -154,7 +154,7 @@ checkIfType p e = do
 
 checkIfType_ :: ( Applicative m
                 , MonadReader r m
-                , MonadEither Error m
+                , MonadError Error m
                 , HasSymbolTable r
                 , HasScope r
                 )
@@ -165,7 +165,7 @@ checkIfType_ p e = void $ checkIfType p e
 
 typeOf :: ( Applicative m
           , MonadReader r m
-          , MonadEither Error m
+          , MonadError Error m
           , HasSymbolTable r
           , HasScope r
           )
@@ -270,7 +270,7 @@ typeOf (MissingExpr l)     = throw l StandaloneMissingExpr
 
 checkIfFeature :: ( Applicative m
                   , MonadReader r m
-                  , MonadEither Error m
+                  , MonadError Error m
                   , HasSymbolTable r
                   , HasScope r
                   )
@@ -279,7 +279,7 @@ checkIfFeature :: ( Applicative m
 checkIfFeature (NameExpr name _) = void $ getFeature name
 checkIfFeature e = throw (exprAnnot e) . NotAFeature $ prettyText e
 
-siType :: (MonadEither Error m) => SymbolInfo -> m Type
+siType :: (MonadError Error m) => SymbolInfo -> m Type
 siType (SymbolInfo _ ident idx t) = case t of
     CompoundType (ArrayType _ st) -- TODO: check array bounds
       | isJust idx -> return (SimpleType st)
@@ -290,7 +290,7 @@ siType (SymbolInfo _ ident idx t) = case t of
 
 getLabelInfo :: ( Applicative m
                 , MonadReader r m
-                , MonadEither Error m
+                , MonadError Error m
                 , HasSymbolTable r
                 , HasScope r
                 )
@@ -302,7 +302,7 @@ getLabelInfo name@(Name _ l) = lookupLabelInfo name >>= \case -- TODO: merge wit
 
 lookupLabelInfo :: ( Applicative m
                    , MonadReader r m
-                   , MonadEither Error m
+                   , MonadError Error m
                    , HasSymbolTable r
                    , HasScope r
                    )
@@ -315,7 +315,7 @@ lookupLabelInfo _ = error "Typechecker.lookupLabelInfo: not implemented"
 
 getSymbolInfo :: ( Applicative m
                  , MonadReader r m
-                 , MonadEither Error m
+                 , MonadError Error m
                  , HasSymbolTable r
                  , HasScope r
                  )
@@ -327,7 +327,7 @@ getSymbolInfo name@(Name _ l) = lookupSymbolInfo name >>= \case
 
 lookupSymbolInfo :: ( Applicative m
                     , MonadReader r m
-                    , MonadEither Error m
+                    , MonadError Error m
                     , HasSymbolTable r
                     , HasScope r
                     )
@@ -352,7 +352,7 @@ lookupSymbolInfo name@(Name _ l) = getContext name >>= \case
 
 lookupType :: ( Applicative m
               , MonadReader r m
-              , MonadEither Error m
+              , MonadError Error m
               , HasSymbolTable r
               , HasScope r
               )
@@ -386,7 +386,7 @@ lookupOf g tbl ident = tbl^?at ident._Just.g
 
 getFeature :: ( Applicative m
               , MonadReader r m
-              , MonadEither Error m
+              , MonadError Error m
               , HasSymbolTable r
               , HasScope r
               )
@@ -399,7 +399,7 @@ getFeature name@(Name _ l) = do
 
 getContext :: ( Applicative m
               , MonadReader r m
-              , MonadEither Error m
+              , MonadError Error m
               , HasSymbolTable r
               , HasScope r
               )
@@ -431,7 +431,7 @@ getContext (Name name l) = do
             return $ fss ! 0
 
 findContext :: ( MonadReader r m
-               , MonadEither Error m
+               , MonadError Error m
                , HasSymbolTable r
                , HasScope r
                )

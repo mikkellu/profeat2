@@ -36,7 +36,7 @@ class Template n where
 
 prepModuleBody :: ( Applicative m
                   , MonadReader r m
-                  , MonadEither Error m
+                  , MonadError Error m
                   , HasSymbolTable r
                   , HasScope r
                   )
@@ -49,7 +49,7 @@ prepModuleBody (ModuleBody decls stmts a) =
 
 prepStmt :: ( Applicative m
             , MonadReader r m
-            , MonadEither Error m
+            , MonadError Error m
             , HasSymbolTable r
             , HasScope r
             )
@@ -63,7 +63,7 @@ prepStmt (Stmt action grd upds a) =
 
 prepUpdate :: ( Applicative m
               , MonadReader r m
-              , MonadEither Error m
+              , MonadError Error m
               , HasSymbolTable r
               , HasScope r
               )
@@ -76,7 +76,7 @@ prepUpdate (Update e asgns a) =
 
 prepExpr :: ( Applicative m
             , MonadReader r m
-            , MonadEither Error m
+            , MonadError Error m
             , HasSymbolTable r
             , HasScope r
             )
@@ -86,7 +86,7 @@ prepExpr = prepExprs
 
 prepExprs :: ( Applicative m
              , MonadReader r m
-             , MonadEither Error m
+             , MonadError Error m
              , HasSymbolTable r
              , HasScope r
              , HasExprs n
@@ -99,7 +99,7 @@ prepExprs n = do
 
 prepRepeatable :: ( Applicative m
                   , MonadReader r m
-                  , MonadEither Error m
+                  , MonadError Error m
                   , HasSymbolTable r
                   , HasScope r
                   , HasExprs b
@@ -114,7 +114,7 @@ prepRepeatable prep r = do
 
 unrollRepeatable :: ( Applicative m
                     , MonadReader r m
-                    , MonadEither Error m
+                    , MonadError Error m
                     , HasSymbolTable r
                     , HasScope r
                     , HasExprs b
@@ -129,7 +129,7 @@ unrollRepeatable (Repeatable ss) = Repeatable <$> rewriteM f ss where
 
 unrollRepeatableLoop :: ( Applicative m
                         , MonadReader r m
-                        , MonadEither Error m
+                        , MonadError Error m
                         , HasSymbolTable r
                         , HasScope r
                         , HasExprs b
@@ -141,7 +141,7 @@ unrollRepeatableLoop = unrollLoop f where
 
 unrollLoopExprs :: ( Applicative m
                    , MonadReader r m
-                   , MonadEither Error m
+                   , MonadError Error m
                    , HasSymbolTable r
                    , HasScope r
                    )
@@ -153,7 +153,7 @@ unrollLoopExprs = rewriteM' $ \case
 
 unrollExprLoop :: ( Applicative m
                   , MonadReader r m
-                  , MonadEither Error m
+                  , MonadError Error m
                   , HasSymbolTable r
                   , HasScope r
                   )
@@ -175,7 +175,7 @@ unrollExpr binOp defss e = case defss of
 
 unrollLoop :: ( Applicative m
               , MonadReader r m
-              , MonadEither Error m
+              , MonadError Error m
               , HasSymbolTable r
               , HasScope r
               )
@@ -186,7 +186,7 @@ unrollLoop f (ForLoop ident range body _) = do
     (lower, upper) <- evalRange =<< both unrollLoopExprs range
     f body (map (Map.singleton ident . flip IntegerExpr noLoc) [lower .. upper])
 
-expandFormulas :: (Applicative m, HasExprs n, MonadEither Error m)
+expandFormulas :: (Applicative m, HasExprs n, MonadError Error m)
                => Map Ident LFormula
                -> n SrcLoc
                -> m (n SrcLoc)
@@ -198,7 +198,7 @@ expandFormulas frms = exprs . rewriteM' $ \case
     call ident args l =
         _Just (fmap frmExpr . instantiate ident args l) (frms^.at ident)
 
-instantiateWithId :: (Template n, HasExprs n, MonadEither Error m)
+instantiateWithId :: (Template n, HasExprs n, MonadError Error m)
                   => Integer
                   -> Ident    -- ^ the template name
                   -> [LExpr]  -- ^ the argument list
@@ -210,7 +210,7 @@ instantiateWithId i ident args l =
     let idDef = Map.singleton "id" $ IntegerExpr i noLoc
     in instantiate ident args l . substitute idDef
 
-instantiate :: (Template n, HasExprs n, MonadEither Error m)
+instantiate :: (Template n, HasExprs n, MonadError Error m)
             => Ident    -- ^ the template name
             -> [LExpr]  -- ^ the argument list
             -> SrcLoc   -- ^ 'SrcLoc' where the instantiation happens, required
@@ -236,7 +236,7 @@ substitute defs
 
 -- | Check whether the given expression contains exactly one expression of
 -- the form @e * ...@, where @*@ is any binary operator.
-checkLoopBody :: (Applicative m, MonadEither Error m) => LExpr -> m ()
+checkLoopBody :: (Applicative m, MonadError Error m) => LExpr -> m ()
 checkLoopBody e = go e >>= \cnt ->
     when (cnt /= 1) (throw (exprAnnot e) MalformedLoopBody)
   where

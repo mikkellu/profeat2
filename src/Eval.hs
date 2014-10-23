@@ -33,7 +33,7 @@ eval :: Valuation -> Expr a -> Maybe Value
 eval val e = runReaderT (evalImpl e) val
 
 -- | Like 'eval', but throws a 'DivisionByZero' error on division by zero.
-eval' :: (MonadEither Error m) => Valuation -> LExpr -> m Value
+eval' :: (MonadError Error m) => Valuation -> LExpr -> m Value
 eval' val e = case eval val e of
     Just v  -> return v
     Nothing -> throw (exprAnnot e) $ DivisionByZero val
