@@ -41,6 +41,7 @@ data ErrorDesc
   | StandaloneFuntion !Function
   | StandaloneMissingExpr
   | UnknownValues LExpr [LName]
+  | NonConstExpr LExpr
   | MalformedLoopBody
   | NoNeutralElement !BinOp
   | AmbiguousDecomposition !Ident
@@ -95,6 +96,8 @@ instance Pretty ErrorDesc where
             "the expression" <+> pretty e <+> "cannot be evaluated as the" <+>
             "values of the following variables is not known:" <> line <>
             sep (punctuate comma $ map pretty names)
+        NonConstExpr e ->
+            "the expression" <+> pretty e <+> "is not constant"
         MalformedLoopBody ->
             "malformed loop"
         NoNeutralElement binOpT ->

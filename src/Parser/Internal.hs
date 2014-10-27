@@ -30,6 +30,9 @@ module Parser.Internal
   , formulaDef
   , formula
 
+  , labelDef
+  , label
+
   , propertyDef
   , property
 
@@ -50,7 +53,7 @@ import Data.Monoid
 import Data.Text.Lazy ( Text, pack )
 import Data.Text.Lens
 
-import Text.Parsec hiding ( Error, (<|>), many )
+import Text.Parsec hiding ( (<|>), many, label )
 import Text.Parsec.Error ( errorMessages, showErrorMessages )
 import Text.Parsec.Expr
 import qualified Text.Parsec.Token as T
@@ -94,13 +97,13 @@ toSyntaxError = SyntaxError . pack .
 
 reservedNames, reservedOpNames :: [String]
 reservedNames =
-    [ "feature", "endfeature", "global", "const", "formula", "modules", "all"
-    , "one", "some", "of", "optional", "as", "constraint", "initial", "rewards"
-    , "endrewards", "controller", "endcontroller", "module", "endmodule", "this"
-    , "public", "active", "activate", "deactivate", "array", "bool", "int"
-    , "double", "init" , "for", "endfor", "in", "id", "filter", "min", "max"
-    , "true", "false", "P", "Pmin", "Pmax", "S" , "E", "A", "U", "W", "R"
-    , "X", "F", "G"
+    [ "feature", "endfeature", "global", "const", "formula", "label"
+    , "modules", "all" , "one", "some", "of", "optional", "as", "constraint"
+    , "initial", "rewards" , "endrewards", "controller", "endcontroller"
+    , "module", "endmodule", "this", "public", "active", "activate"
+    , "deactivate", "array", "bool", "int", "double", "init" , "for", "endfor"
+    , "in", "id", "filter", "min", "max", "true", "false", "P", "Pmin", "Pmax"
+    , "S" , "E", "A", "U", "W", "R", "X", "F", "G"
     ]
 reservedOpNames =
     [ "/", "*", "-", "+", "=", "!=", ">", "<", ">=", "<=", "&", "|", "!"
@@ -196,6 +199,7 @@ model = do
                             , globalDef
                             , constantDef
                             , formulaDef
+                            , labelDef
                             ]
     definitions PrismLang = [ moduleDef
                             , globalDef
@@ -207,6 +211,7 @@ model = do
 specification :: Parser LSpecification
 specification = Specification <$> many (choice [ constantDef
                                                , formulaDef
+                                               , labelDef
                                                , propertyDef
                                                ])
 
@@ -329,6 +334,14 @@ formula = loc (Formula <$> (reserved "formula" *> identifier)
                        <*> (reservedOp "=" *> expr <* semi))
        <?> "formula"
 
+labelDef :: Parser LDefinition
+labelDef = LabelDef <$> label
+
+label :: Parser LLabel
+label = loc (Label <$> (reserved "label" *> doubleQuotes identifier)
+                   <*> (reservedOp "=" *> expr <* semi))
+     <?> "label definition"
+
 propertyDef :: Parser LDefinition
 propertyDef = PropertyDef <$>
     loc (Property <$> propertyIdent <*> property <* semi) <?> "property"
@@ -409,6 +422,7 @@ atom allowPctl
                    , IntegerExpr     <$> integer
                    , LoopExpr        <$> forLoop (expr' allowPctl)
                    , filterExpr allowPctl
+                   , labelExpr allowPctl
                    , FuncExpr        <$> function
                    , NameExpr        <$> name
                    ])
@@ -449,7 +463,11 @@ filterExpr False = parserZero
 filterExpr True  = reserved "filter" *> parens
     (FilterExpr <$> filterOp
                 <*> (comma *> property)
-                <*> optionMaybe (comma *> expr))
+                <*> optionMaybe (comma *> property))
+
+labelExpr :: Bool -> Parser (SrcLoc -> LExpr)
+labelExpr False = parserZero
+labelExpr True  = LabelExpr <$> doubleQuotes identifier
 
 filterOp :: Parser FilterOp
 filterOp = choice

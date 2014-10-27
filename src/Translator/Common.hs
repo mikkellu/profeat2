@@ -6,7 +6,7 @@ module Translator.Common
   , labelSets
   , constraints
 
-  , Label(..)
+  , LabelSymbol(..)
   , LabelSets
 
   , Trans
@@ -48,12 +48,12 @@ import Types
 import Translator.Constraints
 import Translator.Names
 
-data Label
-  = Label !LabelInfo
-  | ReconfLabel !FeatureContext !ReconfType
+data LabelSymbol
+  = LsAction !LabelInfo
+  | LsReconf !FeatureContext !ReconfType
   deriving (Eq, Ord)
 
-type LabelSets = Set (Set Label)
+type LabelSets = Set (Set LabelSymbol)
 
 data TrnsInfo = TrnsInfo
   { _trnsSymbolTable :: SymbolTable
@@ -176,7 +176,7 @@ activeGuard = flip NameExpr noLoc . activeFormulaName
 
 trnsActionLabel :: (Applicative m, MonadReader TrnsInfo m, MonadEither Error m)
                 => LActionLabel
-                -> m [(LActionLabel, Set Label)]
+                -> m [(LActionLabel, Set LabelSymbol)]
 trnsActionLabel action =
     actionToLabel action >>= \case
         Nothing  -> return [(NoAction, Set.empty)]
@@ -186,37 +186,37 @@ trnsActionLabel action =
                 [] -> [(Action (labelName lbl) noLoc, Set.singleton lbl)]
                 _  -> fmap (labelSetToAction &&& id) lss
 
-labelSetToAction :: Set Label -> LActionLabel
+labelSetToAction :: Set LabelSymbol -> LActionLabel
 labelSetToAction ls = Action (labelSetName ls) noLoc
 
-getLabelSetsFor :: (MonadReader TrnsInfo m) => Label -> m LabelSets
+getLabelSetsFor :: (MonadReader TrnsInfo m) => LabelSymbol -> m LabelSets
 getLabelSetsFor lbl = do
     lss <- view labelSets
     return $ Set.filter (Set.member lbl) lss
 
-actionToLabel :: ( Applicative m, MonadReader TrnsInfo m, MonadEither Error m)
+actionToLabel :: (Applicative m, MonadReader TrnsInfo m, MonadEither Error m)
               => LActionLabel
-              -> m (Maybe Label)
+              -> m (Maybe LabelSymbol)
 actionToLabel action = case action of
     ActActivate l   -> toReconfLabel ReconfActivate l
     ActDeactivate l -> toReconfLabel ReconfDeactivate l
-    Action n _      -> Just . Label <$> getLabelInfo n
+    Action n _      -> Just . LsAction <$> getLabelInfo n
     NoAction        -> return Nothing
   where
     toReconfLabel rt l = do
         sc <- view scope
         case sc of
-            Local ctx -> return . Just $ ReconfLabel ctx rt
+            Local ctx -> return . Just $ LsReconf ctx rt
             _         -> throw l IllegalReconfLabel
 
-labelSetName :: Set Label -> LName
+labelSetName :: Set LabelSymbol -> LName
 labelSetName ls = review _Ident (T.concat . fmap labelIdent $ toList ls, noLoc)
 
-labelName :: Label -> LName
+labelName :: LabelSymbol -> LName
 labelName lbl = review _Ident (labelIdent lbl, noLoc)
 
-labelIdent :: Label -> Ident
-labelIdent (Label li)           = labelInfoIdent li
-labelIdent (ReconfLabel ctx rt) =
+labelIdent :: LabelSymbol -> Ident
+labelIdent (LsAction li)     = labelInfoIdent li
+labelIdent (LsReconf ctx rt) =
     contextIdent ctx <> ('_' `cons` reconfIdent rt)
 

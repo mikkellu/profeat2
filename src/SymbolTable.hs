@@ -41,6 +41,9 @@ extendSymbolTable symTbl defs = flip evalStateT symTbl $ do -- TODO: refactor
 
     checkIfNonCyclicFormulas =<< use formulas
 
+    forOf_ (traverse._LabelDef) defs $ \lbl@(Label ident _ l) ->
+        ifNot containsSymbol ident l $ labels.at ident .= Just lbl
+
     forOf_ (traverse._ModuleDef) defs $ \m@(Module ident _ _ _) ->
         ifNot containsModule ident (modAnnot $ modBody m) $
             modules.at ident .= Just m

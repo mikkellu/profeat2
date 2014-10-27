@@ -64,7 +64,7 @@ trnsStmt (Stmt action grd upds l) = do
         return $
             Stmt action' (conjunction [operatingGuard, actGrd', grd']) upds' l
   where
-    localActivateLabel ctx = ReconfLabel ctx ReconfActivate
+    localActivateLabel ctx = LsReconf ctx ReconfActivate
 
 trnsAssign :: Translator LAssign
 trnsAssign (Assign name e l) = trnsVarAssign name e l

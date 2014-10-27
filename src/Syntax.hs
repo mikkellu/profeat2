@@ -18,6 +18,7 @@ module Syntax
   , _GlobalDef
   , _ConstDef
   , _FormulaDef
+  , _LabelDef
   , _PropertyDef
 
   , Feature(..)
@@ -38,6 +39,7 @@ module Syntax
   , Constant(..)
   , ConstType(..)
   , Formula(..)
+  , Label(..)
   , Property(..)
   , Stmt(..)
   , ActionLabel(..)
@@ -81,6 +83,7 @@ module Syntax
   , LSimpleVarType
   , LConstant
   , LFormula
+  , LLabel
   , LProperty
   , LStmt
   , LActionLabel
@@ -123,6 +126,7 @@ data Definition a
   | GlobalDef     (VarDecl a)
   | ConstDef      (Constant a)
   | FormulaDef    (Formula a)
+  | LabelDef      (Label a)
   | RewardsDef    (Rewards a)
   | PropertyDef   (Property a)
   deriving (Eq, Functor, Show)
@@ -309,6 +313,15 @@ instance HasExprs Formula where
     exprs f (Formula ident params e a) =
         Formula ident params <$> f e <*> pure a
 
+data Label a = Label
+  { lblIdent :: !Ident
+  , lblExpr  :: Expr a
+  , lblAnnot :: !a
+  } deriving (Eq, Functor, Show)
+
+instance HasExprs Label where
+    exprs f (Label ident e a) = Label ident <$> f e <*> pure a
+
 data Property a = Property
   { propIdent :: Maybe Ident
   , propExpr  :: Expr a
@@ -372,6 +385,7 @@ data Expr a
   | NameExpr (Name a) !a
   | FuncExpr !Function !a
   | FilterExpr !FilterOp (Expr a) (Maybe (Expr a)) !a
+  | LabelExpr !Ident !a
   | DecimalExpr !Double !a
   | IntegerExpr !Integer !a
   | BoolExpr !Bool !a
@@ -483,6 +497,7 @@ exprAnnot e = case e of
     NameExpr _ a       -> a
     FuncExpr _ a       -> a
     FilterExpr _ _ _ a -> a
+    LabelExpr _ a      -> a
     DecimalExpr _ a    -> a
     IntegerExpr _ a    -> a
     BoolExpr _ a       -> a
@@ -542,6 +557,7 @@ type LCompoundVarType = CompoundVarType SrcLoc
 type LSimpleVarType   = SimpleVarType SrcLoc
 type LConstant        = Constant SrcLoc
 type LFormula         = Formula SrcLoc
+type LLabel           = Label SrcLoc
 type LStmt            = Stmt SrcLoc
 type LActionLabel     = ActionLabel SrcLoc
 type LUpdate          = Update SrcLoc
@@ -571,6 +587,7 @@ instance Pretty (Definition a) where
         GlobalDef   g   -> "global" <+> pretty g
         ConstDef    c   -> pretty c
         FormulaDef  f   -> pretty f
+        LabelDef    l   -> pretty l
         RewardsDef  r   -> pretty r
         PropertyDef p   -> pretty p
 
@@ -677,6 +694,10 @@ instance Pretty (Formula a) where
         ("formula" <> prettyParams params) <+> text ident <+> equals <+>
         pretty e <> semi
 
+instance Pretty (Label a) where
+    pretty (Label ident e _) =
+        "label" <+> dquotes (text ident) <+> equals <+> pretty e <> semi
+
 instance Pretty (Property a) where
     pretty (Property (Just ident) e _) =
         dquotes (text ident) <> colon <+> pretty e <> semi
@@ -739,6 +760,7 @@ prettyExpr prec e = case e of
     FilterExpr fOp p s _  -> "filter" <> parens (pretty fOp <> comma <+>
                                                  pretty p <> comma <+>
                                                  pretty s)
+    LabelExpr ident _     -> dquotes $ text ident
     DecimalExpr d _       -> double d
     IntegerExpr i _       -> integer i
     BoolExpr True _       -> "true"

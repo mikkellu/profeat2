@@ -17,6 +17,7 @@ import Data.Traversable
 import Error
 import Symbols
 import Syntax
+import Types
 
 import Translator.Common
 import Translator.Constraints
@@ -32,15 +33,17 @@ translateModel symTbl = do
     flip runReaderT (trnsInfo symTbl constrs) $ do
         (controllerDef, lss) <- trnsControllerDef initConstrs
         local (labelSets .~ lss) $ do
-            constDefs     <- trnsConsts
-            globalDefs    <- trnsGlobals
-            moduleDefs    <- trnsModules
-            rewardsDefs   <- trnsRewards
+            constDefs   <- trnsConsts
+            globalDefs  <- trnsGlobals
+            moduleDefs  <- trnsModules
+            labelDefs   <- trnsLabels
+            rewardsDefs <- trnsRewards
 
             return . Model $ concat [ constDefs
                                     , globalDefs
                                     , moduleDefs
                                     , toList controllerDef
+                                    , labelDefs
                                     , rewardsDefs
                                     ]
 
@@ -50,9 +53,11 @@ translateSpec :: SymbolTable
 translateSpec symTbl (Specification defs) =
     flip runReaderT (trnsInfo symTbl Set.empty) $ do
         constDefs <- trnsConsts
-        propDefs  <- (traverse._PropertyDef) trnsProperty defs
+        labelDefs <- trnsLabels
+        propDefs  <- for (defs^..traverse._PropertyDef) $ \prop ->
+                         PropertyDef <$> trnsProperty prop
 
-        return . Specification $ constDefs ++ propDefs
+        return . Specification $ concat [constDefs, labelDefs, propDefs]
 
 trnsConsts :: Trans [LDefinition]
 trnsConsts = fmap toConstDef <$> view (constants.to assocs)
@@ -64,4 +69,10 @@ trnsGlobals = do
     globalTbl <- view globals
     fmap concat . for (globalTbl^..traverse) $ \(GlobalSymbol t decl) ->
         fmap GlobalDef <$> trnsVarDecl t decl
+
+trnsLabels :: Trans [LDefinition]
+trnsLabels = do
+    labelTbl <- view labels
+    for (labelTbl^..traverse) $ \lbl ->
+        LabelDef <$> exprs (trnsExpr isBoolType) lbl
 

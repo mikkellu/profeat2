@@ -8,6 +8,8 @@ module Syntax.Util
   , normalizeExpr
   , conjunction
 
+  , containsLabelExpr
+
   , _One
   , ones
   , _NameExpr
@@ -62,6 +64,13 @@ normalizeExpr = transform $ \e -> case e of
 conjunction :: [LExpr] -> LExpr
 conjunction [] = BoolExpr True noLoc
 conjunction es = foldr1 lAnd es
+
+-- | Returns True if the given expression contains labels.
+containsLabelExpr :: Expr a -> Bool
+containsLabelExpr = any isLabel . universe
+  where
+    isLabel (LabelExpr _ _) = True
+    isLabel _               = False
 
 _One :: Prism' (Some b a) (b a)
 _One = prism' One f where

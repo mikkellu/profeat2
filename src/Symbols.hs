@@ -48,6 +48,7 @@ module Symbols
   , containsModule
   , containsFeature
   , containsController
+  , lookupLabel
   , lookupModule
   , lookupFeature
   , featureCardinality
@@ -159,6 +160,7 @@ data SymbolTable = SymbolTable
   { _globals     :: Table GlobalSymbol
   , _constants   :: Table ConstSymbol
   , _formulas    :: Table LFormula
+  , _labels      :: Table LLabel
   , _modules     :: Table LModule
   , _features    :: Table LFeature
   , _constValues :: Valuation
@@ -207,6 +209,7 @@ emptySymbolTable = SymbolTable
   { _globals     = empty
   , _constants   = empty
   , _formulas    = empty
+  , _labels      = empty
   , _modules     = empty
   , _features    = empty
   , _constValues = empty
@@ -233,7 +236,8 @@ containsSymbol :: SymbolTable -> Ident -> Maybe SrcLoc
 containsSymbol symTbl ident =
     (symTbl^?globals  .at ident._Just.gsDecl.to declAnnot) <|>
     (symTbl^?constants.at ident._Just.csLoc) <|>
-    (symTbl^?formulas .at ident._Just.to frmAnnot)
+    (symTbl^?formulas .at ident._Just.to frmAnnot) <|>
+    (symTbl^?labels   .at ident._Just.to lblAnnot)
 
 containsModule :: SymbolTable -> Ident -> Maybe SrcLoc
 containsModule symTbl ident =
@@ -244,6 +248,12 @@ containsFeature symTbl ident = symTbl^?features.at ident._Just.to featAnnot
 
 containsController :: SymbolTable -> Ident -> Maybe SrcLoc
 containsController symTbl _ = symTbl^?controller._Just.ctsBody.to modAnnot
+
+lookupLabel :: (MonadReader r m, MonadEither Error m, HasSymbolTable r)
+            => Ident
+            -> SrcLoc
+            -> m LLabel
+lookupLabel = checkedLookup labels
 
 lookupModule :: (MonadReader r m, MonadEither Error m, HasSymbolTable r)
              => Ident

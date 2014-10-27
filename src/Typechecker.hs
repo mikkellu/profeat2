@@ -112,10 +112,12 @@ checkInitialization t e =
 checkIfConst :: (MonadReader r m, MonadEither Error m, HasSymbolTable r)
              => LExpr
              -> m ()
-checkIfConst e = view constants >>= \constTbl ->
-    case unknownValues constTbl e of
-        []    -> return ()
-        names -> throw (exprAnnot e) $ UnknownValues e names
+checkIfConst e
+  | containsLabelExpr e = throw (exprAnnot e) $ NonConstExpr e
+  | otherwise           = view constants >>= \constTbl ->
+        case unknownValues constTbl e of
+            []    -> return ()
+            names -> throw (exprAnnot e) $ UnknownValues e names
 
 isConstExpr :: ( Functor m
                , MonadReader r m
@@ -124,7 +126,8 @@ isConstExpr :: ( Functor m
                )
         => LExpr
         -> m Bool
-isConstExpr e = null . flip unknownValues e <$> view constants
+isConstExpr e = (||) (containsLabelExpr e) <$>
+                     (null . flip unknownValues e <$> view constants)
 
 unknownValues :: Table ConstSymbol -> Expr a -> [Name a]
 unknownValues constTbl = go where
@@ -257,13 +260,13 @@ typeOf (FilterExpr fOp prop grd _) = do
        | fOp == FilterCount -> return intType
        | otherwise          -> return t
 
-
-typeOf (NameExpr name _)  = getSymbolInfo name >>= siType
-typeOf (FuncExpr f l)     = throw l $ StandaloneFuntion f
-typeOf (DecimalExpr _ _)  = return doubleType
-typeOf (IntegerExpr _ _)  = return intType
-typeOf (BoolExpr _ _)     = return boolType
-typeOf (MissingExpr l)    = throw l StandaloneMissingExpr
+typeOf (LabelExpr ident l) = lookupLabel ident l >> return boolType
+typeOf (NameExpr name _)   = getSymbolInfo name >>= siType
+typeOf (FuncExpr f l)      = throw l $ StandaloneFuntion f
+typeOf (DecimalExpr _ _)   = return doubleType
+typeOf (IntegerExpr _ _)   = return intType
+typeOf (BoolExpr _ _)      = return boolType
+typeOf (MissingExpr l)     = throw l StandaloneMissingExpr
 
 checkIfFeature :: ( Applicative m
                   , MonadReader r m

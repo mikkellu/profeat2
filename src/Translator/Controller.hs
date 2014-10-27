@@ -163,11 +163,11 @@ trnsAssign asgn = case asgn of
         in Assign (activeName ctx) e noLoc
 
 genActionLabel :: LActionLabel
-               -> Set Label
+               -> Set LabelSymbol
                -> StateT LabelSets Trans LActionLabel
 genActionLabel action ls = do
     lbl <- case action of
-        Action n _      -> Set.singleton . Label <$> getLabelInfo n
+        Action n _      -> Set.singleton . LsAction <$> getLabelInfo n
         NoAction        -> return Set.empty
         ActActivate l   -> throw l IllegalReconfLabel
         ActDeactivate l -> throw l IllegalReconfLabel
@@ -188,8 +188,8 @@ genActiveVars = mapMaybe mkVarDecl . allContexts <$> view rootFeature where
             e     = Just 0
         in Just $ VarDecl ident vt e noLoc
 
-reconfsToLabelSet :: [Reconfiguration] -> Set Label
-reconfsToLabelSet = Set.fromList . fmap (uncurry ReconfLabel) . assocs . unions
+reconfsToLabelSet :: [Reconfiguration] -> Set LabelSymbol
+reconfsToLabelSet = Set.fromList . fmap (uncurry LsReconf) . assocs . unions
 
 genActiveFormulas :: (Functor m, MonadReader r m, HasSymbolTable r)
                   => m [LDefinition]
