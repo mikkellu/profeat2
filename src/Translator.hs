@@ -36,7 +36,8 @@ translateModel symTbl = do
             constDefs   <- trnsConsts
             globalDefs  <- trnsGlobals
             moduleDefs  <- trnsModules
-            labelDefs   <- trnsLabels
+            labelDefs   <- fmap LabelDef <$>
+                               trnsLabels (symTbl^..labels.traverse)
             rewardsDefs <- trnsRewards
 
             return . Model $ concat [ constDefs
@@ -53,7 +54,7 @@ translateSpec :: SymbolTable
 translateSpec symTbl (Specification defs) =
     flip runReaderT (trnsInfo symTbl Set.empty) $ do
         constDefs <- trnsConsts
-        labelDefs <- trnsLabels
+        labelDefs <- trnsLabelDefs defs
         propDefs  <- for (defs^..traverse._PropertyDef) $ \prop ->
                          PropertyDef <$> trnsProperty prop
 
@@ -70,9 +71,13 @@ trnsGlobals = do
     fmap concat . for (globalTbl^..traverse) $ \(GlobalSymbol t decl) ->
         fmap GlobalDef <$> trnsVarDecl t decl
 
-trnsLabels :: Trans [LDefinition]
-trnsLabels = do
-    labelTbl <- view labels
-    for (labelTbl^..traverse) $ \lbl ->
-        LabelDef <$> exprs (trnsExpr isBoolType) lbl
+trnsLabelDefs :: Translator [LDefinition]
+trnsLabelDefs defs = for (defs^..traverse._LabelDef) $ \lbl ->
+    LabelDef <$> trnsLabel lbl
+
+trnsLabels :: Translator [LLabel]
+trnsLabels = traverse trnsLabel
+
+trnsLabel :: Translator LLabel
+trnsLabel = exprs (trnsExpr isBoolType)
 
