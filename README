@@ -27,3 +27,7 @@ To generate a PRISM model from a ProFeat model "example.profeat", run
 
   profeat example.profeat -o example.prism
 
+To translate an additional properties file "example.fprops", run
+
+  profeat example.profeat example.fprops -o example.prism -p example.props
+
