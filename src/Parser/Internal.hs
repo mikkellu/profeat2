@@ -205,6 +205,7 @@ model = do
                             , globalDef
                             , constantDef
                             , formulaDef
+                            , labelDef
                             , rewardsDef
                             ]
 

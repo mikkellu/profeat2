@@ -58,6 +58,7 @@ module Symbols
 
   , atomicSetRoot
 
+  , hasSingleConfiguration
   , isLeafFeature
   , thisFeature
   , this
@@ -157,15 +158,16 @@ instance Ord FeatureSymbol where
                   compare (x^.fsIndex) (y^.fsIndex)
 
 data SymbolTable = SymbolTable
-  { _globals     :: Table GlobalSymbol
-  , _constants   :: Table ConstSymbol
-  , _formulas    :: Table LFormula
-  , _labels      :: Table LLabel
-  , _modules     :: Table LModule
-  , _features    :: Table LFeature
-  , _constValues :: Valuation
-  , _rootFeature :: FeatureSymbol
-  , _controller  :: Maybe ControllerSymbol
+  { _globals       :: Table GlobalSymbol
+  , _constants     :: Table ConstSymbol
+  , _formulas      :: Table LFormula
+  , _labels        :: Table LLabel
+  , _modules       :: Table LModule
+  , _features      :: Table LFeature
+  , _constValues   :: Valuation
+  , _rootFeature   :: FeatureSymbol
+  , _controller    :: Maybe ControllerSymbol
+  , _initConfLabel :: Maybe LExpr
   } deriving (Show)
 
 makeClassy ''SymbolTable
@@ -206,15 +208,16 @@ instance HasScope Env where
 
 emptySymbolTable :: SymbolTable
 emptySymbolTable = SymbolTable
-  { _globals     = empty
-  , _constants   = empty
-  , _formulas    = empty
-  , _labels      = empty
-  , _modules     = empty
-  , _features    = empty
-  , _constValues = empty
-  , _rootFeature = emptyFeatureSymbol
-  , _controller  = Nothing
+  { _globals       = empty
+  , _constants     = empty
+  , _formulas      = empty
+  , _labels        = empty
+  , _modules       = empty
+  , _features      = empty
+  , _constValues   = empty
+  , _rootFeature   = emptyFeatureSymbol
+  , _controller    = Nothing
+  , _initConfLabel = Nothing
   }
 
 emptyFeatureSymbol :: FeatureSymbol
@@ -279,6 +282,11 @@ checkedLookup f ident l =
 featureCardinality :: Array Integer FeatureSymbol -> Integer
 featureCardinality a = let (lower, upper) = bounds a
                        in upper - lower + 1
+
+-- | Returns 'True' if there is only a single possible configuration for
+-- the given 'FeatureSymbol'.
+hasSingleConfiguration :: FeatureSymbol -> Bool
+hasSingleConfiguration = all (^.this.fsMandatory) . allContexts
 
 atomicSetRoot :: FeatureContext -> Maybe FeatureContext
 atomicSetRoot ctx

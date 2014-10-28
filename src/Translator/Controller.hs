@@ -50,18 +50,30 @@ trnsController initConstrs =
                 return (decls, stmts, l)
             Nothing -> return ([], [], noLoc)
 
-        actDecls       <- genActiveVars
-        (seedStmts, i) <- genSeeding initConstrs
+        root <- view rootFeature
+        let noSeeding = hasSingleConfiguration root
 
-        let seedVar = genSeedVar i
-            decls'  = actDecls ++ decls
-            stmts'  = Repeatable (fmap One seedStmts ++ stmts)
-            body'   = ModuleBody (seedVar:decls') stmts' l
+        (body, i) <- if noSeeding
+            then return (ModuleBody decls (Repeatable stmts) l, 0)
+            else do
+                actDecls       <- genActiveVars
+                (seedStmts, i) <- genSeeding initConstrs
+                (initStmt, i') <- genInitConfStmt i
 
-        return $ if null decls' && null stmts
+                let seedVar = genSeedVar i'
+                    decls'  = actDecls ++ decls
+                    stmts'  = Repeatable (fmap One (seedStmts ++ maybeToList initStmt) ++ stmts)
+                    body'   = ModuleBody (seedVar:decls') stmts' l
+
+                return (body', i')
+
+        confLbl <- genInitConfLabel i
+
+        return $ if noSeeding && null decls && null stmts
             then [ genOperatingFormula Nothing ]
             else [ genOperatingFormula (Just i)
-                 , ModuleDef $ Module controllerIdent [] [] body'
+                 , confLbl
+                 , ModuleDef $ Module controllerIdent [] [] body
                  ]
 
 trnsControllerBody :: LModuleBody -> StateT LabelSets Trans LModuleBody

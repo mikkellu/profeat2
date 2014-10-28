@@ -11,6 +11,7 @@ import Control.Monad.Reader
 
 import Data.Foldable ( toList )
 import Data.Map ( assocs )
+import Data.Maybe
 import qualified Data.Set as Set
 import Data.Traversable
 
@@ -72,12 +73,13 @@ trnsGlobals = do
         fmap GlobalDef <$> trnsVarDecl t decl
 
 trnsLabelDefs :: Translator [LDefinition]
-trnsLabelDefs defs = for (defs^..traverse._LabelDef) $ \lbl ->
-    LabelDef <$> trnsLabel lbl
+trnsLabelDefs defs = fmap LabelDef <$> trnsLabels (defs^..traverse._LabelDef)
 
 trnsLabels :: Translator [LLabel]
-trnsLabels = traverse trnsLabel
+trnsLabels = fmap catMaybes . traverse trnsLabel
 
-trnsLabel :: Translator LLabel
-trnsLabel = exprs (trnsExpr isBoolType)
+trnsLabel :: LLabel -> Trans (Maybe LLabel)
+trnsLabel (Label ident e l)
+  | ident == initConfLabelIdent = return Nothing
+  | otherwise = fmap Just . Label ident <$> trnsExpr isBoolType e <*> pure l
 

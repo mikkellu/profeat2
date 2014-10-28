@@ -1,0 +1,18 @@
+formula _operating = __loc = 2;
+
+label "initconf" = __loc = 1;
+
+module _controller
+    __loc : [0..2] init 0;
+    _a    : [0..1] init 0;
+    _b    : [0..1] init 0;
+
+    [] __loc = 0 -> (__loc' = 1) & (_a' = 1);
+    [] __loc = 0 -> (__loc' = 1) & (_b' = 1);
+    [] __loc = 1 -> (__loc' = 2);
+endmodule
+
+formula _active    = true;
+formula _a_active  = _a = 1;
+formula _b_active  = _b = 1;
+

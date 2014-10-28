@@ -2,6 +2,8 @@
 
 module Translator.Seeding
   ( genOperatingFormula
+  , genInitConfLabel
+  , genInitConfStmt
   , genSeedVar
   , genSeeding
   ) where
@@ -14,13 +16,16 @@ import Control.Monad.State
 import Data.Array ( Array, bounds, elems )
 import Data.Foldable ( toList )
 import Data.List ( genericTake, genericLength )
+import Data.Maybe
 import Data.Set ( Set )
 import qualified Data.Set as Set
 import Data.Traversable
 
+import Error
 import Symbols
 import Syntax
 import Syntax.Util
+import Types
 
 import Translator.Common
 import Translator.Constraints
@@ -38,11 +43,33 @@ genOperatingFormula :: Maybe Integer -> LDefinition
 genOperatingFormula i = FormulaDef Formula
   { frmIdent  = operatingIdent
   , frmParams = []
-  , frmExpr   = maybe (BoolExpr True noLoc) locGrd i
+  , frmExpr   = maybe (BoolExpr True noLoc) seedVarGuard i
   , frmAnnot  = noLoc
   }
-  where
-    locGrd = eq (identExpr seedVarIdent noLoc) . intExpr
+
+genInitConfLabel :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
+                 => Integer
+                 -> m LDefinition
+genInitConfLabel i = do
+    lbl <- _Just (trnsExpr isBoolType) =<< view initConfLabel
+    return $ LabelDef Label
+      { lblIdent = initConfLabelIdent
+      , lblExpr  = fromMaybe (seedVarGuard $ i - 1) lbl
+      , lblAnnot = noLoc
+      }
+
+genInitConfStmt :: (MonadReader r m, HasSymbolTable r)
+                => Integer
+                -> m (Maybe LStmt, Integer)
+genInitConfStmt i = do
+    root <- view rootFeature
+    lbl  <- view initConfLabel
+    return $ if hasSingleConfiguration root || isJust lbl
+        then (Nothing, i)
+        else let asgn = incSeedVar i
+                 upd  = Update Nothing (Repeatable [One asgn]) noLoc
+                 stmt = Stmt NoAction (seedVarGuard i) (Repeatable [One upd]) noLoc
+             in (Just stmt, i + 1)
 
 genSeedVar :: Integer -> LVarDecl
 genSeedVar i = VarDecl
@@ -51,6 +78,9 @@ genSeedVar i = VarDecl
   , declInit  = Just 0
   , declAnnot = noLoc
   }
+
+seedVarGuard :: Integer -> LExpr
+seedVarGuard = eq (identExpr seedVarIdent noLoc) . intExpr
 
 genSeeding :: (MonadReader TrnsInfo m)
            => InitialConstraintSet
@@ -102,7 +132,7 @@ seedAtomicSets ctx atomicSets = do
 
     genUpdate i ctxs =
         let ctxs' = filter (not . _fsMandatory . thisFeature) ctxs
-            sAsgn = One $ Assign seedVarName (intExpr $ i + 1) noLoc
+            sAsgn = One (incSeedVar i)
             asgns = fmap (\c -> One $ Assign (activeName c) 1 noLoc) ctxs'
         in Update Nothing (Repeatable $ sAsgn:asgns) noLoc
 
@@ -121,6 +151,9 @@ seedAtomicSets ctx atomicSets = do
 
         seedConstraints .= constrs'
         return $ toList appConstrs
+
+incSeedVar :: Integer -> LAssign
+incSeedVar i = Assign seedVarName (intExpr $ i + 1) noLoc
 
 configurations :: (a -> Bool)
                -> (Integer, Integer)

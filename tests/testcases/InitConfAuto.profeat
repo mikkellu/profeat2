@@ -1,0 +1,7 @@
+feature root {
+    one of a, b;
+}
+
+feature a {}
+feature b {}
+

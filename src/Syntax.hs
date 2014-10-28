@@ -53,6 +53,8 @@ module Syntax
   , Name(..)
   , Range
 
+  , initConfLabelIdent
+
   , exprAnnot
 
   , unaryExpr
@@ -321,6 +323,9 @@ data Label a = Label
 
 instance HasExprs Label where
     exprs f (Label ident e a) = Label ident <$> f e <*> pure a
+
+initConfLabelIdent :: Ident
+initConfLabelIdent = "initconf"
 
 data Property a = Property
   { propIdent :: Maybe Ident

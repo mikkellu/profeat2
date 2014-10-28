@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, OverloadedStrings, RankNTypes #-}
+{-# LANGUAGE FlexibleContexts, LambdaCase, OverloadedStrings, RankNTypes #-}
 
 module SymbolTable
   ( module Symbols
@@ -43,6 +43,8 @@ extendSymbolTable symTbl defs = flip evalStateT symTbl $ do -- TODO: refactor
 
     forOf_ (traverse._LabelDef) defs $ \lbl@(Label ident _ l) ->
         ifNot containsSymbol ident l $ labels.at ident .= Just lbl
+
+    findInitConfLabel
 
     forOf_ (traverse._ModuleDef) defs $ \m@(Module ident _ _ _) ->
         ifNot containsModule ident (modAnnot $ modBody m) $
@@ -96,6 +98,11 @@ setControllerVarTypes = do
             \(VarDecl ident vt _ l) -> do
                 vs <- VarSymbol l False <$> fromVarType vt
                 controller._Just.ctsVars.at ident .= Just vs
+
+findInitConfLabel :: (Applicative m, MonadState SymbolTable m) => m ()
+findInitConfLabel = use (labels.at initConfLabelIdent) >>= \case
+    Just lbl -> initConfLabel .= Just (lblExpr lbl)
+    Nothing  -> return ()
 
 expandExprsOf :: (Applicative m, MonadState SymbolTable m, MonadError Error m)
               => Traversal' SymbolTable LExpr

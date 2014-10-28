@@ -35,6 +35,9 @@ translatorTestCases = testGroup "Translator" $ map translatorTestCase
   , "Formulas"
   , "Meta"
   , "Templates"
+  , "InitConfNone"
+  , "InitConfAuto"
+  , "InitConfUserDef"
   ]
 
 -- }}
