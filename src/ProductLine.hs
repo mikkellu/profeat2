@@ -101,8 +101,10 @@ toFeatureSymbols mandatory ref@(FeatureRef isOptional inst _ cntExpr) = do
 
                 return (card, cfs)
 
-
         (mods, varSyms) <- instantiateModules idx (featModules feat)
+
+        constraints' <- traverse prepExprs (featConstraints feat)
+        rewards'     <- traverse prepExprs (featRewards feat)
 
         return FeatureSymbol
             { _fsIdent          = featRefIdent ref
@@ -114,8 +116,8 @@ toFeatureSymbols mandatory ref@(FeatureRef isOptional inst _ cntExpr) = do
             , _fsOptional       = isOptional
             , _fsModules        = mods
             , _fsVars           = varSyms
-            , _fsConstraints    = featConstraints feat
-            , _fsRewards        = featRewards feat
+            , _fsConstraints    = constraints'
+            , _fsRewards        = rewards'
             }
 
     return $ listArray (0, cnt - 1) fss
