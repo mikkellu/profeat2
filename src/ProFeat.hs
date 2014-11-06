@@ -4,10 +4,19 @@
 -- | The main module of ProFeat.
 
 module ProFeat
-  ( proFeatMain
+  ( ProFeatOptions(..)
+  , defaultOptions
 
-  , parseAndTranslateModel
-  , parseAndTranslateSpec
+  , proFeatMain
+
+  , proFeat
+  , withTranslatedModel
+  , translateProps
+
+  , ProFeat
+  , run
+  , withFile
+  , liftEither'
   ) where
 
 import Control.Exception.Lens
@@ -15,6 +24,7 @@ import Control.Lens hiding ( argument )
 import Control.Monad.Reader
 import Control.Monad.State
 
+import Data.Foldable
 import Data.Maybe
 import Data.Monoid
 import Data.Text.Lazy
@@ -34,23 +44,6 @@ import Parser
 import SymbolTable
 import Syntax
 import Translator
-
-parseAndTranslateModel :: String -> Text -> Either Error (LModel, SymbolTable)
-parseAndTranslateModel name content = do
-    Model defs <- parseModel name content
-    symTbl     <- extendSymbolTable emptySymbolTable defs
-    prismModel <- translateModel symTbl
-    return (prismModel, symTbl)
-
-parseAndTranslateSpec :: String
-                      -> Text
-                      -> SymbolTable
-                      -> Either Error (LSpecification, SymbolTable)
-parseAndTranslateSpec name content symTbl = do
-    spec@(Specification defs) <- parseSpecification name content
-    symTbl'   <- extendSymbolTable symTbl defs
-    prismSpec <- translateSpec symTbl' spec
-    return (prismSpec, symTbl')
 
 -- ProFeat CLI
 --
@@ -86,6 +79,14 @@ data ProFeatOptions = ProFeatOptions
   , prismPropsPath   :: Maybe FilePath
   } deriving (Show)
 
+defaultOptions :: ProFeatOptions
+defaultOptions = ProFeatOptions
+  { proFeatModelPath = "-"
+  , proFeatPropsPath = Nothing
+  , prismModelPath   = Nothing
+  , prismPropsPath   = Nothing
+  }
+
 proFeatOptions :: Parser ProFeatOptions
 proFeatOptions = ProFeatOptions
   <$>           argument str ( metavar "<model-file>"
@@ -102,34 +103,42 @@ proFeatOptions = ProFeatOptions
 type ProFeat = StateT SymbolTable (ExceptT Error (ReaderT ProFeatOptions IO))
 
 proFeat :: ProFeat ()
-proFeat = do
-    path  <- asks proFeatModelPath
+proFeat = withTranslatedModel $ \prismModel -> do
+    prismProps <- translateProps
+
+    maybeWriteFile (render prismModel) =<< asks prismModelPath
+    for_ prismProps . flip (maybeWriteFile . render) =<< asks prismPropsPath
+
+withTranslatedModel :: (LModel -> ProFeat a) -> ProFeat a
+withTranslatedModel m = do
+    path <- asks proFeatModelPath
     maybeWithFile ReadMode (pathToMaybe path) $ \hIn -> do
-        proFeatModel <- liftIO $ L.hGetContents hIn
-        prismModel   <- translateProFeatModel path proFeatModel
-        translateProFeatProps
+        modelContents <- liftIO $ L.hGetContents hIn
 
-        maybeWriteFile prismModel =<< asks prismModelPath
+        (prismModel, symTbl) <- liftEither' $ do
+            Model defs <- parseModel path modelContents
+            symTbl     <- extendSymbolTable emptySymbolTable defs
+            prismModel <- translateModel symTbl
+            return (prismModel, symTbl)
 
-translateProFeatModel :: FilePath -> Text -> ProFeat Text
-translateProFeatModel path contents = do
-    (prismModel, symTbl) <- liftEither' $
-        parseAndTranslateModel path contents
-    put symTbl
-    return $ render prismModel
+        put symTbl
+        m prismModel
 
-translateProFeatProps :: ProFeat ()
-translateProFeatProps = asks proFeatPropsPath >>= \case
-    Nothing   -> return ()
+translateProps :: ProFeat (Maybe LSpecification)
+translateProps = asks proFeatPropsPath >>= \case
+    Nothing   -> return Nothing
     Just path -> withFile path ReadMode $ \hIn -> do
-        proFeatSpec <- liftIO $ L.hGetContents hIn
-        symTbl      <- get
+        propsContents <- liftIO $ L.hGetContents hIn
 
-        (prismSpec, symTbl') <- liftEither' $
-            parseAndTranslateSpec path proFeatSpec symTbl
+        symTbl <- get
+        (prismProps, symTbl') <- liftEither' $ do
+            spec@(Specification defs) <- parseSpecification path propsContents
+            symTbl'                   <- extendSymbolTable symTbl defs
+            spec'                     <- translateSpec symTbl' spec
+            return (spec', symTbl')
+
         put symTbl'
-
-        maybeWriteFile (render prismSpec) =<< asks prismPropsPath
+        return $ Just prismProps
 
 runApp :: ProFeat () -> ProFeatOptions -> IO ()
 runApp m opts = do

@@ -1,5 +1,5 @@
 name:                profeat
-version:             0.58.1
+version:             0.59.0
 synopsis:            A feature modelling framework
 author:              Philipp Chrszon
 maintainer:          Philipp.Chrszon@tu-dresden.de
@@ -61,10 +61,12 @@ test-suite profeat-tests
   -- other-modules:
   hs-source-dirs:      tests
   build-depends:       base >=4.3 && <5,
+                       directory,
                        filepath,
                        tasty >=0.10,
                        tasty-hunit >=0.9,
                        text >=1.1,
+                       transformers >=0.4,
                        wl-pprint-text >=1.1,
                        profeat
 
