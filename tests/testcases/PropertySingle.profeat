@@ -1,0 +1,17 @@
+feature root {
+    all of a, b;
+}
+
+feature a {
+    modules a_impl;
+}
+
+feature b {}
+
+module a_impl {
+    s : [0..2] init 0;
+
+    [] s = 0 -> 0.5:(s' = 1) + 0.5:(s' = 2);
+    [] s > 0 -> true;
+}
+
