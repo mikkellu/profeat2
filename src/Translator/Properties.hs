@@ -6,15 +6,17 @@ import Control.Lens
 
 import Symbols
 import Syntax
+import Template
 
 import Translator.Common
 
 trnsProperty :: Translator LProperty
 trnsProperty prop = do
-    root <- view rootFeature
+    prop' <- prepExprs prop
+    root  <- view rootFeature
     if hasSingleConfiguration root
-        then exprs (trnsExpr (const True)) prop
-        else genFilterProperty prop
+        then exprs (trnsExpr (const True)) prop'
+        else genFilterProperty prop'
 
 genFilterProperty :: Translator LProperty
 genFilterProperty (Property ident e l) = do
