@@ -46,6 +46,7 @@ module Syntax
   , Update(..)
   , Assign(..)
   , Expr(..)
+  , RewardProp(..)
   , Repeatable(..)
   , Some(..)
   , ForLoop(..)
@@ -92,6 +93,7 @@ module Syntax
   , LUpdate
   , LAssign
   , LExpr
+  , LRewardProp
   , LRepeatable
   , LSome
   , LForLoop
@@ -103,6 +105,7 @@ import Control.Applicative hiding ( empty, optional )
 import Control.Lens
 
 import Data.List.NonEmpty
+import Data.Text.Lazy ( Text )
 
 import Text.PrettyPrint.Leijen.Text hiding ( (<$>) )
 import qualified Text.PrettyPrint.Leijen.Text as PP
@@ -390,6 +393,7 @@ data Expr a
   | NameExpr (Name a) !a
   | FuncExpr !Function !a
   | FilterExpr !FilterOp (Expr a) (Maybe (Expr a)) !a
+  | RewardExpr (Maybe (Expr a)) !Bound (RewardProp a) !a
   | LabelExpr !Ident !a
   | DecimalExpr !Double !a
   | IntegerExpr !Integer !a
@@ -434,19 +438,37 @@ instance Plated (Expr a) where
     plate f e = case e of
         BinaryExpr binOp lhs rhs a ->
             BinaryExpr binOp <$> f lhs <*> f rhs <*> pure a
-        UnaryExpr unOp e' a        -> UnaryExpr unOp <$> f e' <*> pure a
-        CondExpr cond te ee a      ->
+        UnaryExpr unOp e' a -> UnaryExpr unOp <$> f e' <*> pure a
+        CondExpr cond te ee a ->
             CondExpr <$> f cond <*> f te <*> f ee <*> pure a
-        LoopExpr loop a            -> LoopExpr <$> exprs f loop <*> pure a
-        CallExpr e' args a         ->
-            CallExpr <$> f e' <*> traverse f args <*> pure a
-        NameExpr name a            -> NameExpr <$> exprs f name <*> pure a
+        LoopExpr loop a -> LoopExpr <$> exprs f loop <*> pure a
+        CallExpr e' args a -> CallExpr <$> f e' <*> traverse f args <*> pure a
+        NameExpr name a -> NameExpr <$> exprs f name <*> pure a
+        FuncExpr _ _ -> pure e
         FilterExpr fOp prop grd a  ->
             FilterExpr fOp <$> f prop <*> traverse f grd <*> pure a
-        _                          -> pure e
+        RewardExpr struct bound prop a ->
+            RewardExpr struct bound <$> exprs f prop <*> pure a
+        LabelExpr _ _   -> pure e -- list leaf nodes to get a warning if some
+        DecimalExpr _ _ -> pure e -- (newly added) constructor is missing
+        IntegerExpr _ _ -> pure e
+        BoolExpr _ _    -> pure e
+        MissingExpr _   -> pure e
 
 instance HasExprs Expr where
     exprs f = f
+
+data RewardProp a
+  = Reachability (Expr a)
+  | Cumulative !Text
+  | Instant !Text
+  | Steady
+  deriving (Eq, Functor, Show)
+
+instance HasExprs RewardProp where
+    exprs f prop = case prop of
+        Reachability prop' -> Reachability <$> f prop'
+        _                  -> pure prop
 
 newtype Repeatable b a = Repeatable [Some b a] deriving (Eq, Functor, Show)
 
@@ -502,6 +524,7 @@ exprAnnot e = case e of
     NameExpr _ a       -> a
     FuncExpr _ a       -> a
     FilterExpr _ _ _ a -> a
+    RewardExpr _ _ _ a -> a
     LabelExpr _ a      -> a
     DecimalExpr _ a    -> a
     IntegerExpr _ a    -> a
@@ -569,6 +592,7 @@ type LUpdate          = Update SrcLoc
 type LAssign          = Assign SrcLoc
 type LProperty        = Property SrcLoc
 type LExpr            = Expr SrcLoc
+type LRewardProp      = RewardProp SrcLoc
 type LRepeatable b    = Repeatable b SrcLoc
 type LSome b          = Some b SrcLoc
 type LForLoop b       = ForLoop b SrcLoc
@@ -744,9 +768,9 @@ prettyExpr prec e = case e of
     CondExpr cond te ee _ -> parens' (prec > 0) $
         prettyExpr 1 cond <+> char '?' <+>
         prettyExpr 1 te <+> colon <+> prettyExpr 1 ee
-    UnaryExpr (ProbUnOp (Prob bound)) e' _ ->
+    UnaryExpr (ProbUnOp (ProbOp bound)) e' _ ->
         "P" <> pretty bound <+> brackets (pretty e')
-    UnaryExpr (ProbUnOp (Steady bound)) e' _ ->
+    UnaryExpr (ProbUnOp (SteadyOp bound)) e' _ ->
         "S" <> pretty bound <+> brackets (pretty e')
     UnaryExpr (TempUnOp Exists) e' _ -> "E" <+> brackets (pretty e')
     UnaryExpr (TempUnOp Forall) e' _ -> "A" <+> brackets (pretty e')
@@ -765,15 +789,25 @@ prettyExpr prec e = case e of
     FilterExpr fOp p s _  -> "filter" <> parens (pretty fOp <> comma <+>
                                                  pretty p <> comma <+>
                                                  pretty s)
-    LabelExpr ident _     -> dquotes $ text ident
-    DecimalExpr d _       -> double d
-    IntegerExpr i _       -> integer i
-    BoolExpr True _       -> "true"
-    BoolExpr False _      -> "false"
-    MissingExpr _         -> "..."
+    RewardExpr struct bound prop _ ->
+        "R" <> maybe empty (braces . pretty) struct <> pretty bound <+>
+        brackets (pretty prop)
+    LabelExpr ident _ -> dquotes $ text ident
+    DecimalExpr d _   -> double d
+    IntegerExpr i _   -> integer i
+    BoolExpr True _   -> "true"
+    BoolExpr False _  -> "false"
+    MissingExpr _     -> "..."
   where
     parens' True  = parens
     parens' False = id
+
+instance Pretty (RewardProp a) where
+    pretty rOp = case rOp of
+        Reachability prop -> "F" <+> pretty prop
+        Cumulative t      -> "C<=" <> text t
+        Instant t         -> "I=" <> text t
+        Steady            -> "S"
 
 prettyRepeatable :: (Pretty (b a))
                  => Bool

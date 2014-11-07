@@ -202,9 +202,9 @@ typeOf (UnaryExpr unOpT e _) = case unOpT of
     ArithUnOp _                 -> checkIfType isNumericType e
     LogicUnOp _                 -> checkIfType isBoolType e
     TempUnOp _                  -> checkIfType isBoolType e
-    ProbUnOp (Prob (Query _))   ->
+    ProbUnOp (ProbOp (Query _))   ->
         checkIfType_ isBoolType e >> return doubleType
-    ProbUnOp (Steady (Query _)) ->
+    ProbUnOp (SteadyOp (Query _)) ->
         checkIfType_ isBoolType e >> return doubleType
     ProbUnOp _                  -> checkIfType isBoolType e
 
@@ -259,6 +259,14 @@ typeOf (FilterExpr fOp prop grd _) = do
              return boolType
        | fOp == FilterCount -> return intType
        | otherwise          -> return t
+
+typeOf (RewardExpr _ (Query _) prop _) = do
+    case prop of
+        Reachability e -> checkIfType_ isBoolType e
+        _              -> return ()
+    return doubleType
+
+typeOf RewardExpr {}                = return boolType
 
 typeOf (LabelExpr ident l) = lookupLabel ident l >> return boolType
 typeOf (NameExpr name _)   = getSymbolInfo name >>= siType

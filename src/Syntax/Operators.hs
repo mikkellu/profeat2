@@ -113,8 +113,8 @@ data TempUnOp
   deriving (Bounded, Enum, Eq, Show)
 
 data ProbUnOp
-  = Prob Bound
-  | Steady Bound
+  = ProbOp Bound
+  | SteadyOp Bound
   deriving (Eq, Show)
 
 data Bound
@@ -130,9 +130,9 @@ data BoundOp
   deriving (Bounded, Enum, Eq, Show)
 
 data QueryType
-  = QueryProb
-  | QueryMinProb
-  | QueryMaxProb
+  = QueryValue
+  | QueryMinValue
+  | QueryMaxValue
   deriving (Bounded, Enum, Eq, Show)
 
 -- | Returns the precedence level of the given operator.
@@ -230,8 +230,8 @@ instance Pretty TempUnOp where
 
 instance Pretty ProbUnOp where
     pretty unOp = case unOp of
-        Prob _   -> "P"
-        Steady _ -> "S"
+        ProbOp _     -> "P"
+        SteadyOp _   -> "S"
 
 instance Pretty Bound where
     pretty (Bound boundOp prob) = pretty boundOp <> text prob
@@ -246,9 +246,9 @@ instance Pretty BoundOp where
 
 instance Pretty QueryType where
     pretty qt = case qt of
-        QueryProb    -> "=?"
-        QueryMinProb -> "min=?"
-        QueryMaxProb -> "max=?"
+        QueryValue    -> "=?"
+        QueryMinValue -> "min=?"
+        QueryMaxValue -> "max=?"
 
 instance Pretty FilterOp where
     pretty fOp = case fOp of
