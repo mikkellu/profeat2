@@ -139,9 +139,10 @@ float = T.float lexer
 decimal :: Parser Text
 decimal = T.lexeme lexer $ try $ do
     w <- many digit
-    void $ char '.'
-    f <- many1 digit
-    return . pack $ w ++ '.':f
+    option (pack w) $ do
+        void $ char '.'
+        f <- many1 digit
+        return . pack $ w ++ '.':f
 
 bool :: Parser Bool
 bool = False <$ reserved "false"
