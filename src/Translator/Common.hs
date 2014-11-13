@@ -86,15 +86,17 @@ trnsVarDecl t (VarDecl ident vt e l) = do
     let mkIdent = fullyQualifiedIdent sc ident
 
     void $ _Just (checkInitialization t) e
+    e'  <- _Just (trnsExpr $ const True) e
+    vt' <- exprs (trnsExpr $ const True) vt
 
     return $ case t of
         CompoundType (ArrayType (Just (lower, upper)) _) ->
-            let CompoundVarType (ArrayVarType _ svt) = vt
+            let CompoundVarType (ArrayVarType _ svt') = vt'
             in flip fmap [lower .. upper] $ \i ->
-                VarDecl (mkIdent $ Just i) (SimpleVarType svt) e l
+                VarDecl (mkIdent $ Just i) (SimpleVarType svt') e' l
         CompoundType (ArrayType Nothing _) ->
             error "Translator.Common.trnsVarDecl: unevaluated type"
-        _ -> [VarDecl (mkIdent Nothing) vt e l]
+        _ -> [VarDecl (mkIdent Nothing) vt' e' l]
 
 trnsUpdate :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
            => (LAssign -> m LAssign)
