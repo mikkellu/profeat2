@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings, ViewPatterns #-}
 
 -- | The Eval module provides the 'eval' function that allows to evaluate
 -- 'Expr'essions under a given 'Valuation'.
@@ -151,13 +151,17 @@ evalImpl (CallExpr (FuncExpr function _) args _) = do
     toDouble _          = typeError
 
 evalImpl CallExpr {}       = typeError
-evalImpl (NameExpr name _) = case name^?_Ident._1 of
-    Just ident -> (! ident) <$> ask
-    Nothing    -> error "Eval.eval: illegal name"
+evalImpl (NameExpr (viewSimpleName -> Just (ident, idx, _)) _) = case idx of
+    Just e  -> do
+        IntVal i <- evalImpl e
+        (! (ident, i)) <$> ask
+    Nothing -> (! (ident, 0)) <$> ask
+evalImpl NameExpr {}       = error "Eval.eval: illegal name"
 evalImpl (FuncExpr _ _)    = typeError
 evalImpl FilterExpr {}     = error "Eval.eval: FilterExpr"
 evalImpl RewardExpr {}     = error "Eval.eval: RewardExpr"
 evalImpl LabelExpr {}      = error "Eval.eval: LabelExpr"
+evalImpl ArrayExpr {}      = typeError
 evalImpl (DecimalExpr d _) = return $ DblVal d
 evalImpl (IntegerExpr i _) = return $ IntVal i
 evalImpl (BoolExpr b _)    = return $ BoolVal b

@@ -426,6 +426,7 @@ atom allowPctl
                    , LoopExpr        <$> forLoop (expr' allowPctl)
                    , filterExpr allowPctl
                    , labelExpr allowPctl
+                   , arrayExpr
                    , FuncExpr        <$> function
                    , NameExpr        <$> name
                    ])
@@ -492,6 +493,9 @@ filterExpr True  = reserved "filter" *> parens
 labelExpr :: Bool -> Parser (SrcLoc -> LExpr)
 labelExpr False = parserZero
 labelExpr True  = LabelExpr <$> doubleQuotes identifier <?> "label"
+
+arrayExpr :: Parser (SrcLoc -> LExpr)
+arrayExpr = ArrayExpr . fromList <$> braces (commaSep1 expr)
 
 filterOp :: Parser FilterOp
 filterOp = choice

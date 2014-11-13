@@ -107,6 +107,11 @@ isNumericType _ = False
 -- | Returns 'True' if an expression of the first type can be assigned to a
 -- variable of the second type.
 isAssignableTo :: Type -> Type -> Bool
+isAssignableTo (CompoundType (ArrayType sl tl))
+               (CompoundType (ArrayType sr tr)) =
+    sl == sr && SimpleType tl `isAssignableTo` SimpleType tr
+isAssignableTo tl@(SimpleType _) (CompoundType (ArrayType _ tr)) =
+    tl `isAssignableTo` SimpleType tr
 isAssignableTo (SimpleType tl) (SimpleType tr) = case (tl, tr) of
     (BoolType   , BoolType  ) -> True
     (IntType _  , IntType _ ) -> True
@@ -147,12 +152,15 @@ instance Pretty Value where
         DblVal  d     -> double d
 
 -- | A variable valuation.
-type Valuation = Map Ident Value
+type Valuation = Map (Ident, Integer) Value
 
 -- | The 'Doc' representation of a 'Valuation'.
 prettyValuation :: Valuation -> Doc
 prettyValuation =
     sep . punctuate comma .
-    map (\(name, v) -> text name <> equals <> pretty v) .
+    map (\((name, i), v) -> text name <> idx i <> equals <> pretty v) .
     Map.assocs
+  where
+    idx i | i > 0     = brackets (integer i)
+          | otherwise = empty
 

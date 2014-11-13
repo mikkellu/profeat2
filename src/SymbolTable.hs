@@ -10,9 +10,12 @@ import Control.Lens hiding ( contains )
 import Control.Monad.Reader
 import Control.Monad.State
 
+import Data.Foldable ( for_, toList )
 import Data.List ( (\\) )
+import Data.List.NonEmpty ( NonEmpty(..) )
 import Data.Map ( Map, keys, member )
 import qualified Data.Map as Map
+import Data.Maybe
 import qualified Data.Set as Set
 import Data.Traversable
 
@@ -34,7 +37,7 @@ extendSymbolTable symTbl defs = flip evalStateT symTbl $ do -- TODO: refactor
 
     forOf_ (traverse._ConstDef) defs $ \(Constant ct ident e l) ->
         ifNot containsSymbol ident l $ constants.at ident .=
-            Just (ConstSymbol l (fromConstType ct) ct e)
+            Just (ConstSymbol l (fromConstType ct e) ct e)
 
     forOf_ (traverse._FormulaDef) defs $ \f@(Formula ident _ _ l) ->
         ifNot containsSymbol ident l $ formulas.at ident .= Just f
@@ -130,7 +133,7 @@ evalConstValue :: ( Applicative m
                -> m ()
 evalConstValue ident = do
     val <- use constValues
-    unless (ident `member` val) $ do -- check if we already evaluated the constant
+    unless ((ident, 0) `member` val) $ do -- check if we already evaluated the constant
         symTbl <- ask
         case symTbl^.constants.at ident of
             Nothing -> return () -- there is no constant with the given identifier; ignore it, as undefined variables will be catched by the type checker
@@ -144,10 +147,15 @@ evalConstValue ident = do
                     e' <- unrollLoopExprs e
                     checkInitialization (cs^.csType) e'
 
-                    v <- eval' val' e'
+                    let e's = case e' of
+                                  ArrayExpr es _ -> toList es
+                                  _              -> [e']
 
-                    constValues.at ident            .= Just v
-                    constants.at ident._Just.csExpr .= e'
+                    for_ (zip e's [0..]) $ \(e'', i) -> do
+                        v <- eval' val' e''
+
+                        constValues.at (ident, i)       .= Just v
+                        constants.at ident._Just.csExpr .= e'
 
 checkIfNonCyclicFormulas :: (Applicative m, MonadError Error m)
                          => Table LFormula
@@ -159,7 +167,10 @@ checkIfNonCyclicConstants :: (Applicative m, MonadError Error m)
                           => Table ConstSymbol
                           -> m ()
 checkIfNonCyclicConstants = checkIfNonCyclic post (view csLoc) where
-    post cs = universe (cs^.csExpr)^..traverse.identifiers
+    post = mapMaybe f . universe . view csExpr
+
+    f (NameExpr (Name ((ident, _) :| []) _) _) = Just ident
+    f _                                        = Nothing
 
 checkIfNonCyclicFeatures :: (Applicative m, MonadError Error m)
                          => Table LFeature

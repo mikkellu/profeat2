@@ -54,7 +54,8 @@ translateSpec :: SymbolTable
               -> Either Error LSpecification
 translateSpec symTbl (Specification defs) =
     flip runReaderT (trnsInfo symTbl Set.empty) $ do
-        constDefs <- trnsConsts
+        -- constDefs <- trnsConsts
+        let constDefs = []
         labelDefs <- trnsLabelDefs defs
         propDefs  <- for (defs^..traverse._PropertyDef) $ \prop ->
                          PropertyDef <$> trnsProperty prop
@@ -62,9 +63,16 @@ translateSpec symTbl (Specification defs) =
         return . Specification $ concat [constDefs, labelDefs, propDefs]
 
 trnsConsts :: Trans [LDefinition]
-trnsConsts = fmap toConstDef <$> view (constants.to assocs)
-  where
-    toConstDef (ident, ConstSymbol l _ ct e) = ConstDef $ Constant ct ident e l
+trnsConsts =
+    fmap concat . traverse (uncurry trnsConst) =<< view (constants.to assocs)
+
+trnsConst :: Ident -> ConstSymbol -> Trans [LDefinition]
+trnsConst ident (ConstSymbol l t ct e) = case e of
+    ArrayExpr es _ -> fmap concat . for (zip (toList es) [0..]) $ \(e', i) ->
+        trnsConst (indexedIdent ident i) (ConstSymbol l t ct e')
+    _ -> do
+        e' <- trnsExpr (const True) e
+        return [ConstDef $ Constant ct ident e' l]
 
 trnsGlobals :: Trans [LDefinition]
 trnsGlobals = do

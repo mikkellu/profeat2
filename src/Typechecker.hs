@@ -36,6 +36,7 @@ import Control.Lens hiding ( contains )
 import Control.Monad.Reader
 
 import Data.Array
+import Data.List ( genericLength )
 import Data.List.NonEmpty ( NonEmpty(..), nonEmpty )
 import Data.Map ( member )
 import Data.Maybe
@@ -103,11 +104,7 @@ checkInitialization :: ( Applicative m
                     => Type
                     -> LExpr
                     -> m ()
-checkInitialization t e =
-    let t' = case t of
-            CompoundType (ArrayType _ st) -> SimpleType st
-            _                             -> t
-    in checkIfType_ (`isAssignableTo` t') e >> checkIfConst e
+checkInitialization t e = checkIfType_ (`isAssignableTo` t) e >> checkIfConst e
 
 checkIfConst :: (MonadReader r m, MonadError Error m, HasSymbolTable r)
              => LExpr
@@ -131,7 +128,7 @@ isConstExpr e = (||) (containsLabelExpr e) <$>
 
 unknownValues :: Table ConstSymbol -> Expr a -> [Name a]
 unknownValues constTbl = go where
-    go (viewIdentExpr -> Just ident)
+    go (NameExpr (viewSimpleName -> Just (ident, _, _)) _)
       | ident `member` constTbl = []
     go (NameExpr name _) = [name]
     go e = concatMap go (children e)
@@ -271,6 +268,16 @@ typeOf RewardExpr {}                = return boolType
 typeOf (LabelExpr ident l) = lookupLabel ident l >> return boolType
 typeOf (NameExpr name _)   = getSymbolInfo name >>= siType
 typeOf (FuncExpr f l)      = throw l $ StandaloneFuntion f
+
+typeOf (ArrayExpr (e :| es) _) = do
+    te  <- typeOf e
+    tes <- for es $ checkIfType (`canBeCastedTo` te)
+
+    let ret = return . CompoundType . ArrayType (Just (0, genericLength es))
+    ret $ if | isBoolType te                     -> BoolType
+             | isIntType te && all isIntType tes -> IntType Nothing
+             | otherwise                         -> DoubleType
+
 typeOf (DecimalExpr _ _)   = return doubleType
 typeOf (IntegerExpr _ _)   = return intType
 typeOf (BoolExpr _ _)      = return boolType

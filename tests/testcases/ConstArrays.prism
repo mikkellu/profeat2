@@ -1,0 +1,8 @@
+const int c_0 = 1;
+const int c_1 = 2;
+const int c_2 = 3;
+
+const sum = c_0 + (c_1 + c_2);
+
+formula _operating = true;
+formula _active    = true;

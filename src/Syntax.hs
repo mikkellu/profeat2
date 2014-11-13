@@ -395,6 +395,7 @@ data Expr a
   | FilterExpr !FilterOp (Expr a) (Maybe (Expr a)) !a
   | RewardExpr (Maybe (Expr a)) !Bound (RewardProp a) !a
   | LabelExpr !Ident !a
+  | ArrayExpr (NonEmpty (Expr a)) !a
   | DecimalExpr !Double !a
   | IntegerExpr !Integer !a
   | BoolExpr !Bool !a
@@ -447,6 +448,8 @@ instance Plated (Expr a) where
         FuncExpr _ _ -> pure e
         FilterExpr fOp prop grd a  ->
             FilterExpr fOp <$> f prop <*> traverse f grd <*> pure a
+        ArrayExpr es a             ->
+            ArrayExpr <$> traverse f es <*> pure a
         RewardExpr struct bound prop a ->
             RewardExpr struct bound <$> exprs f prop <*> pure a
         LabelExpr _ _   -> pure e -- list leaf nodes to get a warning if some
@@ -526,6 +529,7 @@ exprAnnot e = case e of
     FilterExpr _ _ _ a -> a
     RewardExpr _ _ _ a -> a
     LabelExpr _ a      -> a
+    ArrayExpr _ a      -> a
     DecimalExpr _ a    -> a
     IntegerExpr _ a    -> a
     BoolExpr _ a       -> a
@@ -789,6 +793,8 @@ prettyExpr prec e = case e of
     FilterExpr fOp p s _  -> "filter" <> parens (pretty fOp <> comma <+>
                                                  pretty p <> comma <+>
                                                  pretty s)
+    ArrayExpr es _ -> braces . align . cat . punctuate comma .
+                          fmap pretty $ toList es
     RewardExpr struct bound prop _ ->
         "R" <> maybe empty (braces . pretty) struct <> pretty bound <+>
         brackets (pretty prop)

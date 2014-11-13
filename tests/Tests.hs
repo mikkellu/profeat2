@@ -47,6 +47,7 @@ translatorTestCases = testGroup "Translator" $ map translatorTestCase
   , "PropertySingle"
   , "PropertyFilter"
   , "PropertyRewards"
+  , "ConstArrays"
   ]
 
 -- }}

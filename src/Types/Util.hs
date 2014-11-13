@@ -10,6 +10,9 @@ import Control.Applicative
 import Control.Lens
 import Control.Monad.Reader
 
+import Data.List
+import Data.List.NonEmpty
+
 import Error
 import Symbols
 import Syntax
@@ -63,9 +66,14 @@ fromVarType' vt = case vt of
         IntVarType _ -> intSimpleType
 
 -- | Converts a 'ConstType' to a 'Type'.
-fromConstType :: ConstType -> Type
-fromConstType ct = case ct of
-    BoolConstType   -> boolType
-    IntConstType    -> intType
-    DoubleConstType -> doubleType
+fromConstType :: ConstType -> Expr a -> Type
+fromConstType ct e =
+    let st = case ct of
+                 BoolConstType   -> BoolType
+                 IntConstType    -> IntType Nothing
+                 DoubleConstType -> DoubleType
+    in case e of
+        ArrayExpr (_ :| es) _ ->
+            CompoundType $ ArrayType (Just (0, genericLength es)) st
+        _ -> SimpleType st
 
