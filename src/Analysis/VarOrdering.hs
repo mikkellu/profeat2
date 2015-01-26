@@ -26,9 +26,9 @@ newtype VarOrdering = VarOrdering [(Doc, Range)] deriving (Monoid, Show)
 
 data Range
   = RangeFeature
-  | RangeSeeding
   | RangeBool
   | Range !Integer !Integer
+  | RangeInternal
   deriving (Show)
 
 varOrdering :: SymbolTable -> VarOrdering
@@ -54,7 +54,7 @@ moduleVars symTbl =
 featureVars :: SymbolTable -> VarOrdering
 featureVars symTbl =
     let fvars   = concatMap f . allContexts $ view rootFeature symTbl
-        seedVar = [(text seedVarIdent, RangeSeeding)]
+        seedVar = [(text seedVarIdent, RangeInternal)]
     in VarOrdering $ seedVar ++ fvars
   where
     f ctx
