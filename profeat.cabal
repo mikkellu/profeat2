@@ -1,5 +1,5 @@
 name:                profeat
-version:             0.61.4
+version:             0.61.5
 synopsis:            A feature modelling framework
 author:              Philipp Chrszon
 maintainer:          Philipp.Chrszon@tu-dresden.de
@@ -13,8 +13,10 @@ library
                        Eval,
                        Parser,
                        Parser.Internal,
+                       Parser.Results,
                        ProductLine,
                        ProFeat,
+                       Result,
                        SrcLoc,
                        Symbols,
                        SymbolTable,
