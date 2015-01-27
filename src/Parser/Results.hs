@@ -133,5 +133,12 @@ result = choice
   ]
 
 stateVec :: Parser Bounds StateVec
-stateVec = listArray <$> getState <*> parens (commaSep int)
+stateVec = listArray <$> getState <*> parens (commaSep value)
+
+value :: Parser u Int
+value = choice
+  [ 0 <$ symbol "false"
+  , 1 <$ symbol "true"
+  , int
+  ]
 
