@@ -12,7 +12,7 @@ import Control.Applicative
 import Control.Lens hiding ( noneOf )
 import Control.Monad.State
 
-import Data.Array
+import Data.Array.IArray
 import Data.Sequence ( Seq, fromList )
 import Data.Strict.Tuple
 import Data.Text ( Text, pack )

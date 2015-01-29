@@ -26,7 +26,8 @@ import Prelude hiding ( all )
 
 import Control.Lens
 
-import Data.Array
+import Data.Array.IArray
+import Data.Array.Unboxed           ( UArray)
 import Data.Foldable                ( toList, all )
 import Data.Maybe                   ( mapMaybe)
 import Data.Sequence                ( Seq, ViewL(..), viewl )
@@ -53,7 +54,7 @@ instance Pretty Result where
         ResultBool True  -> "true"
         ResultDouble d   -> double d
 
-type StateVec = Array Int Int
+type StateVec = UArray Int Int
 
 data ResultCollection = ResultCollection
   { _rcVarOrdering  :: !VarOrdering
