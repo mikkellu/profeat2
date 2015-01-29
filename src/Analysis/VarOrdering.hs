@@ -80,13 +80,13 @@ prettyName sc ident idx = pretty (toName sc ident idx)
 
 toName :: Scope -> Ident -> Maybe Integer -> LName
 toName sc ident idx =
-    let localName = (ident, fmap intExpr idx) :| []
+    let localName = (ident, fmap intExpr idx)
     in case sc of
         Local ctx ->
-            Name (fmap qualifier (N.reverse (getFeatureSymbols ctx)) <>
-                  localName)
-                 noLoc
-        _         -> Name localName noLoc
+            let qs = localName :|
+                     fmap qualifier (N.init (getFeatureSymbols ctx))
+            in Name (N.reverse qs) noLoc
+        _         -> Name (localName :| []) noLoc
   where
     qualifier :: FeatureSymbol -> (Ident, Maybe LExpr)
     qualifier fs
