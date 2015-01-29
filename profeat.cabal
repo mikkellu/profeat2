@@ -1,5 +1,5 @@
 name:                profeat
-version:             0.61.5
+version:             0.62.0
 synopsis:            A feature modelling framework
 author:              Philipp Chrszon
 maintainer:          Philipp.Chrszon@tu-dresden.de
@@ -44,6 +44,7 @@ library
                        mtl >=2.2.1,
                        optparse-applicative >=0.11,
                        parsec >=3.1.5,
+                       process-listlike >=1.0,
                        semigroups >=0.8.4 && <1,
                        strict >=0.3.2,
                        transformers >=0.4,

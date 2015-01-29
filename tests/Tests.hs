@@ -85,14 +85,15 @@ translatorTestCase name = testCase name $ do
 
             liftIO $ assertEqual' (void expected) (void actualModel)
 
-        when propsExist . withFile expectedPropsPath ReadMode $ \hProps -> do
-            Just actualProps <- translateProps
+        when propsExist . withFile expectedPropsPath ReadMode $ \hProps ->
+            withProFeatProps $ \(Just props) -> do
+                actualProps <- translateProps props
 
-            propsContents <- liftIO $ LIO.hGetContents hProps
-            expected      <- liftEither' $
-                parsePrismProps expectedPropsPath propsContents
+                propsContents <- liftIO $ LIO.hGetContents hProps
+                expected      <- liftEither' $
+                    parsePrismProps expectedPropsPath propsContents
 
-            liftIO $ assertEqual' (void expected) (void actualProps)
+                liftIO $ assertEqual' (void expected) (void actualProps)
   where
     parsePrismModel = parseFile' PrismLang Parser.model
     parsePrismProps = parseFile' PrismLang Parser.specification

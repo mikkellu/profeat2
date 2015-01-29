@@ -15,6 +15,7 @@ module Result
   , rcTrace
   , rcLog
   , prettyResultCollection
+  , prettyResultCollections
 
   , emptyResultCollection
   ) where
@@ -30,11 +31,12 @@ import Data.Strict.Tuple            ( (:!:) )
 import qualified Data.Strict.Tuple as ST
 
 import Data.Text                    ( Text )
-import Data.Text.Lazy               ( fromStrict )
+import qualified Data.Text.Lazy as L
 
 import Text.PrettyPrint.Leijen.Text
 
 import Analysis.VarOrdering
+import Syntax hiding ( Range )
 
 data Result
   = ResultBool !Bool
@@ -64,6 +66,19 @@ emptyResultCollection = ResultCollection
   , _rcLog          = Seq.empty
   }
 
+prettyResultCollections :: Bool
+                        -> VarOrdering
+                        -> Specification a
+                        -> [ResultCollection]
+                        -> Doc
+prettyResultCollections includeLog vo (Specification defs) rcs =
+    let props = defs^..traverse._PropertyDef
+    in vsep . punctuate separator . fmap p $ zip props rcs
+  where
+    p (def, rc) = pretty def <> line <> line <>
+                  prettyResultCollection includeLog vo rc
+    separator = line <> line <> text (L.replicate 80 "-") <> line
+
 prettyResultCollection :: Bool -> VarOrdering -> ResultCollection -> Doc
 prettyResultCollection includeLog vo (ResultCollection srs r tr ls) =
     "Final result:" <+> pretty r <$>
@@ -72,7 +87,7 @@ prettyResultCollection includeLog vo (ResultCollection srs r tr ls) =
     if includeLog then prettyLog ls else empty
 
 prettyLog :: Seq Text -> Doc
-prettyLog = vsep . fmap (text . fromStrict) . toList
+prettyLog = vsep . fmap (text . L.fromStrict) . toList
 
 prettyTrace :: VarOrdering -> Seq StateVec -> Doc
 prettyTrace vo svs
