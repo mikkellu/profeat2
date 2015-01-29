@@ -2,32 +2,36 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE TypeOperators     #-}
+{-# LANGUAGE ViewPatterns      #-}
 
 module Result
   ( Result(..)
 
   , StateVec
-  , prettyStateVec
 
   , ResultCollection(..)
   , rcStateResults
   , rcFinalResult
   , rcTrace
   , rcLog
+  , emptyResultCollection
+  , removeNonConfVars
+
+  , prettyStateVec
   , prettyResultCollection
   , prettyResultCollections
-
-  , emptyResultCollection
   ) where
+
+import Prelude hiding ( all )
 
 import Control.Lens
 
 import Data.Array
-import Data.Foldable                ( toList )
+import Data.Foldable                ( toList, all )
 import Data.Maybe                   ( mapMaybe)
-import Data.Sequence                ( Seq )
+import Data.Sequence                ( Seq, ViewL(..), viewl )
 import qualified Data.Sequence as Seq
-import Data.Strict.Tuple            ( (:!:) )
+import Data.Strict.Tuple            ( (:!:), Pair(..) )
 import qualified Data.Strict.Tuple as ST
 
 import Data.Text                    ( Text )
@@ -52,35 +56,74 @@ instance Pretty Result where
 type StateVec = Array Int Int
 
 data ResultCollection = ResultCollection
-  { _rcStateResults :: !(Seq (StateVec :!: Result))
+  { _rcVarOrdering  :: !VarOrdering
+  , _rcStateResults :: !(Seq (StateVec :!: Result))
   , _rcFinalResult  :: !Result
   , _rcTrace        :: !(Seq StateVec)
   , _rcLog          :: !(Seq Text)
   } deriving (Show)
 
-emptyResultCollection :: ResultCollection
-emptyResultCollection = ResultCollection
-  { _rcStateResults = Seq.empty
+makeLenses ''ResultCollection
+
+emptyResultCollection :: VarOrdering -> ResultCollection
+emptyResultCollection vo = ResultCollection
+  { _rcVarOrdering  = vo
+  , _rcStateResults = Seq.empty
   , _rcFinalResult  = ResultBool False
   , _rcTrace        = Seq.empty
   , _rcLog          = Seq.empty
   }
 
-prettyResultCollections :: Bool
-                        -> VarOrdering
-                        -> Specification a
-                        -> [ResultCollection]
-                        -> Doc
-prettyResultCollections includeLog vo (Specification defs) rcs =
+data VarRole
+  = VarConf
+  | VarNonConf
+  deriving (Eq)
+
+removeNonConfVars :: ResultCollection -> ResultCollection
+removeNonConfVars rc =
+    let srs            = rc^.rcStateResults
+        vrs            = findConfVars srs
+        VarOrdering vs = rc^.rcVarOrdering
+        vs'            = fmap fst . filter ((VarConf ==) . snd) . zip vs $ vrs
+        srs'           = filterConfVars vrs srs
+    in rc & rcVarOrdering  .~ VarOrdering vs'
+          & rcStateResults .~ srs'
+
+filterConfVars :: [VarRole]
+               -> Seq (StateVec :!: Result)
+               -> Seq (StateVec :!: Result)
+filterConfVars vrs = fmap go where
+    len'        = length (filter (== VarConf) vrs)
+    bs'         = (0, len' - 1)
+    confIndices = fmap fst . filter ((VarConf ==) . snd) . zip [0..] $ vrs
+
+    go (sv :!: r) = let confVals = fmap (sv !) confIndices
+                    in listArray bs' confVals :!: r
+
+findConfVars :: Seq (StateVec :!: Result) -> [VarRole]
+findConfVars (viewl -> (sv :!: _) :< srs) =
+    fmap go (uncurry enumFromTo (bounds sv))
+  where
+    go :: Int -> VarRole
+    go i = let v = sv ! i
+           in if all ((v ==) . (! i) . ST.fst) srs
+                  then VarNonConf
+                  else VarConf
+findConfVars _ = []
+
+-- Pretty Printing
+
+prettyResultCollections :: Bool -> Specification a -> [ResultCollection] -> Doc
+prettyResultCollections includeLog (Specification defs) rcs =
     let props = defs^..traverse._PropertyDef
     in vsep . punctuate separator . fmap p $ zip props rcs
   where
     p (def, rc) = pretty def <> line <> line <>
-                  prettyResultCollection includeLog vo rc
+                  prettyResultCollection includeLog rc
     separator = line <> line <> text (L.replicate 80 "-") <> line
 
-prettyResultCollection :: Bool -> VarOrdering -> ResultCollection -> Doc
-prettyResultCollection includeLog vo (ResultCollection srs r tr ls) =
+prettyResultCollection :: Bool -> ResultCollection -> Doc
+prettyResultCollection includeLog (ResultCollection vo srs r tr ls) =
     "Final result:" <+> pretty r <$>
     "Results for initial configurations:" <$> prettyStateResults vo srs <$>
     prettyTrace vo tr <$>
@@ -124,6 +167,4 @@ prettyVal (ident, r) v = case r of
     RangeInternal -> Nothing
   where
     identDef doc = Just $ ident <> char '=' <> doc
-
-makeLenses ''ResultCollection
 

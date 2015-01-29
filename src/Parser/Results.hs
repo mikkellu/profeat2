@@ -37,18 +37,20 @@ type Parser u = Parsec Text u
 type Bounds = (Int, Int)
 
 parseResultCollections :: VarOrdering -> Text -> [ResultCollection]
-parseResultCollections (VarOrdering vo) output =
-    let bs = (0, length vo - 1)
+parseResultCollections vo output =
+    let VarOrdering vs = vo
+        bs             = (0, length vs - 1)
     in case runParser prismOutput bs "output" output of
         Left err  -> error (show err)
-        Right lss -> fmap resultCollection lss
+        Right lss -> fmap (resultCollection vo) lss
 
-resultCollection :: [Log] -> ResultCollection
-resultCollection ls = flip execState emptyResultCollection . for ls $ \case
-    LogStateResults srs -> rcStateResults .= srs
-    LogFinalResult  r   -> rcFinalResult  .= r
-    LogTrace        svs -> rcTrace        .= svs
-    Log             t   -> rcLog          %= (|> t)
+resultCollection :: VarOrdering -> [Log] -> ResultCollection
+resultCollection vo ls =
+    flip execState (emptyResultCollection vo) . for ls $ \case
+        LogStateResults srs -> rcStateResults .= srs
+        LogFinalResult  r   -> rcFinalResult  .= r
+        LogTrace        svs -> rcTrace        .= svs
+        Log             t   -> rcLog          %= (|> t)
 
 languageDef :: Monad m => P.GenLanguageDef Text u m
 languageDef = P.LanguageDef

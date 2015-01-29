@@ -276,9 +276,10 @@ writeProFeatOutput props prismOutput = do
 postprocessPrismOutput :: LSpecification -> S.Text -> ProFeat L.Text
 postprocessPrismOutput spec prismOutput = do
     symTbl <- get
-    let vo  = varOrdering symTbl
-        rcs = parseResultCollections vo prismOutput
-        doc = prettyResultCollections False vo spec rcs
+    let vo   = varOrdering symTbl
+        rcs  = parseResultCollections vo prismOutput
+        rcs' = fmap removeNonConfVars rcs
+        doc  = prettyResultCollections False spec rcs'
     return . displayT . renderPretty 1.0 300 $ doc
 
 runApp :: ProFeat () -> ProFeatOptions -> IO ()
