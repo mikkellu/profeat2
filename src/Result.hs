@@ -36,6 +36,7 @@ import qualified Data.Sequence as Seq
 import Data.IntSet                  ( IntSet, member, findMin, findMax, singleton, size )
 import qualified Data.IntSet as Set
 import Data.Strict.Tuple            ( (:!:), Pair(..) )
+import Data.Strict.Tuple.Lens
 import qualified Data.Strict.Tuple as ST
 
 import Data.Text                    ( Text )
@@ -98,7 +99,7 @@ groupStateVecs rc =
     mapToSeq = Seq.fromList . fmap (\(r, gsv) -> gsv :!: r) . Map.assocs
 
 toGroupedStateResult :: (StateVec :!: Result) -> (GroupedStateVec :!: Result)
-toGroupedStateResult (sv :!: r) = V.map singleton (V.convert sv) :!: r
+toGroupedStateResult = over _1' (V.map singleton . V.convert)
 
 data VarRole
   = VarConf
@@ -119,10 +120,10 @@ filterConfVars :: [VarRole]
                -> Seq (StateVec :!: Result)
                -> Seq (StateVec :!: Result)
 filterConfVars vrs = fmap go where
-    confIndices = fmap fst . filter ((VarConf ==) . snd) . zip [0..] $ vrs
-
-    go (sv :!: r) = let confVals = fmap (sv !) confIndices
-                    in V.fromList confVals :!: r
+    go            = over _1' filterVals
+    confIndices   = fmap fst . filter ((VarConf ==) . snd) . zip [0..] $ vrs
+    filterVals sv = let confVals = fmap (sv !) confIndices
+                    in V.fromList confVals
 
 findConfVars :: Seq (StateVec :!: Result) -> [VarRole]
 findConfVars (viewl -> (sv :!: _) :< srs) =
