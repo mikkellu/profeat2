@@ -1,5 +1,5 @@
 name:                profeat
-version:             0.63.0
+version:             0.64.0
 synopsis:            A feature modelling framework
 author:              Philipp Chrszon
 maintainer:          Philipp.Chrszon@tu-dresden.de
@@ -40,7 +40,7 @@ library
   build-depends:       base >=4.6 && <5,
                        array >=0.5,
                        containers >=0.5.5,
-                       lens >=4.4,
+                       lens >=4.7,
                        mtl >=2.2.1,
                        optparse-applicative >=0.11,
                        parsec >=3.1.5,
@@ -49,6 +49,7 @@ library
                        strict >=0.3.2,
                        transformers >=0.4,
                        text >=1.1,
+                       vector >=0.10.12,
                        wl-pprint-text >=1.1
   ghc-options:         -Wall
 

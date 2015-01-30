@@ -12,14 +12,14 @@ import Control.Applicative
 import Control.Lens hiding ( noneOf )
 import Control.Monad.State
 
-import Data.Array.IArray
 import Data.Sequence ( Seq, fromList )
 import Data.Strict.Tuple
 import Data.Text ( Text, pack )
 import Data.Traversable
+import qualified Data.Vector.Generic as V
 
 import Text.Parsec hiding ( (<|>), many )
-import Text.Parsec.Text ()
+import Text.Parsec.Text
 import qualified Text.Parsec.Token as P
 
 import Analysis.VarOrdering
@@ -32,15 +32,9 @@ data Log
   | Log             !Text
   deriving (Show)
 
-type Parser u = Parsec Text u
-
-type Bounds = (Int, Int)
-
 parseResultCollections :: VarOrdering -> Text -> [ResultCollection]
 parseResultCollections vo output =
-    let VarOrdering vs = vo
-        bs             = (0, length vs - 1)
-    in case runParser prismOutput bs "output" output of
+    case parse prismOutput "output" output of
         Left err  -> error (show err)
         Right lss -> fmap (resultCollection vo) lss
 
@@ -80,26 +74,26 @@ parens     = P.parens lexer
 colon      = P.colon lexer
 commaSep   = P.commaSep lexer
 
-int :: Parser u Int
+int :: Parser Int
 int = fromInteger <$> integer
 
-trySymbol :: String -> Parser u String
+trySymbol :: String -> Parser String
 trySymbol = try . symbol
 
-line :: Parser u String
+line :: Parser String
 line = lexeme ((:) <$> noneOf "-" <*> anyToken `manyTill` newline)
 
-skipLine :: Parser u ()
+skipLine :: Parser ()
 skipLine = () <$ line
 
-separator :: Parser u ()
+separator :: Parser ()
 separator = () <$ lexeme (try (char '-' *> char '-' `manyTill` newline))
 
-prismOutput :: Parser Bounds [[Log]]
+prismOutput :: Parser [[Log]]
 prismOutput = whiteSpace *> (anyToken `manyTill` separator)
                          *> (logs `sepBy` separator) <* eof
 
-logs :: Parser Bounds [Log]
+logs :: Parser [Log]
 logs = many . choice $
   [ logStateResults
   , logFinalResult
@@ -107,7 +101,7 @@ logs = many . choice $
   , logAny
   ]
 
-logStateResults :: Parser Bounds Log
+logStateResults :: Parser Log
 logStateResults =
     LogStateResults . fromList <$> (start *> skipLine *> many stateResult)
   where
@@ -116,28 +110,28 @@ logStateResults =
                         <*> option (ResultBool True)
                                    (ResultDouble <$> (reservedOp "=" *> float))
 
-logFinalResult :: Parser u Log
+logFinalResult :: Parser Log
 logFinalResult = LogFinalResult <$> (start *> result <* skipLine) where
     start = trySymbol "Result:"
 
-logTrace :: Parser Bounds Log
+logTrace :: Parser Log
 logTrace = LogTrace . fromList <$> (start *> skipLine *> many stateVec) where
     start = trySymbol "Counterexample/witness"
 
-logAny :: Parser u Log
+logAny :: Parser Log
 logAny = Log . pack <$> line
 
-result :: Parser u Result
+result :: Parser Result
 result = choice
   [ ResultBool True  <$  symbol "true"
   , ResultBool False <$  symbol "false"
   , ResultDouble     <$> float
   ]
 
-stateVec :: Parser Bounds StateVec
-stateVec = listArray <$> getState <*> parens (commaSep value)
+stateVec :: Parser StateVec
+stateVec = V.fromList <$> parens (commaSep value)
 
-value :: Parser u Int
+value :: Parser Int
 value = choice
   [ 0 <$ symbol "false"
   , 1 <$ symbol "true"

@@ -27,7 +27,7 @@ newtype VarOrdering = VarOrdering [(Doc, Range)] deriving (Monoid, Show)
 data Range
   = RangeFeature
   | RangeBool
-  | Range !Integer !Integer
+  | Range !Int !Int
   | RangeInternal
   deriving (Show)
 
@@ -71,7 +71,8 @@ toVarOrdering sc ident = \case
     stToVarOrdering idx =
         VarOrdering . (:[]) . (prettyName sc ident idx,) . \case
             BoolType                      -> RangeBool
-            IntType (Just (lower, upper)) -> Range lower upper
+            IntType (Just (lower, upper)) -> Range (fromInteger lower)
+                                                   (fromInteger upper)
             IntType _                     -> error "Analysis.VarOrdering.toRange: integer without range"
             DoubleType                    -> error "Analysis.VarOrdering.toRange: illegal double type"
 

@@ -72,6 +72,8 @@ helpExportProperties = "Export the translated properties to <file>"
 helpExportResults = "Export the results of model checking to <file>"
 --    --import-results
 helpImportResults = "Import the PRISM results from <file> for postprocessing"
+--    --group-results
+helpGroupResults = "Group initial configurations by their result"
 -- -t --translate
 helpTranslate = "Translate only, do not model check"
 -- -m --model-checking
@@ -102,6 +104,7 @@ data ProFeatOptions = ProFeatOptions
   , prismPropsPath     :: Maybe FilePath
   , proFeatResultsPath :: Maybe FilePath
   , prismResultsPath   :: Maybe FilePath
+  , groupResults       :: !Bool
   , translateOnly      :: !Bool
   , modelCheckOnly     :: !Bool
   , prismExecPath      :: FilePath
@@ -118,6 +121,7 @@ defaultOptions = ProFeatOptions
   , prismPropsPath     = Nothing
   , proFeatResultsPath = Nothing
   , prismResultsPath   = Nothing
+  , groupResults       = False
   , translateOnly      = False
   , modelCheckOnly     = False
   , prismExecPath      = defaultPrismPath
@@ -144,6 +148,9 @@ proFeatOptions = ProFeatOptions
                            <> metavar "<file>"
                            <> hidden
                            <> help helpImportResults ))
+  <*> switch                ( long "group-results"
+                           <> hidden
+                           <> help helpGroupResults )
   <*> switch                ( long "translate" <> short 't'
                            <> hidden
                            <> help helpTranslate )
@@ -276,10 +283,12 @@ writeProFeatOutput props prismOutput = do
 postprocessPrismOutput :: LSpecification -> S.Text -> ProFeat L.Text
 postprocessPrismOutput spec prismOutput = do
     symTbl <- get
-    let vo   = varOrdering symTbl
-        rcs  = parseResultCollections vo prismOutput
-        rcs' = fmap removeNonConfVars rcs
-        doc  = prettyResultCollections False spec rcs'
+    gr     <- asks groupResults
+    let vo    = varOrdering symTbl
+        rcs   = parseResultCollections vo prismOutput
+        rcs'  = fmap removeNonConfVars rcs
+        rcs'' = if gr then fmap groupStateVecs rcs' else rcs'
+        doc   = prettyResultCollections False spec rcs''
     return . displayT . renderPretty 1.0 300 $ doc
 
 runApp :: ProFeat () -> ProFeatOptions -> IO ()
