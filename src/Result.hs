@@ -16,7 +16,9 @@ module Result
   , rcTrace
   , rcLog
   , emptyResultCollection
+
   , removeNonConfVars
+  , roundStateResults
   , groupStateVecs
 
   , prettyStateVec
@@ -100,6 +102,19 @@ groupStateVecs rc =
 
 toGroupedStateResult :: (StateVec :!: Result) -> (GroupedStateVec :!: Result)
 toGroupedStateResult = over _1' (V.map singleton . V.convert)
+
+roundStateResults :: Int -> ResultCollection -> ResultCollection
+roundStateResults precision =
+    rcStateResults %~ fmap (over _2' $ roundResult precision)
+
+roundResult :: Int -> Result -> Result
+roundResult precision r = case r of
+    ResultDouble d -> ResultDouble (round' precision d)
+    _              -> r
+
+round' :: Int -> Double -> Double
+round' precision d =
+    (fromInteger . round $ d * (10^precision)) / (10.0^^precision)
 
 data VarRole
   = VarConf

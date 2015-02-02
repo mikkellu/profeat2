@@ -74,6 +74,8 @@ helpExportResults = "Export the results of model checking to <file>"
 helpImportResults = "Import the PRISM results from <file> for postprocessing"
 --    --group-results
 helpGroupResults = "Group initial configurations by their result"
+--    --round-results
+helpRoundResults = "Round results to <precision> digits before grouping"
 -- -t --translate
 helpTranslate = "Translate only, do not model check"
 -- -m --model-checking
@@ -105,6 +107,7 @@ data ProFeatOptions = ProFeatOptions
   , proFeatResultsPath :: Maybe FilePath
   , prismResultsPath   :: Maybe FilePath
   , groupResults       :: !Bool
+  , roundResults       :: Maybe Int
   , translateOnly      :: !Bool
   , modelCheckOnly     :: !Bool
   , prismExecPath      :: FilePath
@@ -122,6 +125,7 @@ defaultOptions = ProFeatOptions
   , proFeatResultsPath = Nothing
   , prismResultsPath   = Nothing
   , groupResults       = False
+  , roundResults       = Nothing
   , translateOnly      = False
   , modelCheckOnly     = False
   , prismExecPath      = defaultPrismPath
@@ -151,6 +155,10 @@ proFeatOptions = ProFeatOptions
   <*> switch                ( long "group-results"
                            <> hidden
                            <> help helpGroupResults )
+  <*> optional (option auto  ( long "round-results"
+                           <> metavar "<precision>"
+                           <> hidden
+                           <> help helpRoundResults ))
   <*> switch                ( long "translate" <> short 't'
                            <> hidden
                            <> help helpTranslate )
@@ -158,6 +166,7 @@ proFeatOptions = ProFeatOptions
                            <> hidden
                            <> help helpModelChecking )
   <*> strOption             ( long "prism-path"
+                           <> metavar "<path>"
                            <> value defaultPrismPath
                            <> showDefault
                            <> hidden
@@ -281,15 +290,27 @@ writeProFeatOutput props prismOutput = do
     maybeWriteFile proFeatOutput =<< asks proFeatResultsPath
 
 postprocessPrismOutput :: LSpecification -> S.Text -> ProFeat L.Text
-postprocessPrismOutput spec prismOutput = do
-    symTbl <- get
-    gr     <- asks groupResults
-    let vo    = varOrdering symTbl
-        rcs   = parseResultCollections vo prismOutput
-        rcs'  = fmap removeNonConfVars rcs
-        rcs'' = if gr then fmap groupStateVecs rcs' else rcs'
-        doc   = prettyResultCollections False spec rcs''
-    return . displayT . renderPretty 1.0 300 $ doc
+postprocessPrismOutput spec = parse
+    >=> (return . fmap removeNonConfVars)
+    >=> applyRounding
+    >=> applyGrouping
+    >=> (return . renderResultCollections . prettyResultCollections False spec)
+  where
+    parse out = do
+        symTbl <- get
+        return $ parseResultCollections (varOrdering symTbl) out
+
+    applyRounding rcs = asks roundResults <&> \case
+        Just precision -> fmap (roundStateResults precision) rcs
+        Nothing        -> rcs
+
+    applyGrouping rcs = do
+        gr <- asks groupResults
+        return $ if gr
+            then fmap groupStateVecs rcs
+            else rcs
+
+    renderResultCollections = displayT . renderPretty 1.0 300
 
 runApp :: ProFeat () -> ProFeatOptions -> IO ()
 runApp m opts = do
