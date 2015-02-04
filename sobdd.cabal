@@ -1,5 +1,5 @@
 name:                sobdd
-version:             0.1.0.0
+version:             0.1.1.0
 synopsis:            Shared Ordered Binary Decision Diagrams
 license:             BSD3
 license-file:        LICENSE
@@ -11,8 +11,8 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:
-  other-modules:
+  exposed-modules:   Data.Bdd
+  other-modules:     Data.Bdd.Internal
   build-depends:     base >=4.7 && <4.8
   hs-source-dirs:    src
   default-language:  Haskell2010
