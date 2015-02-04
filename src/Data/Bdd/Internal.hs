@@ -11,6 +11,8 @@ module Data.Bdd.Internal
   , NodeId
   , nodeId
   , variable
+
+  , Sobdd(..)
   ) where
 
 import Data.Function ( on )
@@ -31,7 +33,9 @@ type NodeId = Int
 
 -- | A decision diagram node is either a terminal node labeled with 0 or 1,
 -- or a decision node labeled with a variable and two outgoing edges.
-data Bdd = BddTerm !Bool | BddNode !NodeId !Variable Bdd Bdd
+data Bdd
+  = BddTerm !Bool
+  | BddNode !NodeId !Variable Bdd Bdd
 
 instance Eq Bdd where
     (==) = (==) `on` nodeId
@@ -53,4 +57,7 @@ variable :: Bdd -> Variable
 variable = \case
     BddTerm _         -> terminalVariable
     BddNode _ var _ _ -> var
+
+-- | A Shared Ordered Binary Decision Diagram.
+newtype Sobdd = Sobdd [Bdd]
 
