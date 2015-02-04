@@ -58,6 +58,7 @@ variable = \case
     BddTerm _         -> terminalVariable
     BddNode _ var _ _ -> var
 
+
 -- | A Shared Ordered Binary Decision Diagram.
 newtype Sobdd = Sobdd [Bdd]
 

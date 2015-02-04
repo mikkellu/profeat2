@@ -1,7 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+-- | Functions for rendering 'Bdd's and 'Sobdd's to Graphviz dot format.
 module Data.Bdd.Graphviz
   ( renderSobdd
+  , renderBdd
   ) where
 
 import Data.Text.Lazy ( Text )
@@ -11,10 +13,17 @@ import Text.PrettyPrint.Leijen.Text
 import Data.Bdd
 import Data.Bdd.Internal
 
+-- | Render all nodes of an 'Sobdd'.
 renderSobdd :: Text -> Sobdd -> Doc
-renderSobdd name (Sobdd ns) = "digraph" <+> text name <+> lbrace <$>
-    indent 4 (nodes ns) <$>
-    rbrace
+renderSobdd name (Sobdd ns) = bdd name ns
+
+-- | Render all nodes of a 'Bdd'.
+renderBdd :: Text -> Bdd -> Doc
+renderBdd name n = bdd name (allNodes n)
+
+bdd :: Text -> [Bdd] -> Doc
+bdd name ns = "digraph" <+> text name <+> lbrace <$>
+    indent 4 (nodes ns) <$> rbrace
 
 nodes :: [Bdd] -> Doc
 nodes = vsep . map node

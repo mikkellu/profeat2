@@ -10,6 +10,7 @@ module Data.Bdd.Builder
   ( -- * Builder Type
     BuilderT, Builder
   , runBuilderT, runBuilder
+  , Sobdd
   , getSobdd
   , newVariable
     -- * BDD Builders

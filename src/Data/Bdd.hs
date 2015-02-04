@@ -10,10 +10,13 @@ module Data.Bdd
   , NodeId
   , nodeId
   , isTerminal
+  , allNodes
     -- * Views
   , NodeView(..)
   , view
   ) where
+
+import qualified Data.Set as Set
 
 import Data.Bdd.Internal
 
@@ -21,6 +24,15 @@ import Data.Bdd.Internal
 isTerminal :: Bdd -> Bool
 isTerminal (view -> Terminal _) = True
 isTerminal _                    = False
+
+-- | Get all nodes of a 'Bdd'.
+allNodes :: Bdd -> [Bdd]
+allNodes = Set.elems . go Set.empty where
+    go ns node = let ns' = Set.insert node ns
+                 in case view node of
+                        Terminal _     -> ns'
+                        Decision _ t e -> go (go ns' t) e
+
 
 -- | A 'Bdd' node is either terminal (labeled with 0 or 1) or it is
 -- a decision node, labeled with a variable and two outgoing edges.
