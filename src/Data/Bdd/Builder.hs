@@ -14,12 +14,18 @@ module Data.Bdd.Builder
   , newVariable
     -- * BDD Builders
   , true, false
-  , projection
+  , proj
   , not
   , and
   , or
   , implies
   , ite
+    -- * Combinators
+  , trueB, falseB
+  , notB
+  , andB
+  , orB
+  , impliesB
   ) where
 
 import Prelude hiding ( and, or, not )
@@ -121,9 +127,9 @@ true = BddTerm True
 false :: Bdd
 false = BddTerm False
 
--- | Projection function for a 'Variable'.
-projection :: Monad m => Variable -> BuilderT m Bdd
-projection var = addVariable var >> addNode var true false
+-- | Projection function of a 'Variable'.
+proj :: Monad m => Variable -> BuilderT m Bdd
+proj var = addVariable var >> addNode var true false
 
 not :: Monad m => Bdd -> BuilderT m Bdd
 not x = ite x false true
@@ -153,4 +159,28 @@ ite c t e = case c of
         BddNode _ nodeVar t' e'
           | var < nodeVar -> n
           | otherwise     -> if b then t' else e'
+
+
+ap2 :: Monad m => (a -> b -> m c) -> m a -> m b -> m c
+ap2 f mx my = do
+    x <- mx; y <- my
+    f x y
+
+trueB :: Monad m => BuilderT m Bdd
+trueB = return true
+
+falseB :: Monad m => BuilderT m Bdd
+falseB = return false
+
+notB :: Monad m => BuilderT m Bdd -> BuilderT m Bdd
+notB = (>>= not)
+
+andB :: Monad m => BuilderT m Bdd -> BuilderT m Bdd -> BuilderT m Bdd
+andB = ap2 and
+
+orB :: Monad m => BuilderT m Bdd -> BuilderT m Bdd -> BuilderT m Bdd
+orB = ap2 or
+
+impliesB :: Monad m => BuilderT m Bdd -> BuilderT m Bdd -> BuilderT m Bdd
+impliesB = ap2 implies
 
