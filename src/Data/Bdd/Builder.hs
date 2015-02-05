@@ -1,7 +1,5 @@
 {-# LANGUAGE DeriveFunctor   #-}
-{-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE RankNTypes      #-}
-{-# LANGUAGE TemplateHaskell #-}
 
 -- | Builders for constructing 'Bdd's.
 --
@@ -35,7 +33,6 @@ module Data.Bdd.Builder
 import Prelude hiding ( and, or, not )
 
 import Control.Applicative
-import Control.Lens
 import Control.Monad.Identity
 import Control.Monad.State.Strict
 
@@ -48,16 +45,14 @@ import Data.Bdd.Internal
 type UniqueTable = HashMap (Variable, Bdd, Bdd) Bdd
 
 data BuilderState = BuilderState
-  { _uniqueTable :: !UniqueTable
-  , _lastNodeId  :: !NodeId
+  { uniqueTable :: !UniqueTable
+  , nextNodeId  :: !NodeId
   }
-
-makeLenses ''BuilderState
 
 initialState :: BuilderState
 initialState = BuilderState
-  { _uniqueTable = Map.empty
-  , _lastNodeId  = 1 -- 0 and 1 reserved for terminal nodes
+  { uniqueTable = Map.empty
+  , nextNodeId  = 2 -- 0 and 1 reserved for terminal nodes
   }
 
 -- | A @BuilderT@ is used to construct 'Bdd's.
@@ -97,7 +92,7 @@ readRef (Ref x) = x
 -- | Returns the internal SOBDD.
 getSobdd :: Monad m => BuilderT s m Sobdd
 getSobdd = B $ do
-    ns <- use $ uniqueTable.to Map.elems
+    ns <- gets (Map.elems . uniqueTable)
     return . Sobdd $ false':true':ns
 
 -- | Add a 'Bdd' node to the internal SOBDD. If an isomorphic node already
@@ -105,17 +100,20 @@ getSobdd = B $ do
 addNode :: Monad m => Variable -> Bdd -> Bdd -> BuilderT s m Bdd
 addNode var t e = B $ do
     let info = (var, t, e)
-    use (uniqueTable.at info) >>= \case
+    ut <- gets uniqueTable
+
+    case Map.lookup info ut of
         Just n  -> return n
         Nothing -> do
             nid <- freshNodeId
             let n = BddNode nid var t e
-            uniqueTable %= Map.insert info n
+            modify $ \s -> s { uniqueTable = Map.insert info n ut }
             return n
   where
     freshNodeId = do
-        lastNodeId += 1
-        use lastNodeId
+        nid <- gets nextNodeId
+        modify $ \s -> s { nextNodeId = nid + 1 }
+        return nid
 
 -- | Import a 'Bdd' into a 'Builder'.
 fromBdd :: Monad m => Bdd -> BuilderT s m (Ref s Bdd)
