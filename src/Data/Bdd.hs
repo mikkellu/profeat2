@@ -13,11 +13,16 @@ module Data.Bdd
   , nodeId
   , isTerminal
   , allNodes
+  , sat
     -- * Views
   , NodeView(..)
   , viewNode
   ) where
 
+import Data.Monoid
+import Data.Sequence                  ( Seq, (|>) )
+import qualified Data.Sequence as Seq
+import Data.Set                       ( Set )
 import qualified Data.Set as Set
 
 import Data.Bdd.Internal
@@ -34,6 +39,20 @@ allNodes = Set.elems . go Set.empty where
                  in case viewNode node of
                         Terminal _     -> ns'
                         Decision _ t e -> go (go ns' t) e
+
+-- | Get all satisfying variable assignments.
+sat :: Int -> Bdd -> Set (Seq Bool)
+sat varCount = go Seq.empty 0 where
+    go val k node = case viewNode node of
+        Terminal False -> Set.empty
+        Terminal True
+          | k == varCount -> Set.singleton val
+          | otherwise     -> step node node
+        Decision var t e
+          | Variable k < var -> step node node
+          | otherwise        -> step t e
+      where
+        step t e = go (val |> True)  (k + 1) t <> go (val |> False) (k + 1) e
 
 
 -- | A 'Bdd' node is either terminal (labeled with 0 or 1) or it is
