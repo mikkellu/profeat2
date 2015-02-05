@@ -16,11 +16,16 @@ module Data.Bdd.Internal
   , Sobdd(..)
   ) where
 
+import Data.Hashable
 import Data.Function ( on )
 import Data.Ord      ( comparing )
 
 -- | A boolean variable.
 newtype Variable = Variable Int deriving (Eq, Ord, Show)
+
+instance Hashable Variable where
+    hashWithSalt salt (Variable v) = hashWithSalt salt v
+    hash (Variable v)              = hash v
 
 -- | Create a variable with given index.
 mkVariable :: Int -> Variable
@@ -49,6 +54,10 @@ instance Eq Bdd where
 
 instance Ord Bdd where
     compare = comparing nodeId
+
+instance Hashable Bdd where
+    hashWithSalt salt = hashWithSalt salt . nodeId
+    hash              = hash . nodeId
 
 -- | Returns the internal 'NodeId' of a 'BDD' node.
 nodeId :: Bdd -> NodeId

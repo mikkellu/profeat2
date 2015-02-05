@@ -39,13 +39,13 @@ import Control.Lens
 import Control.Monad.Identity
 import Control.Monad.State.Strict
 
-import Data.Map                   ( Map )
-import qualified Data.Map as Map
+import Data.HashMap.Strict                  ( HashMap )
+import qualified Data.HashMap.Strict as Map
 
 import Data.Bdd
 import Data.Bdd.Internal
 
-type UniqueTable = Map (Variable, Bdd, Bdd) Bdd
+type UniqueTable = HashMap (Variable, Bdd, Bdd) Bdd
 
 data BuilderState = BuilderState
   { _uniqueTable :: !UniqueTable
