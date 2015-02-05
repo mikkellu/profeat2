@@ -5,6 +5,7 @@
 -- | Internal representation of BDD nodes.
 module Data.Bdd.Internal
   ( Variable(..)
+  , mkVariable
   , terminalVariable
 
   , Bdd(..)
@@ -19,7 +20,13 @@ import Data.Function ( on )
 import Data.Ord      ( comparing )
 
 -- | A boolean variable.
-newtype Variable = Variable { getVar :: Int } deriving (Eq, Ord)
+newtype Variable = Variable Int deriving (Eq, Ord, Show)
+
+-- | Create a variable with given index.
+mkVariable :: Int -> Variable
+mkVariable v
+  | v == maxBound = error "mkVariable: illegal index"
+  | otherwise     = Variable v
 
 -- | Terminal nodes are not associated with a variable, however it is
 -- useful to define that the "variable" of the terminal nodes is the

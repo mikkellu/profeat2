@@ -5,6 +5,8 @@
 module Data.Bdd
   ( -- * Variables
     Variable
+  , mkVariable
+  , terminalVariable
     -- * Binary Decision Diagrams
   , Bdd
   , NodeId

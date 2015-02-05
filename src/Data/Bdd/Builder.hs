@@ -15,7 +15,6 @@ module Data.Bdd.Builder
   , readRef
   , Sobdd
   , getSobdd
-  , newVariable
     -- * BDD Builders
   , fromBdd
   , true, false
@@ -51,7 +50,6 @@ type UniqueTable = Map (Variable, Bdd, Bdd) Bdd
 data BuilderState = BuilderState
   { _uniqueTable :: !UniqueTable
   , _lastNodeId  :: !NodeId
-  , _varCount    :: !Int
   }
 
 makeLenses ''BuilderState
@@ -60,7 +58,6 @@ initialState :: BuilderState
 initialState = BuilderState
   { _uniqueTable = Map.empty
   , _lastNodeId  = 1 -- 0 and 1 reserved for terminal nodes
-  , _varCount    = 0
   }
 
 -- | A @BuilderT@ is used to construct 'Bdd's.
@@ -120,19 +117,6 @@ addNode var t e = B $ do
         lastNodeId += 1
         use lastNodeId
 
-addVariable :: Monad m => Variable -> BuilderT s m ()
-addVariable (Variable v) = B $ do
-    count <- use varCount
-    when (v >= count) $ varCount .= v + 1
-
--- | Create a fresh 'Variable'. The new variable is the maximal element in
--- the variable order.
-newVariable :: Monad m => BuilderT s m Variable
-newVariable = B $ do
-    v <- use varCount
-    varCount += 1
-    return (Variable v)
-
 -- | Import a 'Bdd' into a 'Builder'.
 fromBdd :: Monad m => Bdd -> BuilderT s m (Ref s Bdd)
 fromBdd = liftM Ref . go where
@@ -140,7 +124,6 @@ fromBdd = liftM Ref . go where
         Terminal True    -> return true'
         Terminal False   -> return false'
         Decision var t e -> do
-            addVariable var
             t' <- go t
             e' <- go e
             addNode var t' e'
@@ -161,9 +144,7 @@ false' = BddTerm False
 
 -- | Projection function of a 'Variable'.
 proj :: Monad m => Variable -> BuilderT s m (Ref s Bdd)
-proj var = do
-    addVariable var
-    liftM Ref (addNode var true' false')
+proj var = liftM Ref (addNode var true' false')
 
 not :: Monad m => Ref s Bdd -> BuilderT s m (Ref s Bdd)
 not x = ite x false true
