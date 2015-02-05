@@ -29,7 +29,7 @@ nodes :: [Bdd] -> Doc
 nodes = vsep . map node
 
 node :: Bdd -> Doc
-node n = case view n of
+node n = case viewNode n of
     Terminal _   -> terminal nid
     Decision (Variable v) t e ->
         nid <+> brackets ("label=" <> dquotes (int v)) <$>

@@ -13,7 +13,7 @@ module Data.Bdd
   , allNodes
     -- * Views
   , NodeView(..)
-  , view
+  , viewNode
   ) where
 
 import qualified Data.Set as Set
@@ -22,14 +22,14 @@ import Data.Bdd.Internal
 
 -- | Check if a 'Bdd' node is terminal.
 isTerminal :: Bdd -> Bool
-isTerminal (view -> Terminal _) = True
+isTerminal (viewNode -> Terminal _) = True
 isTerminal _                    = False
 
 -- | Get all nodes of a 'Bdd'.
 allNodes :: Bdd -> [Bdd]
 allNodes = Set.elems . go Set.empty where
     go ns node = let ns' = Set.insert node ns
-                 in case view node of
+                 in case viewNode node of
                         Terminal _     -> ns'
                         Decision _ t e -> go (go ns' t) e
 
@@ -44,8 +44,8 @@ data NodeView
   | Decision !Variable !Bdd !Bdd
 
 -- | View a 'Bdd' as a 'Terminal' or a 'Decision' node.
-view :: Bdd -> NodeView
-view = \case
+viewNode :: Bdd -> NodeView
+viewNode = \case
     BddTerm b         -> Terminal b
     BddNode _ var t e -> Decision var t e
 
