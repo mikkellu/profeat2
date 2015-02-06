@@ -1,4 +1,6 @@
-{-# LANGUAGE FlexibleContexts, LambdaCase, OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Translator.Controller
   ( trnsControllerDef
@@ -51,10 +53,12 @@ trnsController initConstrs =
             Nothing -> return ([], [], noLoc)
 
         root <- view rootFeature
-        let noSeeding = hasSingleConfiguration root
-
-        (body, i) <- if noSeeding
-            then return (ModuleBody decls (Repeatable stmts) l, 0)
+        if hasSingleConfiguration root
+            then return $ if null decls && null stmts
+                     then [ genOperatingFormula Nothing ]
+                     else [ genOperatingFormula Nothing
+                          , ModuleDef (Module controllerIdent [] [] (ModuleBody decls (Repeatable stmts) l))
+                          ]
             else do
                 actDecls       <- genActiveVars
                 (seedStmts, i) <- genSeeding initConstrs
@@ -65,16 +69,12 @@ trnsController initConstrs =
                     stmts'  = Repeatable (fmap One (seedStmts ++ maybeToList initStmt) ++ stmts)
                     body'   = ModuleBody (seedVar:decls') stmts' l
 
-                return (body', i')
+                confLbl <- genInitConfLabel i'
 
-        confLbl <- genInitConfLabel i
-
-        return $ if noSeeding && null decls && null stmts
-            then [ genOperatingFormula Nothing ]
-            else [ genOperatingFormula (Just i)
-                 , confLbl
-                 , ModuleDef $ Module controllerIdent [] [] body
-                 ]
+                return [ genOperatingFormula (Just i')
+                       , confLbl
+                       , ModuleDef (Module controllerIdent [] [] body')
+                       ]
 
 trnsControllerBody :: LModuleBody -> StateT LabelSets Trans LModuleBody
 trnsControllerBody (ModuleBody decls stmts l) =
