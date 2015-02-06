@@ -31,6 +31,7 @@ import Translator.Common
 import Translator.Constraints
 import Translator.Names
 import Translator.Seeding
+import Translator.Seeding.FeatureDiagram
 
 type Reconfiguration = Map FeatureContext ReconfType
 
