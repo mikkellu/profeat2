@@ -53,7 +53,7 @@ import Data.Monoid
 import Data.Text.Lazy ( Text, pack )
 import Data.Text.Lens
 
-import Text.Parsec hiding ( (<|>), many, label )
+import Text.Parsec hiding ( Reply(..), (<|>), many, label )
 import Text.Parsec.Error ( errorMessages, showErrorMessages )
 import Text.Parsec.Expr
 import qualified Text.Parsec.Token as T
