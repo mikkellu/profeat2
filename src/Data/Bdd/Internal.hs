@@ -6,6 +6,7 @@
 module Data.Bdd.Internal
   ( Variable(..)
   , mkVariable
+  , getVariable
   , terminalVariable
 
   , Bdd(..)
@@ -32,6 +33,10 @@ mkVariable :: Int -> Variable
 mkVariable v
   | v == maxBound = error "mkVariable: illegal index"
   | otherwise     = Variable v
+
+-- | Returns the index of a 'Variable'.
+getVariable ::Variable -> Int
+getVariable (Variable v) = v
 
 -- | Terminal nodes are not associated with a variable, however it is
 -- useful to define that the "variable" of the terminal nodes is the

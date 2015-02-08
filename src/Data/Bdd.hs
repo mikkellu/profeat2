@@ -7,6 +7,7 @@ module Data.Bdd
   ( -- * Variables
     Variable
   , mkVariable
+  , getVariable
   , terminalVariable
     -- * Binary Decision Diagrams
   , Bdd
