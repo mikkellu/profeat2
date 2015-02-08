@@ -62,7 +62,7 @@ sat varCount = go Seq.empty 0 where
     go val i node = case viewNode node of
         Terminal False -> Set.empty
         Terminal True
-          | i == varCount -> Set.singleton val
+          | i >= varCount -> Set.singleton val
           | otherwise     -> step node node
         Decision var t e
           | Variable i < var -> step node node
