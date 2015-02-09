@@ -14,20 +14,31 @@ module Data.Bdd.Builder
   , Sobdd
   , getSobdd
     -- * BDD Builders
+  , Connective
   , fromBdd
   , true, false
   , proj
   , not
   , and
+  , nand
   , or
+  , nor
   , implies
+  , xor
+  , xnor
   , ite
     -- * Combinators
+  , ConnectiveBuilder
   , trueB, falseB
   , notB
   , andB
+  , nandB
   , orB
+  , norB
   , impliesB
+  , xorB
+  , xnorB
+  , iteB
   ) where
 
 import Prelude hiding ( and, or, not )
@@ -115,6 +126,9 @@ addNode var t e = B $ do
         modify $ \s -> s { nextNodeId = nid + 1 }
         return nid
 
+
+type Connective s m = Monad m => Ref s Bdd -> Ref s Bdd -> BuilderT s m (Ref s Bdd)
+
 -- | Import a 'Bdd' into a 'Builder'.
 fromBdd :: Monad m => Bdd -> BuilderT s m (Ref s Bdd)
 fromBdd = liftM Ref . go where
@@ -147,14 +161,14 @@ proj var = liftM Ref (addNode var true' false')
 not :: Monad m => Ref s Bdd -> BuilderT s m (Ref s Bdd)
 not x = ite x false true
 
-and :: Monad m => Ref s Bdd -> Ref s Bdd -> BuilderT s m (Ref s Bdd)
-x `and` y = ite x y false
-
-or :: Monad m => Ref s Bdd -> Ref s Bdd -> BuilderT s m (Ref s Bdd)
-x `or` y = ite x true y
-
-implies :: Monad m => Ref s Bdd -> Ref s Bdd -> BuilderT s m (Ref s Bdd)
-x `implies` y = ite x y true
+and, nand, or, nor, implies, xor, xnor :: Connective s m
+x `and`     y =                  ite x y       false
+x `nand`    y = not y >>= \ny -> ite x ny      true
+x `or`      y =                  ite x true    y
+x `nor`     y = not x >>= \nx -> ite y false   nx
+x `implies` y =                  ite x y       true
+x `xor`     y = not y >>= \ny -> ite x ny      y
+x `xnor`    y = not y >>= \ny -> ite x y       ny
 
 -- | @ite cond t e@ creates a 'Bdd' representing @if cond then t else e@.
 ite :: Monad m
@@ -182,8 +196,14 @@ ite' c t e = case c of
           | otherwise     -> if b then t' else e'
 
 
-ap2 :: Monad m => (a -> b -> m c) -> m a -> m b -> m c
-ap2 f mx my = do
+type ConnectiveBuilder s m
+    =  Monad m
+    => BuilderT s m (Ref s Bdd)
+    -> BuilderT s m (Ref s Bdd)
+    -> BuilderT s m (Ref s Bdd)
+
+bindAp2 :: Monad m => (a -> b -> m c) -> m a -> m b -> m c
+bindAp2 f mx my = do
     x <- mx; y <- my
     f x y
 
@@ -196,24 +216,21 @@ falseB = return false
 notB :: Monad m => BuilderT s m (Ref s Bdd) -> BuilderT s m (Ref s Bdd)
 notB = (>>= not)
 
-andB
-    :: Monad m
-    => BuilderT s m (Ref s Bdd)
-    -> BuilderT s m (Ref s Bdd)
-    -> BuilderT s m (Ref s Bdd)
-andB = ap2 and
+andB, nandB, orB, norB, impliesB, xorB, xnorB :: ConnectiveBuilder s m
+andB     = bindAp2 and
+nandB    = bindAp2 nand
+orB      = bindAp2 or
+norB     = bindAp2 nor
+impliesB = bindAp2 implies
+xorB     = bindAp2 xor
+xnorB    = bindAp2 xnor
 
-orB
-    :: Monad m
-    => BuilderT s m (Ref s Bdd)
-    -> BuilderT s m (Ref s Bdd)
-    -> BuilderT s m (Ref s Bdd)
-orB = ap2 or
-
-impliesB
-    :: Monad m
-    => BuilderT s m (Ref s Bdd)
-    -> BuilderT s m (Ref s Bdd)
-    -> BuilderT s m (Ref s Bdd)
-impliesB = ap2 implies
+iteB :: Monad m
+     => BuilderT s m (Ref s Bdd)
+     -> BuilderT s m (Ref s Bdd)
+     -> BuilderT s m (Ref s Bdd)
+     -> BuilderT s m (Ref s Bdd)
+iteB c t e = do
+    c' <- c; t' <- t; e' <- e
+    ite c' t' e'
 

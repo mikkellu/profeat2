@@ -15,8 +15,9 @@ module Data.Proposition
 import Control.Applicative
 
 import Data.Bdd                       ( Bdd, Variable, mkVariable, getVariable )
-import Data.Bdd.Builder               ( runBuilder, readRef, proj, true , false
-                                      , andB, orB, notB , impliesB )
+import Data.Bdd.Builder               ( runBuilder, readRef, proj, true ,false
+                                      , andB, nandB, orB, norB, notB , impliesB
+                                      , xorB, xnorB )
 import Data.Sequence                  ( Seq )
 import qualified Data.Sequence as Seq
 
@@ -41,24 +42,42 @@ instance Arbitrary Proposition where
       , Var . mkVariable <$> choose (0, 5)
       , Lit    <$> arbitrary
       ]
+    shrink = \case
+        Binary op l r -> [l, r] ++ [Binary op l' r' | (l', r') <- shrink (l, r)]
+        Not       p   -> p : fmap Not (shrink p)
+        _             -> []
 
 data BinOp
   = And
+  | NAnd
   | Or
+  | NOr
   | Implies
+  | Xor
+  | XNor
   deriving (Bounded, Enum, Eq, Show)
 
 instance Arbitrary BinOp where arbitrary = arbitraryBoundedEnum
 
 binOp = \case
     And     -> (&&)
+    NAnd    -> n (&&)
     Or      -> (||)
+    NOr     -> n (||)
     Implies -> (||) . not
+    Xor     -> (/=)
+    XNor    -> (==)
+  where
+    n op = \x y -> not (x `op` y)
 
 binOpBuilder = \case
     And     -> andB
+    NAnd    -> nandB
     Or      -> orB
+    NOr     -> norB
     Implies -> impliesB
+    Xor     -> xorB
+    XNor    -> xnorB
 
 eval :: Proposition -> Seq Bool -> Bool
 eval p env = case p of
