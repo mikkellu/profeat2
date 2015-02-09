@@ -14,6 +14,8 @@ module Data.Bdd
   , NodeId
   , nodeId
   , isTerminal
+  , isTrue
+  , isFalse
   , allNodes
   , eval
   , sat
@@ -34,6 +36,14 @@ import Data.Bdd.Internal
 isTerminal :: Bdd -> Bool
 isTerminal (viewNode -> Terminal _) = True
 isTerminal _                        = False
+
+isTrue :: Bdd -> Bool
+isTrue (viewNode -> Terminal True) = True
+isTrue _                           = False
+
+isFalse :: Bdd -> Bool
+isFalse (viewNode -> Terminal False) = True
+isFalse _                            = False
 
 -- | Get all nodes of a 'Bdd'.
 allNodes :: Bdd -> [Bdd]
