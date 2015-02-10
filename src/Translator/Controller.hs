@@ -54,28 +54,27 @@ trnsController initConstrs =
             Nothing -> return ([], [], noLoc)
 
         root <- view rootFeature
-        if hasSingleConfiguration root
-            then return $ if null decls && null stmts
+        actDecls       <- genActiveVars
+        (seedStmts, i) <- genSeeding initConstrs
+        (initStmt, i') <- genInitConfStmt i
+
+        let seedVar = genSeedVar i'
+            decls'  = actDecls ++ decls
+            stmts'  = Repeatable (fmap One (seedStmts ++ maybeToList initStmt) ++ stmts)
+            body'   = ModuleBody (seedVar:decls') stmts' l
+
+        confLbl <- genInitConfLabel i'
+
+        return $ if hasSingleConfiguration root
+            then if null decls && null stmts
                      then [ genOperatingFormula Nothing ]
                      else [ genOperatingFormula Nothing
                           , ModuleDef (Module controllerIdent [] [] (ModuleBody decls (Repeatable stmts) l))
                           ]
-            else do
-                actDecls       <- genActiveVars
-                (seedStmts, i) <- genSeeding initConstrs
-                (initStmt, i') <- genInitConfStmt i
-
-                let seedVar = genSeedVar i'
-                    decls'  = actDecls ++ decls
-                    stmts'  = Repeatable (fmap One (seedStmts ++ maybeToList initStmt) ++ stmts)
-                    body'   = ModuleBody (seedVar:decls') stmts' l
-
-                confLbl <- genInitConfLabel i'
-
-                return [ genOperatingFormula (Just i')
-                       , confLbl
-                       , ModuleDef (Module controllerIdent [] [] body')
-                       ]
+            else [ genOperatingFormula (Just i')
+                 , confLbl
+                 , ModuleDef (Module controllerIdent [] [] body')
+                 ]
 
 trnsControllerBody :: LModuleBody -> StateT LabelSets Trans LModuleBody
 trnsControllerBody (ModuleBody decls stmts l) =
