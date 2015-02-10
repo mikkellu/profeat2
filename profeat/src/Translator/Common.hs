@@ -3,8 +3,11 @@
 module Translator.Common
   ( TrnsInfo(..)
   , trnsInfo
+  , seedingAlg
   , labelSets
   , constraints
+
+  , SeedingAlg(..)
 
   , LabelSymbol(..)
   , LabelSets
@@ -55,8 +58,18 @@ data LabelSymbol
 
 type LabelSets = Set (Set LabelSymbol)
 
+data SeedingAlg
+  = SeedingFeatureDiagram
+  | SeedingBinaryDecisionDiagram
+
+instance Show SeedingAlg where
+    show = \case
+        SeedingFeatureDiagram        -> "fd"
+        SeedingBinaryDecisionDiagram -> "bdd"
+
 data TrnsInfo = TrnsInfo
-  { _trnsSymbolTable :: SymbolTable
+  { _seedingAlg      :: !SeedingAlg
+  , _trnsSymbolTable :: SymbolTable
   , _trnsScope       :: !Scope
   , _labelSets       :: LabelSets
   , _constraints     :: Set ConstraintExpr
@@ -70,8 +83,8 @@ instance HasSymbolTable TrnsInfo where
 instance HasScope TrnsInfo where
     scope = trnsScope
 
-trnsInfo :: SymbolTable -> Set ConstraintExpr -> TrnsInfo
-trnsInfo symTbl = TrnsInfo symTbl Global Set.empty
+trnsInfo :: SeedingAlg -> SymbolTable -> Set ConstraintExpr -> TrnsInfo
+trnsInfo alg symTbl = TrnsInfo alg symTbl Global Set.empty
 
 type Trans = ReaderT TrnsInfo (Either Error)
 

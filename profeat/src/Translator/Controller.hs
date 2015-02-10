@@ -31,7 +31,8 @@ import Translator.Common
 import Translator.Constraints
 import Translator.Names
 import Translator.Seeding
-import Translator.Seeding.FeatureDiagram
+import qualified Translator.Seeding.Bdd            as Bdd
+import qualified Translator.Seeding.FeatureDiagram as Fd
 
 type Reconfiguration = Map FeatureContext ReconfType
 
@@ -53,8 +54,13 @@ trnsController initConstrs =
                 return (decls, stmts, l)
             Nothing -> return ([], [], noLoc)
 
-        root <- view rootFeature
+        root           <- view rootFeature
         actDecls       <- genActiveVars
+
+        genSeeding <- view seedingAlg >>= \case
+            SeedingFeatureDiagram        -> return Fd.genSeeding
+            SeedingBinaryDecisionDiagram -> return Bdd.genSeeding
+
         (seedStmts, i) <- genSeeding initConstrs
         (initStmt, i') <- genInitConfStmt i
 
