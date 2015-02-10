@@ -3,7 +3,7 @@
 {-# LANGUAGE TemplateHaskell  #-}
 
 -- | Generation of seeding code based on feature diagram.
-module Translator.Seeding.FeatureDiagram
+module Translator.Seeding.Fd
   ( genSeeding
   ) where
 

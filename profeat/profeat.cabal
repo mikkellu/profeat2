@@ -1,5 +1,5 @@
 name:                profeat
-version:             0.66.0.0
+version:             0.67.0.0
 synopsis:            A feature modelling framework
 author:              Philipp Chrszon
 maintainer:          Philipp.Chrszon@tu-dresden.de
@@ -35,7 +35,7 @@ library
                        Translator.Seeding,
                        Translator.Seeding.Bdd,
                        Translator.Seeding.Common,
-                       Translator.Seeding.FeatureDiagram,
+                       Translator.Seeding.Fd,
                        Typechecker,
                        Types,
                        Types.Util
