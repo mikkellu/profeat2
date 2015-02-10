@@ -30,6 +30,7 @@ throw l = throwError . Error l
 
 data ErrorDesc
   = SyntaxError !Text
+  | NoProducts
   | InvalidConstraint
   | UndefinedIdentifier !Ident
   | MultipleDeclarations !Ident !SrcLoc
@@ -66,6 +67,8 @@ data ErrorDesc
 instance Pretty ErrorDesc where
     pretty desc = case desc of
         SyntaxError msg -> string msg
+        NoProducts ->
+            "the specified product line has no products"
         InvalidConstraint -> "invalid constraint"
         UndefinedIdentifier ident -> "undefined identifier" <+> text ident
         MultipleDeclarations ident l ->

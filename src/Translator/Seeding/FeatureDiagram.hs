@@ -75,7 +75,8 @@ seedAtomicSets ctx atomicSets = do
     genStmt constrs atomicCtxs conf = do
         i <- use seedLoc
         let confCtxs  = fmap (`extendContext` ctx) conf
-            constrs'  = fmap (specialize atomicCtxs confCtxs) constrs
+            constrs'  = fmap (specialize atomicCtxs confCtxs .
+                              projectToAtomicSets) constrs
             constrGrd = conjunction $ fmap trnsConstraintExpr constrs'
             locGrd    = identExpr seedVarIdent noLoc `eq` intExpr i
             grd       = locGrd `lAnd` constrGrd
@@ -89,11 +90,9 @@ seedAtomicSets ctx atomicSets = do
         in Update Nothing (Repeatable $ sAsgn:asgns) noLoc
 
     specialize atomicCtxs chosenCtxs = transform $ \case
-        FeatConstr ctx' -> case atomicSetRoot ctx' of
-            Nothing -> BoolConstr True
-            Just ctx''
-              | ctx'' `elem` atomicCtxs -> BoolConstr (ctx'' `elem` chosenCtxs)
-              | otherwise               -> FeatConstr ctx''
+        FeatConstr ctx'
+          | ctx' `elem` atomicCtxs -> BoolConstr (ctx' `elem` chosenCtxs)
+          | otherwise              -> FeatConstr ctx'
         c -> c
 
     applicableConstraints = do

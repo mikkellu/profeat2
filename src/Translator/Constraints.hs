@@ -1,4 +1,6 @@
-{-# LANGUAGE FlexibleContexts, TemplateHaskell #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase       #-}
+{-# LANGUAGE TemplateHaskell  #-}
 
 module Translator.Constraints
   ( ConstraintExpr(..)
@@ -8,6 +10,7 @@ module Translator.Constraints
   , extractConstraints
   , canEvalConstraint
   , refersTo
+  , projectToAtomicSets
 
   , trnsConstraintExpr
   , fromExpr
@@ -73,6 +76,13 @@ canEvalConstraint ctxs c =
 
 refersTo :: ConstraintExpr -> FeatureContext -> Bool
 refersTo c ctx = ctx `elem` universe c^..traverse._FeatConstr
+
+projectToAtomicSets :: ConstraintExpr -> ConstraintExpr
+projectToAtomicSets = transform $ \case
+    FeatConstr ctx -> case atomicSetRoot ctx of
+        Just atomicCtx -> FeatConstr atomicCtx
+        Nothing        -> BoolConstr True
+    c -> c
 
 trnsConstraintExpr :: ConstraintExpr -> LExpr
 trnsConstraintExpr c = case c of
