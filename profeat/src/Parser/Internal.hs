@@ -463,7 +463,7 @@ rewardExpr =
 
 rewardProp :: Parser LRewardProp
 rewardProp = choice
-  [ Reachability <$> (reserved "F" *> expr)
+  [ Reachability <$> (reserved "F" *> expr' True)
   , Cumulative   <$> (reserved "C" *> reservedOp "<=" *> decimal)
   , Instant      <$> (reserved "I" *> reservedOp "="  *> decimal)
   , Steady       <$   reserved "S"
