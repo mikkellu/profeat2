@@ -20,6 +20,7 @@ import Data.Traversable
 import Error
 import Symbols
 import Syntax
+import Template
 import Types
 
 import Translator.Common
@@ -91,5 +92,7 @@ trnsLabels = fmap catMaybes . traverse trnsLabel
 trnsLabel :: LLabel -> Trans (Maybe LLabel)
 trnsLabel (Label ident e l)
   | ident == initConfLabelIdent = return Nothing
-  | otherwise = fmap Just . Label ident <$> trnsExpr isBoolType e <*> pure l
+  | otherwise = do
+      e' <- trnsExpr isBoolType =<< prepExpr e
+      return . Just $ Label ident e' l
 
