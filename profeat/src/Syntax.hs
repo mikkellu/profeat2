@@ -1,4 +1,8 @@
-{-# LANGUAGE DeriveFunctor, FlexibleInstances, OverloadedStrings, TemplateHaskell #-}
+{-# LANGUAGE DeriveFunctor     #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell   #-}
 
 module Syntax
   ( module Syntax.Operators
@@ -56,6 +60,7 @@ module Syntax
 
   , initConfLabelIdent
 
+  , defAnnot
   , exprAnnot
 
   , unaryExpr
@@ -210,10 +215,15 @@ instance HasExprs Instance where
     exprs f (Instance ident args a) =
         Instance ident <$> traverse (exprs f) args <*> pure a
 
-data Rewards a = Rewards !Ident [Reward a] deriving (Eq, Functor, Show)
+data Rewards a = Rewards
+  { rwsIdent   :: !Ident
+  , rwsRewards :: [Reward a]
+  , rwsAnnot   :: !a
+  } deriving (Eq, Functor, Show)
 
 instance HasExprs Rewards where
-    exprs f (Rewards ident rws) = Rewards ident <$> traverse (exprs f) rws
+    exprs f (Rewards ident rws a) =
+        Rewards ident <$> traverse (exprs f) rws <*> pure a
 
 data Reward a = Reward
   { rwAction :: ActionLabel a
@@ -517,6 +527,18 @@ instance HasExprs Name where
 
 type Range a = (Expr a, Expr a)
 
+defAnnot :: Definition a -> a
+defAnnot = \case
+    FeatureDef f                 -> featAnnot f
+    ControllerDef (Controller c) -> modAnnot c
+    ModuleDef m                  -> modAnnot (modBody m)
+    GlobalDef g                  -> declAnnot g
+    ConstDef c                   -> constAnnot c
+    FormulaDef f                 -> frmAnnot f
+    LabelDef l                   -> lblAnnot l
+    RewardsDef r                 -> rwsAnnot r
+    PropertyDef p                -> propAnnot p
+
 exprAnnot :: Expr a -> a
 exprAnnot e = case e of
     BinaryExpr _ _ _ a -> a
@@ -664,7 +686,7 @@ instance Pretty (Instance a) where
     pretty (Instance ident args _) = text ident <> prettyArgs args
 
 instance Pretty (Rewards a) where
-    pretty (Rewards ident rws) =
+    pretty (Rewards ident rws _) =
         "rewards" <+> dquotes (text ident) <> line <>
         indent 4 (vsep $ fmap pretty rws) <> line <>
         "endrewards"

@@ -43,7 +43,7 @@ trnsModuleBody (ModuleBody decls (Repeatable ss) l) = do
 trnsLocalVars :: Translator [LVarDecl]
 trnsLocalVars decls = do
     Local ctx <- view scope
-    fmap concat . for decls $ \decl ->
+    fmap (sortVarDeclsByLoc . concat) . for decls $ \decl ->
         let t = ctx^?!this.fsVars.at (declIdent decl)._Just.vsType
         in trnsVarDecl t decl
 

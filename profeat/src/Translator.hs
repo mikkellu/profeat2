@@ -12,8 +12,10 @@ import Control.Lens
 import Control.Monad.Reader
 
 import Data.Foldable ( toList )
+import Data.List ( sortBy )
 import Data.Map ( assocs )
 import Data.Maybe
+import Data.Ord ( comparing )
 import qualified Data.Set as Set
 import Data.Traversable
 
@@ -44,13 +46,14 @@ translateModel alg symTbl = do
                                trnsLabels (symTbl^..labels.traverse)
             rewardsDefs <- trnsRewards
 
-            return . Model $ concat [ constDefs
-                                    , globalDefs
-                                    , moduleDefs
-                                    , toList controllerDef
-                                    , labelDefs
-                                    , rewardsDefs
-                                    ]
+            return . Model . sortBy (comparing defAnnot) $ concat
+                [ constDefs
+                , globalDefs
+                , moduleDefs
+                , toList controllerDef
+                , labelDefs
+                , rewardsDefs
+                ]
 
 translateSpec :: SymbolTable
               -> LSpecification

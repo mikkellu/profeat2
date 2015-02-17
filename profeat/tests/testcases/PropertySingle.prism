@@ -1,12 +1,12 @@
+formula _operating = true;
+formula _active    = true;
+formula _a_active  = true;
+formula _b_active  = true;
+
 module _a_a_impl
     _a_s : [0..2] init 0;
 
     [] _operating & (_a_active & _a_s = 0) -> 0.5:(_a_s' = 1) + 0.5:(_a_s' = 2);
     [] _operating & (_a_active & _a_s > 0) -> true;
 endmodule
-
-formula _operating = true;
-formula _active    = true;
-formula _a_active  = true;
-formula _b_active  = true;
 

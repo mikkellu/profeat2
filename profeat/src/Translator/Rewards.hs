@@ -25,13 +25,15 @@ type RewardStructs = Map Ident [LReward]
 
 trnsRewards :: Trans [LDefinition]
 trnsRewards =
-    mkRewards <$> execStateT (forAllContexts_ extractRewards) Map.empty
+    mkRewardDefs <$> execStateT (forAllContexts_ extractRewards) Map.empty
   where
-    mkRewards = fmap (RewardsDef . uncurry Rewards) . Map.assocs
+    mkRewardDefs           = fmap (RewardsDef . mkRewards) . Map.assocs
+    mkRewards (ident, rws) = Rewards ident rws noLoc
 
 extractRewards :: FeatureContext -> StateT RewardStructs Trans ()
-extractRewards ctx = void . for (ctx^.this.fsRewards) $ \(Rewards ident rws) ->
-    for rws $ trnsReward >=> modify . Map.insertWith mappend ident
+extractRewards ctx =
+    void . for (ctx^.this.fsRewards) $ \(Rewards ident rws _) ->
+        for rws $ trnsReward >=> modify . Map.insertWith mappend ident
 
 trnsReward :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
            => LReward

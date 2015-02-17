@@ -1,10 +1,3 @@
-module _a_a_impl
-    _a_s : [0..2] init 0;
-
-    [] _operating & (_a_active & _a_s = 0) -> 0.5:(_a_s' = 1) + 0.5:(_a_s' = 2);
-    [] _operating & (_a_active & _a_s > 0) -> true;
-endmodule
-
 formula _operating = __loc = 2;
 
 label "initconf" = __loc = 1;
@@ -22,4 +15,11 @@ endmodule
 formula _active    = true;
 formula _a_active  = _a = 1;
 formula _b_active  = _b = 1;
+
+module _a_a_impl
+    _a_s : [0..2] init 0;
+
+    [] _operating & (_a_active & _a_s = 0) -> 0.5:(_a_s' = 1) + 0.5:(_a_s' = 2);
+    [] _operating & (_a_active & _a_s > 0) -> true;
+endmodule
 

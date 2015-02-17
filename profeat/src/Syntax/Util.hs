@@ -20,12 +20,16 @@ module Syntax.Util
   , viewIdentExpr
   , viewIdent
   , viewSimpleName
+
+  , sortVarDeclsByLoc
   ) where
 
 import Control.Applicative
 import Control.Lens
 
-import Data.List.NonEmpty
+import Data.List          ( sortBy )
+import Data.List.NonEmpty ( NonEmpty(..) )
+import Data.Ord           ( comparing )
 
 import Syntax
 
@@ -122,4 +126,7 @@ viewSimpleName :: Name a -> Maybe (Ident, Maybe (Expr a), a)
 viewSimpleName name = case name of
     Name ((ident, idx) :| []) l -> Just (ident, idx, l)
     _                           -> Nothing
+
+sortVarDeclsByLoc :: [LVarDecl] -> [LVarDecl]
+sortVarDeclsByLoc = sortBy (comparing declAnnot)
 

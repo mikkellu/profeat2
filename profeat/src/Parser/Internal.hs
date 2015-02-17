@@ -263,9 +263,8 @@ rewardsDef :: Parser LDefinition
 rewardsDef = RewardsDef <$> rewards
 
 rewards :: Parser LRewards
-rewards = Rewards <$> (reserved "rewards" *> doubleQuotes identifier)
-                  <*> block "rewards" (many reward)
-                  <?> "rewards"
+rewards = loc (Rewards <$> (reserved "rewards" *> doubleQuotes identifier)
+                       <*> block "rewards" (many reward)) <?> "rewards"
 
 reward :: Parser LReward
 reward = loc (Reward <$> brackets actionLabel
