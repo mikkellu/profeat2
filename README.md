@@ -4,8 +4,10 @@ Building ProFeat from source
 Prerequisites
 -------------
 
-To build ProFeat from source you will at least need GHC and cabal. These are
-provided by the [Haskell Platform](haskell.org/platform).
+To build ProFeat from source you need the Glasgow Haskell Compiler (ghc) and
+the cabal-install tool. These tools may be provided by the package repository
+of your OS, alternatively see [www.haskell.org/downloads][haskell.org/downloads]
+for downloads and instructions.
 
 Building ProFeat
 ----------------
