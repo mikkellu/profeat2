@@ -23,6 +23,7 @@ module Syntax
   , _ConstDef
   , _FormulaDef
   , _LabelDef
+  , _InitDef
   , _PropertyDef
 
   , Feature(..)
@@ -33,6 +34,7 @@ module Syntax
   , Instance(..)
   , Rewards(..)
   , Reward(..)
+  , Init(..)
   , Controller(..)
   , Module(..)
   , ModuleBody(..)
@@ -82,6 +84,7 @@ module Syntax
   , LInstance
   , LRewards
   , LReward
+  , LInit
   , LController
   , LModule
   , LModuleBody
@@ -138,6 +141,7 @@ data Definition a
   | FormulaDef    (Formula a)
   | LabelDef      (Label a)
   | RewardsDef    (Rewards a)
+  | InitDef       (Init a)
   | PropertyDef   (Property a)
   deriving (Eq, Functor, Show)
 
@@ -235,6 +239,14 @@ data Reward a = Reward
 instance HasExprs Reward where
     exprs f (Reward actionLabel grd e a) =
         Reward <$> exprs f actionLabel <*> f grd <*> f e <*> pure a
+
+data Init a = Init
+  { initExpr  :: Expr a
+  , initAnnot :: !a
+  } deriving (Eq, Functor, Show)
+
+instance HasExprs Init where
+    exprs f (Init e a) = Init <$> f e <*> pure a
 
 data Controller a = Controller (ModuleBody a) deriving (Eq, Functor, Show)
 
@@ -537,6 +549,7 @@ defAnnot = \case
     FormulaDef f                 -> frmAnnot f
     LabelDef l                   -> lblAnnot l
     RewardsDef r                 -> rwsAnnot r
+    InitDef i                    -> initAnnot i
     PropertyDef p                -> propAnnot p
 
 exprAnnot :: Expr a -> a
@@ -602,6 +615,7 @@ type LFeatureRef      = FeatureRef SrcLoc
 type LInstance        = Instance SrcLoc
 type LRewards         = Rewards SrcLoc
 type LReward          = Reward SrcLoc
+type LInit            = Init SrcLoc
 type LController      = Controller SrcLoc
 type LModule          = Module SrcLoc
 type LModuleBody      = ModuleBody SrcLoc
@@ -644,6 +658,7 @@ instance Pretty (Definition a) where
         FormulaDef  f   -> pretty f
         LabelDef    l   -> pretty l
         RewardsDef  r   -> pretty r
+        InitDef     i   -> pretty i
         PropertyDef p   -> pretty p
 
 instance Pretty (Feature a) where
@@ -694,6 +709,10 @@ instance Pretty (Rewards a) where
 instance Pretty (Reward a) where
     pretty (Reward action grd e _) =
         brackets (pretty action) <+> pretty grd <+> colon <+> pretty e <> semi
+
+instance Pretty (Init a) where
+    pretty (Init e _) =
+        "init" <> line <> indent 4 (pretty e) <> line <> "endinit"
 
 instance Pretty (Controller a) where
     pretty (Controller body) =
