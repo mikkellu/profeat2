@@ -1,7 +1,9 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 module Types.Util
-  ( fromVarType
+  ( toVarSymbol
+  , defaultInit
+  , fromVarType
   , fromVarType'
   , fromConstType
   ) where
@@ -19,6 +21,32 @@ import Syntax
 import Types
 import Template
 import Typechecker
+
+toVarSymbol :: ( Applicative m
+               , MonadReader r m
+               , MonadError Error m
+               , HasSymbolTable r
+               , HasScope r
+               )
+            => Bool
+            -> LVarDecl
+            -> m VarSymbol
+toVarSymbol public (VarDecl _ vt mInit l) = do
+    t <- fromVarType vt
+
+    i <- case mInit of
+        Just e  -> checkInitialization t e *> prepExpr e
+        Nothing -> return (defaultInit t)
+
+    return $ VarSymbol l public t i
+
+defaultInit :: Type -> LExpr
+defaultInit (CompoundType ct) = case ct of
+    ArrayType _ st -> defaultInit (SimpleType st)
+defaultInit (SimpleType st) = case st of
+    BoolType                  -> BoolExpr False noLoc
+    IntType (Just (lower, _)) -> intExpr lower
+    t                         -> error $ "Types.defaultInit: illegal type: " ++ show t
 
 fromVarType :: ( Applicative m
                , MonadReader r m

@@ -153,7 +153,8 @@ instantiateModule idx (Instance ident args l) = do
     let public = modPublic mod'
 
     varSyms <- fmap Map.fromList . for (modVars body') $ \decl ->
-                   (declIdent decl,) <$> varSymbol public decl
+                   let ident' = declIdent decl
+                   in (ident',) <$> toVarSymbol (ident' `elem` public) decl
 
     return (body', varSyms)
 
@@ -167,18 +168,6 @@ unionVarTable l t1 t2 =
     in case isect of
         (ident:_) -> throw l $ AmbiguousIdentifier ident
         _         -> return $ Map.union t1 t2
-
-varSymbol :: ( Applicative m
-             , MonadReader r m
-             , MonadError Error m
-             , HasSymbolTable r
-             , HasScope r
-             )
-          => [Ident]
-          -> LVarDecl
-          -> m VarSymbol
-varSymbol public (VarDecl ident vt _ l) =
-    VarSymbol l (ident `elem` public) <$> fromVarType vt
 
 -- | Check if the referenced features are unambiguous.
 checkDecomposition :: (MonadError Error m) => LDecomposition -> m ()

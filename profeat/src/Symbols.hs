@@ -19,6 +19,7 @@ module Symbols
   , vsLoc
   , vsType
   , vsPublic
+  , vsInit
 
   , FeatureSymbol(..)
   , fsIdent
@@ -123,6 +124,7 @@ data VarSymbol = VarSymbol
   { _vsLoc     :: !SrcLoc
   , _vsPublic  :: !Bool
   , _vsType    :: !Type
+  , _vsInit    :: LExpr
   } deriving (Show)
 
 makeLenses ''VarSymbol
