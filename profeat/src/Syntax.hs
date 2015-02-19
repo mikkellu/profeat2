@@ -808,11 +808,16 @@ prettyExpr :: Int -> Expr a -> Doc
 prettyExpr prec e = case e of
     BinaryExpr binOp lhs rhs _ ->
         let prec' = binOpPrec binOp
+            delim = case binOp of
+                        LogicBinOp _ -> (</>)
+                        _            -> (<+>)
         in  parens' (prec >= prec') $
-                prettyExpr prec' lhs <+> pretty binOp <+> prettyExpr prec' rhs
+                prettyExpr prec' lhs <+>
+                pretty binOp `delim`
+                prettyExpr prec' rhs
     CondExpr cond te ee _ -> parens' (prec > 0) $
-        prettyExpr 1 cond <+> char '?' <+>
-        prettyExpr 1 te <+> colon <+> prettyExpr 1 ee
+        prettyExpr 1 cond <+> char '?' </>
+        prettyExpr 1 te <+> colon </> prettyExpr 1 ee
     UnaryExpr (ProbUnOp (ProbOp bound)) e' _ ->
         "P" <> pretty bound <+> brackets (pretty e')
     UnaryExpr (ProbUnOp (SteadyOp bound)) e' _ ->
@@ -831,8 +836,8 @@ prettyExpr prec e = case e of
         parens (align . cat . punctuate comma $ fmap pretty args)
     NameExpr n _          -> pretty n
     FuncExpr func _       -> pretty func
-    FilterExpr fOp p s _  -> "filter" <> parens (pretty fOp <> comma <+>
-                                                 pretty p <> comma <+>
+    FilterExpr fOp p s _  -> "filter" <> parens (pretty fOp <> comma </>
+                                                 pretty p <> comma </>
                                                  pretty s)
     ArrayExpr es _ -> braces . align . cat . punctuate comma .
                           fmap pretty $ toList es
