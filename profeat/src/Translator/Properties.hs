@@ -1,8 +1,12 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Translator.Properties
   ( trnsProperty
   ) where
 
 import Control.Lens
+
+import Data.Maybe
 
 import Symbols
 import Syntax
@@ -21,7 +25,11 @@ trnsProperty prop = do
 genFilterProperty :: Translator LProperty
 genFilterProperty (Property ident e l) = do
     e' <- trnsExpr (const True) e
-    let labelExpr  = LabelExpr initConfLabelIdent noLoc
+    lbl <- view initConfLabel
+    let li         = if isJust lbl
+                         then initConfLabelIdent
+                         else "init"
+        labelExpr  = LabelExpr li noLoc
         filterExpr = FilterExpr FilterPrint e' (Just labelExpr) noLoc
     return $ Property ident filterExpr l
 

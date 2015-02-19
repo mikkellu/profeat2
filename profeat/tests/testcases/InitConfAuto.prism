@@ -1,15 +1,11 @@
-formula _operating = __loc = 2;
-
-label "initconf" = __loc = 1;
+init
+    1 <= _a + _b &
+    _a + _b <= 1
+endinit
 
 module _controller
-    __loc : [0..2] init 0;
-    _a    : [0..1] init 0;
-    _b    : [0..1] init 0;
-
-    [] __loc = 0 -> (__loc' = 1) & (_a' = 1);
-    [] __loc = 0 -> (__loc' = 1) & (_b' = 1);
-    [] __loc = 1 -> (__loc' = 2);
+    _a    : [0..1];
+    _b    : [0..1];
 endmodule
 
 formula _active    = true;

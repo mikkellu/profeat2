@@ -25,7 +25,7 @@ genInit symTbl (InitialConstraintSet initConstrs) constrs =
         eCards   = fmap featureExpr ctxs
         eInits   = fmap varInitExpr (initialState symTbl)
 
-        e = foldr lAnd (BoolExpr True noLoc) (eCards ++ eConstrs ++ eInits)
+        e = foldl' lAnd (BoolExpr True noLoc) (eCards ++ eConstrs ++ eInits)
     in InitDef (Init e noLoc)
 
 varInitExpr :: (QualifiedVar, LExpr) -> LExpr
@@ -44,8 +44,8 @@ featureExpr ctx =
 
         nOpt = genericLength optCtxs
 
-        l = intExpr lower - intExpr nOpt `lte` sum (fmap activeExpr nonOptCtxs)
-        u = sum (fmap activeExpr childCtxs) `gte` intExpr upper
+        l = (intExpr lower - intExpr nOpt) `lte` sum (fmap activeExpr nonOptCtxs)
+        u = sum (fmap activeExpr childCtxs) `lte` intExpr upper
 
     in if (lower, upper) == (n, n)
            then BoolExpr True noLoc -- all non-optional features are mandatory

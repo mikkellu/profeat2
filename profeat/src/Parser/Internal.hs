@@ -101,10 +101,10 @@ reservedNames =
     , "modules", "all" , "one", "some", "of", "optional", "as", "constraint"
     , "initial", "rewards" , "endrewards", "controller", "endcontroller"
     , "module", "endmodule", "this", "public", "active", "activate"
-    , "deactivate", "array", "bool", "int", "double", "init" , "for", "endfor"
-    , "in", "id", "filter", "min", "max", "true", "false", "P", "Pmin", "Pmax"
-    , "R", "Rmin", "Rmax", "S" , "E", "A", "U", "W", "R", "X", "F", "G", "C"
-    , "I"
+    , "deactivate", "array", "bool", "int", "double", "init" , "endinit"
+    , "for", "endfor" , "in", "id", "filter", "min", "max", "true", "false"
+    , "P", "Pmin", "Pmax", "R", "Rmin", "Rmax", "S" , "E", "A", "U", "W", "R"
+    , "X", "F", "G", "C", "I"
     ]
 reservedOpNames =
     [ "/", "*", "-", "+", "=", "!=", ">", "<", ">=", "<=", "&", "|", "!"
@@ -208,6 +208,7 @@ model = do
                             , constantDef
                             , formulaDef
                             , labelDef
+                            , initDef
                             , rewardsDef
                             ]
 
@@ -343,6 +344,12 @@ label :: Parser LLabel
 label = loc (Label <$> (reserved "label" *> doubleQuotes identifier)
                    <*> (reservedOp "=" *> expr <* semi))
      <?> "label definition"
+
+initDef :: Parser LDefinition
+initDef = InitDef <$> init' <?> "init definition"
+
+init' :: Parser LInit
+init' = loc (Init <$> (reserved "init" *> block "init" expr))
 
 propertyDef :: Parser LDefinition
 propertyDef = PropertyDef <$>
@@ -491,7 +498,10 @@ filterExpr True  = reserved "filter" *> parens
 
 labelExpr :: Bool -> Parser (SrcLoc -> LExpr)
 labelExpr False = parserZero
-labelExpr True  = LabelExpr <$> doubleQuotes identifier <?> "label"
+labelExpr True  = LabelExpr <$> doubleQuotes labelIdent <?> "label"
+  where
+    labelIdent =  "init" <$ reserved "init"
+              <|> identifier
 
 arrayExpr :: Parser (SrcLoc -> LExpr)
 arrayExpr = ArrayExpr . fromList <$> braces (commaSep1 expr)

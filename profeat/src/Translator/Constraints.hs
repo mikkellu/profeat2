@@ -14,6 +14,8 @@ module Translator.Constraints
 
   , trnsConstraintExpr
   , fromExpr
+
+  , activeGuard
   ) where
 
 import Control.Applicative
@@ -29,7 +31,6 @@ import Data.Traversable
 import Error
 import Symbols
 import Syntax
-import Syntax.Util
 import Typechecker
 
 import Translator.Names
@@ -89,7 +90,7 @@ trnsConstraintExpr c = case c of
     BinaryConstr binOp lhs rhs -> binaryExpr (LogicBinOp binOp)
        (trnsConstraintExpr lhs) (trnsConstraintExpr rhs)
     UnaryConstr unOp c' -> unaryExpr (LogicUnOp unOp) (trnsConstraintExpr c')
-    FeatConstr ctx      -> identExpr (activeIdent ctx) noLoc `eq` 1
+    FeatConstr ctx      -> activeGuard ctx
     BoolConstr b        -> BoolExpr b noLoc
 
 fromExpr :: ( Applicative m
@@ -108,4 +109,7 @@ fromExpr e = case e of
     NameExpr name _ -> FeatConstr <$> getFeature name
     BoolExpr b _    -> pure $ BoolConstr b
     _ -> throw (exprAnnot e) InvalidConstraint
+
+activeGuard :: FeatureContext -> LExpr
+activeGuard = flip NameExpr noLoc . activeFormulaName
 

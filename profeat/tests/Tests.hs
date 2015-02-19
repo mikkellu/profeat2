@@ -26,7 +26,6 @@ import qualified Parser.Internal as Parser
 
 import ProFeat
 import Symbols
-import Translator
 
 main = defaultMain tests
 -- }}
@@ -76,7 +75,6 @@ translatorTestCase name = testCase name $ do
                    , proFeatPropsPath = if propsExist
                                             then Just actualPropsPath
                                             else Nothing
-                   , seedingMethod    = SeedingFeatureDiagram
                    }
 
     flip runTest opts . withTranslatedModel $ \actualModel -> do

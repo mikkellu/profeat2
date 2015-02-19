@@ -41,7 +41,7 @@ trnsReward :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
 trnsReward (Reward action grd e a) = do
     actions' <- trnsActionLabel action
     for actions' $ \(action', _) ->
-        Reward action' <$> ((operatingGuard `lAnd`) <$> trnsExpr isBoolType grd)
+        Reward action' <$> trnsExpr isBoolType grd
                        <*> trnsExpr isNumericType e
                        <*> pure a
 

@@ -36,7 +36,6 @@ import qualified Data.Text.Lazy.IO as LIO
 import Data.Traversable
 
 import Options.Applicative
-import Options.Applicative.Types
 
 import System.Exit
 import System.IO hiding ( withFile )
@@ -81,9 +80,6 @@ helpRoundResults = "Round results to <precision> digits before grouping"
 helpTranslate = "Translate only, do not model check"
 -- -m --model-checking
 helpModelChecking = "Translate and model check only, do not postprocess results"
---    --seeding-method
-helpSeedingMethod = "Set the seeding method (fd, bdd)"
-defaultSeedingMethod = SeedingBinaryDecisionDiagram
 --    --prism-path
 helpPrismPath    = "Set the path of the PRISM executable"
 defaultPrismPath = "prism"
@@ -114,7 +110,6 @@ data ProFeatOptions = ProFeatOptions
   , roundResults       :: Maybe Int
   , translateOnly      :: !Bool
   , modelCheckOnly     :: !Bool
-  , seedingMethod      :: !SeedingAlg
   , prismExecPath      :: FilePath
   , verbosity          :: !Verbosity
   }
@@ -133,7 +128,6 @@ defaultOptions = ProFeatOptions
   , roundResults       = Nothing
   , translateOnly      = False
   , modelCheckOnly     = False
-  , seedingMethod      = defaultSeedingMethod
   , prismExecPath      = defaultPrismPath
   , verbosity          = Normal
   }
@@ -171,12 +165,6 @@ proFeatOptions = ProFeatOptions
   <*> switch                ( long "model-checking" <> short 'm'
                            <> hidden
                            <> help helpModelChecking )
-  <*> option selectSeeding ( long "seeding-method"
-                           <> metavar "<method>"
-                           <> value defaultSeedingMethod
-                           <> showDefault
-                           <> hidden
-                           <> help helpSeedingMethod )
   <*> strOption             ( long "prism-path"
                            <> metavar "<path>"
                            <> value defaultPrismPath
@@ -186,18 +174,6 @@ proFeatOptions = ProFeatOptions
   <*> flag Normal Verbose   ( long "verbose" <> short 'v'
                            <> hidden
                            <> help helpVerbose )
-  where
-    selectSeeding = select seedingMethods
-    seedingMethods = [ ("fd" , SeedingFeatureDiagram)
-                     , ("bdd", SeedingBinaryDecisionDiagram)
-                     ]
-
-select :: [(String, a)] -> ReadM a
-select assocs = do
-    arg <- readerAsk
-    case lookup arg assocs of
-        Just x -> return x
-        Nothing -> readerError $ "cannot parse value `" ++ arg ++ "'"
 
 type ProFeat = StateT SymbolTable (ExceptT Error (ReaderT ProFeatOptions IO))
 
@@ -247,10 +223,7 @@ withProFeatModel m = do
         put symTbl >> m
 
 translate :: ProFeat LModel
-translate = do
-    symTbl  <- get
-    seeding <- asks seedingMethod
-    liftEither' (translateModel seeding symTbl)
+translate = liftEither' . translateModel =<< get
 
 withProFeatProps :: (Maybe LSpecification -> ProFeat a) -> ProFeat a
 withProFeatProps m = asks proFeatPropsPath >>= \case

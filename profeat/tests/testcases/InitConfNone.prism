@@ -1,4 +1,7 @@
-formula _operating = true;
+init
+    true
+endinit
+
 formula _active    = true;
 formula _a_active  = true;
 formula _b_active  = true;

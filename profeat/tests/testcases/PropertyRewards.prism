@@ -1,2 +1,5 @@
-formula _operating = true;
+init
+    true
+endinit
+
 formula _active    = true;

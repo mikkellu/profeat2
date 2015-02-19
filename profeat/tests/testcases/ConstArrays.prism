@@ -1,4 +1,7 @@
-formula _operating = true;
+init
+    true
+endinit
+
 formula _active    = true;
 
 const int c_0 = 1;

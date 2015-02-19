@@ -29,10 +29,8 @@ import Types
 
 import Translator.Common
 import Translator.Constraints
+import Translator.Initial
 import Translator.Names
-import Translator.Seeding
-import qualified Translator.Seeding.Bdd as Bdd
-import qualified Translator.Seeding.Fd  as Fd
 
 type Reconfiguration = Map FeatureContext ReconfType
 
@@ -54,33 +52,28 @@ trnsController initConstrs =
                 return (decls, stmts, l)
             Nothing -> return ([], [], noLoc)
 
-        root           <- view rootFeature
-        actDecls       <- genActiveVars
+        root     <- view rootFeature
+        actDecls <- genActiveVars
 
-        genSeeding <- view seedingAlg >>= \case
-            SeedingFeatureDiagram        -> return Fd.genSeeding
-            SeedingBinaryDecisionDiagram -> return Bdd.genSeeding
+        symTbl   <- view symbolTable
+        constrs  <- view constraints
 
-        (seedStmts, i) <- genSeeding initConstrs
-        (initStmt, i') <- genInitConfStmt i
+        let initDef = genInit symTbl initConstrs constrs
 
-        let seedVar = genSeedVar i'
-            decls'  = actDecls ++ decls
-            stmts'  = Repeatable (fmap One (seedStmts ++ maybeToList initStmt) ++ stmts)
-            body'   = ModuleBody (seedVar:decls') stmts' l
+        let decls'  = actDecls ++ decls
+            body'   = ModuleBody decls' (Repeatable stmts) l
 
-        confLbl <- genInitConfLabel i'
+        confLbl <- genInitConfLabel
 
         return $ if hasSingleConfiguration root
             then if null decls && null stmts
-                     then [ genOperatingFormula Nothing ]
-                     else [ genOperatingFormula Nothing
+                     then [ initDef ]
+                     else [ initDef
                           , ModuleDef (Module controllerIdent [] [] (ModuleBody decls (Repeatable stmts) l))
                           ]
-            else [ genOperatingFormula (Just i')
-                 , confLbl
+            else [ initDef
                  , ModuleDef (Module controllerIdent [] [] body')
-                 ]
+                 ] ++ confLbl
 
 trnsControllerBody :: LModuleBody -> StateT LabelSets Trans LModuleBody
 trnsControllerBody (ModuleBody decls stmts l) =
@@ -113,7 +106,7 @@ trnsStmt (Stmt action grd (Repeatable ss) l) = do
     let cardGrds = fmap cardGuards reconfs
         grd''    = conjunction $ grd' : cardGrds ++ constrGrds
 
-    return $ Stmt action' (operatingGuard `lAnd` grd'') upds' l
+    return $ Stmt action' grd'' upds' l
   where
     cardGuards reconf =
         let parentCtxs = toList . Set.fromList .
@@ -203,7 +196,7 @@ genActiveVars = mapMaybe mkVarDecl . allContexts <$> view rootFeature where
       | otherwise             =
         let ident = activeIdent ctx
             vt    = SimpleVarType $ IntVarType (0, 1)
-            e     = Just 0
+            e     = Nothing
         in Just $ VarDecl ident vt e noLoc
 
 reconfsToLabelSet :: [Reconfiguration] -> Set LabelSymbol
@@ -220,6 +213,19 @@ genActiveFormula ctx = FormulaDef Formula
   , frmExpr   = activeExpr ctx
   , frmAnnot  = noLoc
   }
+
+genInitConfLabel :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
+                 => m [LDefinition]
+genInitConfLabel =
+    view initConfLabel >>= \case
+        Just e -> do
+            e' <- trnsExpr isBoolType e
+            return . (:[]) $ LabelDef Label
+              { lblIdent = initConfLabelIdent
+              , lblExpr  = e'
+              , lblAnnot = noLoc
+              }
+        Nothing -> return []
 
 activeExpr :: FeatureContext -> LExpr
 activeExpr ctx =

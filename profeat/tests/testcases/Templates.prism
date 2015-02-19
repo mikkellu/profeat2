@@ -1,12 +1,15 @@
-formula _operating  = true;
+init
+    _sub_s = 1 + 1
+endinit
+
 formula _active     = true;
 formula _sub_active = true;
 
 rewards "test"
-    [] _operating : 1;
+    [] true : 1;
 endrewards
 
 module _sub_sub_impl
-    _sub_s : [0..1+1] init 1+1;
+    _sub_s : [0..1+1];
 endmodule
 

@@ -1,18 +1,24 @@
-formula _operating = true;
+init
+    _last_1 = false &
+    _last_2 = false &
+    _last_3 = false &
+    _s = 1
+endinit
+
 formula _active    = true;
 
 const int n = 3;
 
 module _root_impl
-    _s      : [1..n] init 1;
-    _last_1 : bool init false;
-    _last_2 : bool init false;
-    _last_3 : bool init false;
+    _s      : [1..n];
+    _last_1 : bool;
+    _last_2 : bool;
+    _last_3 : bool;
 
-    [] _operating & (_active & _s = 1) -> (_s' = 1 + 1);
-    [] _operating & (_active & _s = 2) -> (_s' = 2 + 1);
-    [] _operating & (_active & _s = n) -> (1/n):(_s' = 1) & (_last_1' = 1 = 1) & (_last_2' = 1 = 2) & (_last_3' = 1 = 3) +
-                                          (1/n):(_s' = 2) & (_last_1' = 2 = 1) & (_last_2' = 2 = 2) & (_last_3' = 2 = 3) +
-                                          (1/n):(_s' = 3) & (_last_1' = 3 = 1) & (_last_2' = 3 = 2) & (_last_3' = 3 = 3);
+    [] (_active & _s = 1) -> (_s' = 1 + 1);
+    [] (_active & _s = 2) -> (_s' = 2 + 1);
+    [] (_active & _s = n) -> (1/n):(_s' = 1) & (_last_1' = 1 = 1) & (_last_2' = 1 = 2) & (_last_3' = 1 = 3) +
+                             (1/n):(_s' = 2) & (_last_1' = 2 = 1) & (_last_2' = 2 = 2) & (_last_3' = 2 = 3) +
+                             (1/n):(_s' = 3) & (_last_1' = 3 = 1) & (_last_2' = 3 = 2) & (_last_3' = 3 = 3);
 endmodule
 

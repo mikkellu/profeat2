@@ -18,9 +18,6 @@ module Translator.Names
 
   , seedVarName
   , seedVarIdent
-
-  , operatingName
-  , operatingIdent
   ) where
 
 import Data.Monoid
@@ -78,12 +75,6 @@ seedVarName = toName seedVarIdent
 
 seedVarIdent :: Ident
 seedVarIdent = "__loc"
-
-operatingName :: LName
-operatingName = toName operatingIdent
-
-operatingIdent :: Ident
-operatingIdent = "_operating"
 
 toName :: Ident -> LName
 toName = review _Ident . (,noLoc)

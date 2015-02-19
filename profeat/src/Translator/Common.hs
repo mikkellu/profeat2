@@ -3,11 +3,8 @@
 module Translator.Common
   ( TrnsInfo(..)
   , trnsInfo
-  , seedingAlg
   , labelSets
   , constraints
-
-  , SeedingAlg(..)
 
   , LabelSymbol(..)
   , LabelSets
@@ -21,7 +18,6 @@ module Translator.Common
   , trnsExpr
   , trnsActionLabel
 
-  , operatingGuard
   , activeGuard
 
   , labelSetToAction
@@ -58,18 +54,8 @@ data LabelSymbol
 
 type LabelSets = Set (Set LabelSymbol)
 
-data SeedingAlg
-  = SeedingFeatureDiagram
-  | SeedingBinaryDecisionDiagram
-
-instance Show SeedingAlg where
-    show = \case
-        SeedingFeatureDiagram        -> "fd"
-        SeedingBinaryDecisionDiagram -> "bdd"
-
 data TrnsInfo = TrnsInfo
-  { _seedingAlg      :: !SeedingAlg
-  , _trnsSymbolTable :: SymbolTable
+  { _trnsSymbolTable :: SymbolTable
   , _trnsScope       :: !Scope
   , _labelSets       :: LabelSets
   , _constraints     :: Set ConstraintExpr
@@ -83,8 +69,8 @@ instance HasSymbolTable TrnsInfo where
 instance HasScope TrnsInfo where
     scope = trnsScope
 
-trnsInfo :: SeedingAlg -> SymbolTable -> Set ConstraintExpr -> TrnsInfo
-trnsInfo alg symTbl = TrnsInfo alg symTbl Global Set.empty
+trnsInfo :: SymbolTable -> Set ConstraintExpr -> TrnsInfo
+trnsInfo symTbl = TrnsInfo symTbl Global Set.empty
 
 type Trans = ReaderT TrnsInfo (Either Error)
 
@@ -99,17 +85,16 @@ trnsVarDecl t (VarDecl ident vt e l) = do
     let mkIdent = fullyQualifiedIdent sc ident
 
     void $ _Just (checkInitialization t) e
-    e'  <- _Just (trnsExpr $ const True) e
     vt' <- exprs (trnsExpr $ const True) vt
 
     return $ case t of
         CompoundType (ArrayType (Just (lower, upper)) _) ->
             let CompoundVarType (ArrayVarType _ svt') = vt'
             in flip fmap [lower .. upper] $ \i ->
-                VarDecl (mkIdent $ Just i) (SimpleVarType svt') e' l
+                VarDecl (mkIdent $ Just i) (SimpleVarType svt') Nothing l
         CompoundType (ArrayType Nothing _) ->
             error "Translator.Common.trnsVarDecl: unevaluated type"
-        _ -> [VarDecl (mkIdent Nothing) vt' e' l]
+        _ -> [VarDecl (mkIdent Nothing) vt' Nothing l]
 
 trnsUpdate :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
            => (LAssign -> m LAssign)
@@ -182,12 +167,6 @@ trnsIndex (CompoundType (ArrayType (Just (lower, upper)) _)) ident (Just e) l = 
                  elseExpr
                  noLoc
 trnsIndex _ ident _ l = return $ identExpr ident l
-
-operatingGuard :: LExpr
-operatingGuard = NameExpr operatingName noLoc
-
-activeGuard :: FeatureContext -> LExpr
-activeGuard = flip NameExpr noLoc . activeFormulaName
 
 trnsActionLabel :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
                 => LActionLabel

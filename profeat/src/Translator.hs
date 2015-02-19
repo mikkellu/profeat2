@@ -1,9 +1,7 @@
 {-# LANGUAGE FlexibleContexts, LambdaCase, OverloadedStrings #-}
 
 module Translator
-  ( SeedingAlg(..)
-
-  , translateModel
+  ( translateModel
   , translateSpec
   ) where
 
@@ -32,11 +30,11 @@ import Translator.Modules
 import Translator.Properties
 import Translator.Rewards
 
-translateModel :: SeedingAlg -> SymbolTable -> Either Error LModel
-translateModel alg symTbl = do
+translateModel :: SymbolTable -> Either Error LModel
+translateModel symTbl = do
     (initConstrs, constrs) <- runReaderT extractConstraints (Env Global symTbl)
 
-    flip runReaderT (trnsInfo alg symTbl constrs) $ do
+    flip runReaderT (trnsInfo symTbl constrs) $ do
         (controllerDef, lss) <- trnsControllerDef initConstrs
         local (labelSets .~ lss) $ do
             constDefs   <- trnsConsts
@@ -59,7 +57,7 @@ translateSpec :: SymbolTable
               -> LSpecification
               -> Either Error LSpecification
 translateSpec symTbl (Specification defs) =
-    flip runReaderT (trnsInfo SeedingFeatureDiagram symTbl Set.empty) $ do
+    flip runReaderT (trnsInfo symTbl Set.empty) $ do
         -- constDefs <- trnsConsts
         let constDefs = []
         labelDefs <- trnsLabelDefs defs

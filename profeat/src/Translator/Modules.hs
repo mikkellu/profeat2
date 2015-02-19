@@ -62,7 +62,7 @@ trnsStmt (Stmt action grd upds l) = do
         upds' <- ones (trnsUpdate trnsAssign) upds
 
         return $
-            Stmt action' (conjunction [operatingGuard, actGrd', grd']) upds' l
+            Stmt action' (conjunction [actGrd', grd']) upds' l
   where
     localActivateLabel ctx = LsReconf ctx ReconfActivate
 
