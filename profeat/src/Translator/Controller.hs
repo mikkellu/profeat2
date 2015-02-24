@@ -54,11 +54,7 @@ trnsController initConstrs =
 
         root     <- view rootFeature
         actDecls <- genActiveVars
-
-        symTbl   <- view symbolTable
-        constrs  <- view constraints
-
-        let initDef = genInit symTbl initConstrs constrs
+        initDef  <- genInit initConstrs
 
         let decls'  = actDecls ++ decls
             body'   = ModuleBody decls' (Repeatable stmts) l

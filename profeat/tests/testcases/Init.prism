@@ -1,0 +1,15 @@
+init
+    y = 1 &
+    (x => (_arr_0 | (_arr_1 | _arr_2)))
+endinit
+
+formula _active = true;
+global x : bool;
+global y : [0..2];
+
+module _root_impl
+    _arr_0 : bool;
+    _arr_1 : bool;
+    _arr_2 : bool;
+endmodule
+

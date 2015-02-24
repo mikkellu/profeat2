@@ -168,6 +168,23 @@ types ProFeat supports arrays:
 Here, `z` is a 1-indexed array with 3 elements of type `bool` and each element
 is initialized with `true`.
 
+If no initial value is given for a variable, one of the possible values is
+chosen nondeterministically (i.e. the model has multiple initial states). An
+`init` block can be defined to constrain the set of initial states:
+
+    module my_module
+        x : bool;
+        y : [-1 .. 1];
+    endmodule
+
+    init
+        x => y = 0
+    endinit
+
+Since both `x` and `y` are left uninitialized their value is chosen
+nondeterministically. However, if `x = true` then `y = 0` because all initial
+states must satisfy the expression given in the `init` block.
+
 #### Commands
 
 Actions can be indexed, e.g.:

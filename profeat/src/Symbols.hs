@@ -49,6 +49,7 @@ module Symbols
   , containsModule
   , containsFeature
   , containsController
+  , containsInit
   , lookupLabel
   , lookupModule
   , lookupFeature
@@ -124,7 +125,7 @@ data VarSymbol = VarSymbol
   { _vsLoc     :: !SrcLoc
   , _vsPublic  :: !Bool
   , _vsType    :: !Type
-  , _vsInit    :: LExpr
+  , _vsInit    :: Maybe LExpr
   } deriving (Show)
 
 makeLenses ''VarSymbol
@@ -169,6 +170,7 @@ data SymbolTable = SymbolTable
   , _constValues   :: Valuation
   , _rootFeature   :: FeatureSymbol
   , _controller    :: Maybe ControllerSymbol
+  , _initConfExpr  :: Maybe LExpr
   , _initConfLabel :: Maybe LExpr
   } deriving (Show)
 
@@ -219,6 +221,7 @@ emptySymbolTable = SymbolTable
   , _constValues   = empty
   , _rootFeature   = emptyFeatureSymbol
   , _controller    = Nothing
+  , _initConfExpr  = Nothing
   , _initConfLabel = Nothing
   }
 
@@ -253,6 +256,9 @@ containsFeature symTbl ident = symTbl^?features.at ident._Just.to featAnnot
 
 containsController :: SymbolTable -> Ident -> Maybe SrcLoc
 containsController symTbl _ = symTbl^?controller._Just.ctsBody.to modAnnot
+
+containsInit :: SymbolTable -> Ident -> Maybe SrcLoc
+containsInit symTbl _ = symTbl^?initConfExpr._Just.to exprAnnot
 
 lookupLabel :: (MonadReader r m, MonadError Error m, HasSymbolTable r)
             => Ident

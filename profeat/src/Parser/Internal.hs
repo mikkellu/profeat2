@@ -202,6 +202,7 @@ model = do
                             , constantDef
                             , formulaDef
                             , labelDef
+                            , initDef
                             ]
     definitions PrismLang = [ moduleDef
                             , globalDef

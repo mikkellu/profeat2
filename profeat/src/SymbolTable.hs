@@ -71,17 +71,23 @@ extendSymbolTable symTbl defs = flip evalStateT symTbl $ do -- TODO: refactor
             controller .= Just (ControllerSymbol Map.empty body')
     symTbl''' <- get
 
-    symTbl'''' <- flip runReaderT (Env Global symTbl''') .
-                  forOf (globals.traverse) symTbl''' $ \gs -> do
+    forOf_ (traverse._InitDef) defs $ \(Init e l) ->
+        ifNot containsInit "init" l $ do
+            e' <- runReaderT (prepExpr e) (Env Global symTbl''')
+            initConfExpr .= Just e'
+    symTbl'''' <- get
+
+    symTbl''''' <- flip runReaderT (Env Global symTbl'''') .
+                  forOf (globals.traverse) symTbl'''' $ \gs -> do
         t <- fromVarType $ gs^.gsDecl.to declType
         return (gs & gsType .~ t)
-    put symTbl''''
+    put symTbl'''''
 
-    root <- rootFeatureSymbol symTbl''''
+    root <- rootFeatureSymbol symTbl'''''
     setControllerVarTypes
 
-    symTbl''''' <- get
-    return $ symTbl''''' & rootFeature .~ root
+    symTbl'''''' <- get
+    return $ symTbl'''''' & rootFeature .~ root
   where
     ifNot contains ident loc m = do
         st <- get

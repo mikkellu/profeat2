@@ -2,7 +2,6 @@
 
 module Types.Util
   ( toVarSymbol
-  , defaultInit
   , fromVarType
   , fromVarType'
   , fromConstType
@@ -32,21 +31,10 @@ toVarSymbol :: ( Applicative m
             -> LVarDecl
             -> m VarSymbol
 toVarSymbol public (VarDecl _ vt mInit l) = do
-    t <- fromVarType vt
+    t      <- fromVarType vt
+    mInit' <- _Just (\e -> checkInitialization t e *> prepExpr e) mInit
 
-    i <- case mInit of
-        Just e  -> checkInitialization t e *> prepExpr e
-        Nothing -> return (defaultInit t)
-
-    return $ VarSymbol l public t i
-
-defaultInit :: Type -> LExpr
-defaultInit (CompoundType ct) = case ct of
-    ArrayType _ st -> defaultInit (SimpleType st)
-defaultInit (SimpleType st) = case st of
-    BoolType                  -> BoolExpr False noLoc
-    IntType (Just (lower, _)) -> intExpr lower
-    t                         -> error $ "Types.defaultInit: illegal type: " ++ show t
+    return $ VarSymbol l public t mInit'
 
 fromVarType :: ( Applicative m
                , MonadReader r m

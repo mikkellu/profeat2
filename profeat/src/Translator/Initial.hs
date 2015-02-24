@@ -1,10 +1,13 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase       #-}
 
 module Translator.Initial
   ( genInit
   ) where
 
+import Control.Applicative
 import Control.Lens
+import Control.Monad.Reader
 
 import Data.Foldable ( toList )
 import Data.List
@@ -13,20 +16,34 @@ import Symbols
 import Syntax
 
 import Analysis.InitialState
+import Error
+import Types
 
+import Translator.Common
 import Translator.Constraints
 import Translator.Names
 
-genInit :: SymbolTable -> InitialConstraintSet -> ConstraintSet -> LDefinition
-genInit symTbl (InitialConstraintSet initConstrs) constrs =
+genInit :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
+        => InitialConstraintSet
+        -> m LDefinition
+genInit (InitialConstraintSet initConstrs) = do
+    symTbl  <- view symbolTable
+    constrs <- view constraints
+
+    eInit <- case symTbl^.initConfExpr of
+                 Just e  -> trnsExpr isBoolType e
+                 Nothing -> return $ BoolExpr True noLoc
+
     let ctxs     = symTbl^.rootFeature.to allContexts
         eConstrs = fmap trnsConstraintExpr
                        (toList constrs ++ toList initConstrs)
         eCards   = fmap featureExpr ctxs
         eInits   = fmap varInitExpr (initialState symTbl)
 
-        e = foldl' lAnd (BoolExpr True noLoc) (eCards ++ eConstrs ++ eInits)
-    in InitDef (Init e noLoc)
+        e = foldl' lAnd (BoolExpr True noLoc) . concat $
+                [eCards, eConstrs, eInits, [eInit]]
+
+    return . InitDef $ Init e noLoc
 
 varInitExpr :: (QualifiedVar, LExpr) -> LExpr
 varInitExpr (QualifiedVar sc ident idx, e) =

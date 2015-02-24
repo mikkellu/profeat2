@@ -94,6 +94,16 @@ endmodule</code></pre>
     z : array [1..3] of bool init true;
 endmodule</code></pre>
 <p>Here, <code>z</code> is a 1-indexed array with 3 elements of type <code>bool</code> and each element is initialized with <code>true</code>.</p>
+<p>If no initial value is given for a variable, one of the possible values is chosen nondeterministically (i.e. the model has multiple initial states). An <code>init</code> block can be defined to constrain the set of initial states:</p>
+<pre><code>module my_module
+    x : bool;
+    y : [-1 .. 1];
+endmodule
+
+init
+    x =&gt; y = 0
+endinit</code></pre>
+<p>Since both <code>x</code> and <code>y</code> are left uninitialized their value is chosen nondeterministically. However, if <code>x = true</code> then <code>y = 0</code> because all initial states must satisfy the expression given in the <code>init</code> block.</p>
 <h4 id="commands">Commands</h4>
 <p>Actions can be indexed, e.g.:</p>
 <pre><code>module my_module(x)
