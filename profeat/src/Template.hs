@@ -183,7 +183,7 @@ unrollLoop :: ( Applicative m
            -> LForLoop a
            -> m b
 unrollLoop f (ForLoop ident range body _) = do
-    (lower, upper) <- evalRange =<< both unrollLoopExprs range
+    (lower, upper) <- evalRange =<< both prepExpr range
     f body (map (Map.singleton ident . flip IntegerExpr noLoc) [lower .. upper])
 
 expandFormulas :: (Applicative m, HasExprs n, MonadError Error m)
