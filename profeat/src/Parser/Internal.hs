@@ -102,9 +102,9 @@ reservedNames =
     , "initial", "rewards" , "endrewards", "controller", "endcontroller"
     , "module", "endmodule", "this", "public", "active", "activate"
     , "deactivate", "array", "bool", "int", "double", "init" , "endinit"
-    , "for", "endfor" , "in", "id", "filter", "min", "max", "true", "false"
-    , "P", "Pmin", "Pmax", "R", "Rmin", "Rmax", "S" , "E", "A", "U", "W", "R"
-    , "X", "F", "G", "C", "I"
+    , "for", "endfor" , "in", "id", "block", "filter", "min", "max", "true"
+    , "false", "P", "Pmin", "Pmax", "R", "Rmin", "Rmax", "S" , "E", "A", "U"
+    , "W", "R", "X", "F", "G", "C", "I"
     ]
 reservedOpNames =
     [ "/", "*", "-", "+", "=", "!=", ">", "<", ">=", "<=", "&", "|", "!"
@@ -372,9 +372,10 @@ stmt =  loc (Stmt <$> brackets actionLabel
 
 actionLabel :: Parser LActionLabel
 actionLabel = option NoAction . loc . choice $
-    [ ActActivate   <$ reserved "activate"
-    , ActDeactivate <$ reserved "deactivate"
-    , Action <$> name
+    [ ActActivate   <$  reserved "activate"
+    , ActDeactivate <$  reserved "deactivate"
+    , Action        <$> option NonBlocking (Blocking <$ reserved "block")
+                    <*> name
     ]
 
 update :: Parser LUpdate

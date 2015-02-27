@@ -177,11 +177,11 @@ trnsActionLabel action =
         Just lbl -> do
             lss <- toList <$> getLabelSetsFor lbl
             return $ case lss of
-                [] -> [(Action (labelName lbl) noLoc, Set.singleton lbl)]
+                [] -> [(Action NonBlocking (labelName lbl) noLoc, Set.singleton lbl)]
                 _  -> fmap (labelSetToAction &&& id) lss
 
 labelSetToAction :: Set LabelSymbol -> LActionLabel
-labelSetToAction ls = Action (labelSetName ls) noLoc
+labelSetToAction ls = Action NonBlocking (labelSetName ls) noLoc
 
 getLabelSetsFor :: (MonadReader TrnsInfo m) => LabelSymbol -> m LabelSets
 getLabelSetsFor lbl = do
@@ -194,7 +194,7 @@ actionToLabel :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
 actionToLabel action = case action of
     ActActivate l   -> toReconfLabel ReconfActivate l
     ActDeactivate l -> toReconfLabel ReconfDeactivate l
-    Action n _      -> Just . LsAction <$> getLabelInfo n
+    Action _ n _    -> Just . LsAction <$> getLabelInfo n
     NoAction        -> return Nothing
   where
     toReconfLabel rt l = do

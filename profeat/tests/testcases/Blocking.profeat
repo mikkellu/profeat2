@@ -1,0 +1,18 @@
+feature root {
+    [0..1] of a;
+}
+
+feature a {
+    modules a_impl;
+}
+
+module a_impl {
+    s : [0..2] init 0;
+
+    [tick]       s = 0  -> (s' = 1);
+    [block tock] s = 1  -> (s' = 2);
+    []           s = 2  -> (s' = 0);
+    [activate]   true   -> (s' = 0);
+    [deactivate] s != 0 -> true;
+}
+

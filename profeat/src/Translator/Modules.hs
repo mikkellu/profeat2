@@ -52,19 +52,23 @@ trnsStmt (Stmt action grd upds l) = do
     Local ctx <- view scope
     actions'  <- trnsActionLabel action
 
-    for actions' $ \(action', labelSet) -> do
-        let actGrd  = activeGuard ctx
-            actGrd' = if localActivateLabel ctx `member` labelSet
-                          then unaryExpr (LogicUnOp LNot) actGrd
-                          else actGrd
+    fmap concat . for actions' $ \(action', labelSet) -> do
+        let actGrd    = activeGuard ctx
+            negActGrd = unaryExpr (LogicUnOp LNot) actGrd
+            actGrd'   = if localActivateLabel ctx `member` labelSet
+                            then negActGrd
+                            else actGrd
 
         grd'  <- trnsExpr isBoolType grd
         upds' <- ones (trnsUpdate trnsAssign) upds
 
-        return $
-            Stmt action' (conjunction [actGrd', grd']) upds' l
+        return $ Stmt action' (actGrd' `lAnd` grd') upds' l :
+                [Stmt action' negActGrd (Repeatable []) l | isNonBlocking]
   where
     localActivateLabel ctx = LsReconf ctx ReconfActivate
+    isNonBlocking = case action of
+        Action NonBlocking _ _ -> True
+        _                      -> False
 
 trnsAssign :: Translator LAssign
 trnsAssign (Assign name e l) = trnsVarAssign name e l

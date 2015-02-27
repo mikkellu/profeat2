@@ -214,6 +214,23 @@ is activated or deactivated.
 In this example, the feature `my_feat` can only be deactivated by the
 controller if the module is not `busy`.
 
+By default, actions are not blocked if the feature is deactivated. In case this
+is undesired, actions can be marked with the `block` keyword indicating that
+the actions is blocked by the module when the feature is not activated:
+
+    feature my_feature
+        modules my_module;
+    endfeatur
+
+    module my_module
+        s : bool;
+
+        [tick]      !s -> (s' = true);
+        [block tock] s -> (s' = false);
+    endmodule
+
+Here, the `tock` action is blocked if `my_feature` is not active.
+
 ### Feature Controller
 
 The feature controller is optional and has the following general form:

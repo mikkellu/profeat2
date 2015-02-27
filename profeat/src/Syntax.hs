@@ -49,6 +49,7 @@ module Syntax
   , Property(..)
   , Stmt(..)
   , ActionLabel(..)
+  , Blocking(..)
   , Update(..)
   , Assign(..)
   , Expr(..)
@@ -375,14 +376,19 @@ instance HasExprs Stmt where
 data ActionLabel a
   = ActActivate !a
   | ActDeactivate !a
-  | Action (Name a) !a
+  | Action !Blocking (Name a) !a
   | NoAction
   deriving (Eq, Functor, Show)
 
 instance HasExprs ActionLabel where
     exprs f actionLabel = case actionLabel of
-        Action name a -> Action <$> exprs f name <*> pure a
-        _             -> pure actionLabel
+        Action block name a -> Action block <$> exprs f name <*> pure a
+        _                   -> pure actionLabel
+
+data Blocking
+  = Blocking
+  | NonBlocking
+  deriving (Eq, Show)
 
 data Update a = Update
   { updProb   :: Maybe (Expr a)
@@ -784,10 +790,15 @@ instance Pretty (Stmt a) where
 
 instance Pretty (ActionLabel a) where
     pretty action = case action of
-        ActActivate _   -> "activate"
-        ActDeactivate _ -> "deactivate"
-        Action n _      -> pretty n
-        NoAction        -> empty
+        ActActivate _    -> "activate"
+        ActDeactivate _  -> "deactivate"
+        Action block n _ -> pretty block <+> pretty n
+        NoAction         -> empty
+
+instance Pretty Blocking where
+    pretty = \case
+        Blocking    -> "block"
+        NonBlocking -> empty
 
 instance Pretty (Update a) where
     pretty (Update e asgns _) = prob e <>

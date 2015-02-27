@@ -1,0 +1,32 @@
+init
+    (0 <= _a & _a <= 1) &
+    _a_s = 0
+endinit
+
+module _controller
+    _a : [0 .. 1];
+endmodule
+
+formula _active  = true;
+formula _a_active = _a = 1;
+
+module _a_a_impl
+    _a_s : [0 .. 2];
+
+    // [tick] s = 0  -> (s' = 1);
+    [tick]  _a_active & _a_s = 0 -> (_a_s' = 1);
+    [tick] !_a_active            -> true;
+
+    // [block tock] s = 1  -> (s' = 2);
+    [tock] _a_active & _a_s = 1 -> (_a_s' = 2);
+
+    // [] s = 2  -> (s' = 0);
+    [] _a_active & _a_s = 2 -> (_a_s' = 0);
+
+    // [activate] true -> (s' = 0);
+    [_a_activate] !_a_active -> (_a_s' = 0);
+
+    // [deactivate] s != 0 -> true;
+    [_a_deactivate] _a_active & _a_s != 0 -> true;
+endmodule
+
