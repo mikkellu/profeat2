@@ -50,6 +50,7 @@ module Symbols
   , containsFeature
   , containsController
   , containsInit
+  , containsInvariant
   , lookupLabel
   , lookupModule
   , lookupFeature
@@ -171,6 +172,7 @@ data SymbolTable = SymbolTable
   , _rootFeature   :: FeatureSymbol
   , _controller    :: Maybe ControllerSymbol
   , _initConfExpr  :: Maybe LExpr
+  , _invariantExpr :: Maybe LExpr
   , _initConfLabel :: Maybe LExpr
   } deriving (Show)
 
@@ -222,6 +224,7 @@ emptySymbolTable = SymbolTable
   , _rootFeature   = emptyFeatureSymbol
   , _controller    = Nothing
   , _initConfExpr  = Nothing
+  , _invariantExpr = Nothing
   , _initConfLabel = Nothing
   }
 
@@ -259,6 +262,9 @@ containsController symTbl _ = symTbl^?controller._Just.ctsBody.to modAnnot
 
 containsInit :: SymbolTable -> Ident -> Maybe SrcLoc
 containsInit symTbl _ = symTbl^?initConfExpr._Just.to exprAnnot
+
+containsInvariant :: SymbolTable -> Ident -> Maybe SrcLoc
+containsInvariant symTbl _ = symTbl^?invariantExpr._Just.to exprAnnot
 
 lookupLabel :: (MonadReader r m, MonadError Error m, HasSymbolTable r)
             => Ident

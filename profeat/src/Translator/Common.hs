@@ -4,6 +4,7 @@ module Translator.Common
   ( TrnsInfo(..)
   , trnsInfo
   , labelSets
+  , invariants
   , constraints
 
   , LabelSymbol(..)
@@ -58,6 +59,7 @@ data TrnsInfo = TrnsInfo
   { _trnsSymbolTable :: SymbolTable
   , _trnsScope       :: !Scope
   , _labelSets       :: LabelSets
+  , _invariants      :: [LExpr]
   , _constraints     :: Set ConstraintExpr
   }
 
@@ -70,7 +72,7 @@ instance HasScope TrnsInfo where
     scope = trnsScope
 
 trnsInfo :: SymbolTable -> Set ConstraintExpr -> TrnsInfo
-trnsInfo symTbl = TrnsInfo symTbl Global Set.empty
+trnsInfo symTbl = TrnsInfo symTbl Global Set.empty []
 
 type Trans = ReaderT TrnsInfo (Either Error)
 
