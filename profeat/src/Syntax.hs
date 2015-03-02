@@ -24,6 +24,7 @@ module Syntax
   , _FormulaDef
   , _LabelDef
   , _InitDef
+  , _InvariantDef
   , _PropertyDef
 
   , Feature(..)
@@ -35,6 +36,7 @@ module Syntax
   , Rewards(..)
   , Reward(..)
   , Init(..)
+  , Invariant(..)
   , Controller(..)
   , Module(..)
   , ModuleBody(..)
@@ -86,6 +88,7 @@ module Syntax
   , LRewards
   , LReward
   , LInit
+  , LInvariant
   , LController
   , LModule
   , LModuleBody
@@ -143,6 +146,7 @@ data Definition a
   | LabelDef      (Label a)
   | RewardsDef    (Rewards a)
   | InitDef       (Init a)
+  | InvariantDef  (Invariant a)
   | PropertyDef   (Property a)
   deriving (Eq, Functor, Show)
 
@@ -248,6 +252,14 @@ data Init a = Init
 
 instance HasExprs Init where
     exprs f (Init e a) = Init <$> f e <*> pure a
+
+data Invariant a = Invariant
+  { invExpr  :: Expr a
+  , invAnnot :: !a
+  } deriving (Eq, Functor, Show)
+
+instance HasExprs Invariant where
+    exprs f (Invariant e a) = Invariant <$> f e <*> pure a
 
 data Controller a = Controller (ModuleBody a) deriving (Eq, Functor, Show)
 
@@ -556,6 +568,7 @@ defAnnot = \case
     LabelDef l                   -> lblAnnot l
     RewardsDef r                 -> rwsAnnot r
     InitDef i                    -> initAnnot i
+    InvariantDef i               -> invAnnot i
     PropertyDef p                -> propAnnot p
 
 exprAnnot :: Expr a -> a
@@ -622,6 +635,7 @@ type LInstance        = Instance SrcLoc
 type LRewards         = Rewards SrcLoc
 type LReward          = Reward SrcLoc
 type LInit            = Init SrcLoc
+type LInvariant       = Invariant SrcLoc
 type LController      = Controller SrcLoc
 type LModule          = Module SrcLoc
 type LModuleBody      = ModuleBody SrcLoc
@@ -656,16 +670,17 @@ instance Pretty (Specification a) where
 
 instance Pretty (Definition a) where
     pretty def = case def of
-        FeatureDef  f   -> pretty f
+        FeatureDef    f -> pretty f
         ControllerDef c -> pretty c
-        ModuleDef   m   -> pretty m
-        GlobalDef   g   -> "global" <+> pretty g
-        ConstDef    c   -> pretty c
-        FormulaDef  f   -> pretty f
-        LabelDef    l   -> pretty l
-        RewardsDef  r   -> pretty r
-        InitDef     i   -> pretty i
-        PropertyDef p   -> pretty p
+        ModuleDef     m -> pretty m
+        GlobalDef     g -> "global" <+> pretty g
+        ConstDef      c -> pretty c
+        FormulaDef    f -> pretty f
+        LabelDef      l -> pretty l
+        RewardsDef    r -> pretty r
+        InitDef       i -> pretty i
+        InvariantDef  i -> pretty i
+        PropertyDef   p -> pretty p
 
 instance Pretty (Feature a) where
     pretty (Feature ident params decomp constrs mods rws _) =
@@ -719,6 +734,10 @@ instance Pretty (Reward a) where
 instance Pretty (Init a) where
     pretty (Init e _) =
         "init" <> line <> indent 4 (pretty e) <> line <> "endinit"
+
+instance Pretty (Invariant a) where
+    pretty (Invariant e _) =
+        "invariant" <> line <> indent 4 (pretty e) <> line <> "endinvariant"
 
 instance Pretty (Controller a) where
     pretty (Controller body) =

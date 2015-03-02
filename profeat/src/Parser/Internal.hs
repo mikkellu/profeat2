@@ -102,9 +102,9 @@ reservedNames =
     , "initial", "rewards" , "endrewards", "controller", "endcontroller"
     , "module", "endmodule", "this", "public", "active", "activate"
     , "deactivate", "array", "bool", "int", "double", "init" , "endinit"
-    , "for", "endfor" , "in", "id", "block", "filter", "min", "max", "true"
-    , "false", "P", "Pmin", "Pmax", "R", "Rmin", "Rmax", "S" , "E", "A", "U"
-    , "W", "R", "X", "F", "G", "C", "I"
+    , "invariant", "endinvariant", "for", "endfor" , "in", "id", "block"
+    , "filter", "min", "max", "true", "false", "P", "Pmin", "Pmax", "R"
+    , "Rmin", "Rmax", "S" , "E", "A", "U", "W", "R", "X", "F", "G", "C", "I"
     ]
 reservedOpNames =
     [ "/", "*", "-", "+", "=", "!=", ">", "<", ">=", "<=", "&", "|", "!"
@@ -203,6 +203,7 @@ model = do
                             , formulaDef
                             , labelDef
                             , initDef
+                            , invariantDef
                             ]
     definitions PrismLang = [ moduleDef
                             , globalDef
@@ -351,6 +352,12 @@ initDef = InitDef <$> init' <?> "init definition"
 
 init' :: Parser LInit
 init' = loc (Init <$> (reserved "init" *> block "init" expr))
+
+invariantDef :: Parser LDefinition
+invariantDef = InvariantDef <$> invariant <?> "invariant definition"
+
+invariant :: Parser LInvariant
+invariant = loc (Invariant <$> (reserved "invariant" *> block "invariant" expr))
 
 propertyDef :: Parser LDefinition
 propertyDef = PropertyDef <$>
