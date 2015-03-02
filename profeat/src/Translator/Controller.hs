@@ -100,14 +100,14 @@ trnsStmt (Stmt action grd (Repeatable ss) l) = do
 
     constrGrds  <- traverse constraintGuard reconfs
     let cardGrds = fmap cardGuards reconfs
-        grd''    = conjunction $ grd' : cardGrds ++ constrGrds
+        grd''    = (grd' : cardGrds ++ constrGrds)^.conjunction
 
     return $ Stmt action' grd'' upds' l
   where
     cardGuards reconf =
         let parentCtxs = toList . Set.fromList .
                          catMaybes . fmap parentContext $ keys reconf
-        in conjunction $ fmap (cardGuard reconf) parentCtxs
+        in view conjunction $ fmap (cardGuard reconf) parentCtxs
 
     cardGuard reconf parentCtx =
         let fs             = parentCtx^.this
@@ -133,7 +133,7 @@ trnsStmt (Stmt action grd (Repeatable ss) l) = do
             Nothing -> identExpr (activeIdent childCtx) noLoc
 
     constraintGuard reconf =
-        conjunction .
+        view conjunction .
         fmap (trnsConstraintExpr . specialize reconf) .
         filter (\c -> any (refersTo c) $ keys reconf) .
         toList <$>
@@ -226,7 +226,7 @@ genInitConfLabel =
 activeExpr :: FeatureContext -> LExpr
 activeExpr ctx =
     let ctxs = filter (not . _fsMandatory . thisFeature) $ parentContexts ctx
-    in conjunction $ fmap isActive ctxs
+    in view conjunction $ fmap isActive ctxs
   where
     isActive ctx' = let ident = activeIdent ctx' in identExpr ident noLoc `eq` 1
 

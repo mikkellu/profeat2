@@ -65,9 +65,13 @@ normalizeExpr = transform $ \e -> case e of
     UnaryExpr (ArithUnOp Neg) (DecimalExpr d a) _ -> DecimalExpr (negate d) a
     _ -> e
 
-conjunction :: [LExpr] -> LExpr
-conjunction [] = BoolExpr True noLoc
-conjunction es = foldr1 lAnd es
+-- | Isomorphism of a list of 'Expr'essions and their conjunction.
+conjunction :: Iso' [LExpr] LExpr
+conjunction = iso f g where
+    f = foldr lAnd (BoolExpr True noLoc)
+    g (BinaryExpr (LogicBinOp LAnd) l r _) = g l ++ g r
+    g (BoolExpr True _)                    = []
+    g e                                    = [e]
 
 -- | Returns True if the given expression contains labels.
 containsLabelExpr :: Expr a -> Bool
