@@ -17,6 +17,7 @@ import Syntax.Util
 import Types
 
 import Translator.Common
+import Translator.Invariant
 import Translator.Names
 
 trnsModules :: Trans [LDefinition]
@@ -50,19 +51,25 @@ trnsLocalVars decls = do
 trnsStmt :: LStmt -> Trans [LStmt]
 trnsStmt (Stmt action grd upds l) = do
     Local ctx <- view scope
-    actions'  <- trnsActionLabel action
+    invs      <- view invariants
+
+    upds' <- ones (trnsUpdate trnsAssign) upds
+
+    let invGrd = genInvariantGuard invs (upds'^..ones)
+    invGrd'   <- partialEval invGrd
+    grd'      <- trnsExpr isBoolType grd
+
+    actions' <- trnsActionLabel action
+
+    let actGrd    = activeGuard ctx
+        negActGrd = unaryExpr (LogicUnOp LNot) actGrd
 
     fmap concat . for actions' $ \(action', labelSet) -> do
-        let actGrd    = activeGuard ctx
-            negActGrd = unaryExpr (LogicUnOp LNot) actGrd
-            actGrd'   = if localActivateLabel ctx `member` labelSet
-                            then negActGrd
-                            else actGrd
+        let actGrd' = if localActivateLabel ctx `member` labelSet
+                          then negActGrd
+                          else actGrd
 
-        grd'  <- trnsExpr isBoolType grd
-        upds' <- ones (trnsUpdate trnsAssign) upds
-
-        return $ Stmt action' (actGrd' `lAnd` grd') upds' l :
+        return $ Stmt action' (actGrd' `lAnd` invGrd' `lAnd` grd') upds' l :
                 [Stmt action' negActGrd (Repeatable []) l | isNonBlocking]
   where
     localActivateLabel ctx = LsReconf ctx ReconfActivate

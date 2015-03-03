@@ -1,0 +1,29 @@
+global x : [0..5] init 0;
+
+feature root {
+    modules test;
+}
+
+invariant {
+    !(root.s <=> root.t) & mod(x, 2) = 0
+}
+
+module test {
+    s : bool init false;
+    t : bool init true;
+
+    y : [0..5] init 0;
+
+    // invariant always holds
+    [] !s & t -> (s' = true) & (t' = false);
+
+    // invariant always violated
+    [] true -> (s' = true) & (t' = true);
+
+    // invariant may be violated
+    [] x < 5 -> (x' = x + 1);
+
+    // no invariant applicable
+    [] y < 5 -> (y' = y + 1);
+}
+

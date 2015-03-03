@@ -50,6 +50,7 @@ translatorTestCases = testGroup "Translator" $ map translatorTestCase
   , "PropertyRewards"
   , "ConstArrays"
   , "Init"
+  , "Invariant"
   , "Blocking"
   ]
 

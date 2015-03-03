@@ -1,0 +1,39 @@
+init
+    !(_s <=> _t) &
+    mod(x, 2) = 0 &
+    x = 0 &
+    _s = false &
+    _t = true &
+    _y = 0
+endinit
+
+formula _active = true;
+
+global x : [0..5];
+
+// invariant {
+//     !(root.s <=> root.t) & mod(x, 2) = 0
+// }
+
+module _test
+    _s : bool;
+    _t : bool;
+    _y : [0 .. 5];
+
+    // invariant always holds
+    // [] !s & t -> (s' = true) & (t' = false);
+    [] _active & (!_s & _t) -> (_s' = true) & (_t' = false);
+
+    // invariant always violated
+    // [] true -> (s' = true) & (t' = true);
+    [] _active & false -> (_s' = true) & (_t' = true);
+
+    // invariant may be violated
+    // [] x < 5 -> (x' = x + 1);
+    [] (_active & mod(x + 1, 2) = 0) & x < 5 -> (x' = x + 1);
+
+    // no invariant applicable
+    // [] y < 5 -> (y' = y + 1);
+    [] _active & _y < 5 -> (_y' = _y + 1);
+endmodule
+

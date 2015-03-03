@@ -169,6 +169,23 @@ endfor</code></pre>
 <pre><code>[] x = 0 -&gt; for i in [0..3] { 0.25:(x&#39; = i) };</code></pre>
 <p>...and variable updates</p>
 <pre><code>[] x = 0 -&gt; 0.5:for i in [0..3] { (y[i]&#39; = 0) } + 0.5:true;</code></pre>
+<h3 id="invariants">Invariants</h3>
+<p>Similar to an <code>init</code> block, which constrains the initial states of a model, an <code>invariant</code> block constrains the set of reachable states (this includes the initial states).</p>
+<pre><code>invariant
+    mod(my_feature.x, 2) = 0;
+endinvariant
+
+feature my_feature
+    modules my_module;
+endfeature
+
+module my_module
+    x : [0..4];
+
+    [] x &lt; 4 -&gt; (x&#39; = x + 1);
+    [] x &lt; 3 -&gt; (x&#39; = x + 2);
+endmodule</code></pre>
+<p>In this example, the first command of <code>my_module</code> will never be executed, since adding 1 to <code>x</code> would violate the invariant. However, the second command is not affected, as it does not lead to a violation of the invariant.</p>
 <h2 id="running-profeat">Running ProFeat</h2>
 <p>Given a ProFeat model <code>my_model.profeat</code> and a properties list <code>my_props.fprops</code>, ProFeat can be run from the command line as follows:</p>
 <pre><code>profeat my_model.profeat my_props.fprops</code></pre>
