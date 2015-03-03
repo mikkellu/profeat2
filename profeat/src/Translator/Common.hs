@@ -1,4 +1,7 @@
-{-# LANGUAGE FlexibleContexts, LambdaCase, TemplateHaskell #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase       #-}
+{-# LANGUAGE PatternGuards    #-}
+{-# LANGUAGE TemplateHaskell  #-}
 
 module Translator.Common
   ( TrnsInfo(..)
@@ -228,7 +231,9 @@ partialEval e = do
     val <- view constValues
     transformM (f val) e
   where
-    f val e' = do
+    f val e'
+      | FuncExpr _ _ <- e' = return e'
+      | otherwise          = do
         isConst <- isConstExpr e'
         if isConst
             then do
