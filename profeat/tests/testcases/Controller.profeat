@@ -1,0 +1,32 @@
+feature root {
+    some of a, b, c;
+
+    initial constraint active(a);
+    constraint active(a) => !(active(b) & active(c));
+}
+
+feature a {
+    modules a_impl;
+}
+
+module a_impl {
+    x : bool init false;
+
+    [] true -> (x' = !x);
+
+    [activate]   true -> (x' = false);
+    [deactivate] x    -> true;
+}
+
+feature b { }
+feature c { }
+
+controller {
+    s : [0..1] init 0;
+
+    [] s = 0 -> (s' = 1) & deactivate(a) & activate(b) & activate(c);
+    [] s = 1 -> (s' = 0) & activate(a) & deactivate(b) & deactivate(c);
+    [] true  -> activate(a) & activate(b) & activate(c);
+    [] true  -> activate(b) & activate(c);
+}
+

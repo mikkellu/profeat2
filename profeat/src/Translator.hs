@@ -11,31 +11,35 @@ import Control.Monad.Reader
 
 import Data.Foldable ( toList )
 import Data.List ( sortBy )
-import Data.Map ( assocs )
+import Data.Map ( Map, assocs, fromList )
 import Data.Maybe
 import Data.Ord ( comparing )
-import qualified Data.Set as Set
 import Data.Traversable
 
+import Analysis.InitialState
 import Error
 import Symbols
 import Syntax
+import Syntax.Util
 import Template
 import Types
 
 import Translator.Common
-import Translator.Constraints
 import Translator.Controller
+import Translator.Initial
+import Translator.Invariant
 import Translator.Modules
+import Translator.Names
 import Translator.Properties
 import Translator.Rewards
 
 translateModel :: SymbolTable -> Either Error LModel
 translateModel symTbl = do
-    (initConstrs, constrs) <- runReaderT extractConstraints (Env Global symTbl)
+    (initExprs, invs) <- flip runReaderT (trnsInfo symTbl (Invariants [])) $
+        (,) <$> extractInits <*> extractInvariants
 
-    flip runReaderT (trnsInfo symTbl constrs) $ do
-        (controllerDef, lss) <- trnsControllerDef initConstrs
+    flip runReaderT (trnsInfo symTbl invs) $ do
+        (controllerDef, lss) <- trnsControllerDef initExprs
         local (labelSets .~ lss) $ do
             constDefs   <- trnsConsts
             globalDefs  <- trnsGlobals
@@ -57,7 +61,7 @@ translateSpec :: SymbolTable
               -> LSpecification
               -> Either Error LSpecification
 translateSpec symTbl (Specification defs) =
-    flip runReaderT (trnsInfo symTbl Set.empty) $ do
+    flip runReaderT (trnsInfo symTbl (Invariants [])) $ do
         -- constDefs <- trnsConsts
         let constDefs = []
         labelDefs <- trnsLabelDefs defs
@@ -96,4 +100,46 @@ trnsLabel (Label ident e l)
   | otherwise = do
       e' <- trnsExpr isBoolType =<< prepExpr e
       return . Just $ Label ident e' l
+
+extractInvariants :: Trans Invariants
+extractInvariants = do
+    symTbl <- view symbolTable
+
+    invExprs <- case symTbl^.invariantExpr of
+        Just e  -> view (from conjunction) <$> trnsExpr isBoolType e
+        Nothing -> return []
+    constrs <- extractConstraints False
+
+    let invs  = invExprs ++ constrs
+        invs' = substitute (activeDefs $ symTbl^.rootFeature) <$> invs -- substitute active formulas
+
+    return (Invariants invs')
+
+activeDefs :: FeatureSymbol -> Map Ident LExpr
+activeDefs = fromList . fmap activeDef . allContexts where
+    activeDef = (,) <$> activeFormulaIdent <*> activeExpr
+
+extractInits :: Trans InitExprs
+extractInits = do
+    symTbl <- view symbolTable
+
+    let varInit = fmap varInitExpr (initialState symTbl)
+    eInit <- case symTbl^.initConfExpr of
+        Just e  -> trnsExpr isBoolType e
+        Nothing -> return $ BoolExpr True noLoc
+    initConstrExprs <- extractConstraints True
+
+    return . InitExprs . concat $ [initConstrExprs, varInit, [eInit]]
+
+varInitExpr :: (QualifiedVar, LExpr) -> LExpr
+varInitExpr (QualifiedVar sc ident idx, e) =
+    NameExpr (fullyQualifiedName sc ident idx noLoc) noLoc `eq` e
+
+extractConstraints :: Bool -> Trans [LExpr]
+extractConstraints initial =
+    fmap (catMaybes . concat) . forAllContexts $ \ctx ->
+        for (ctx^.this.fsConstraints) $ \(Constraint i e _) ->
+            if i == initial
+                then Just <$> trnsExpr isBoolType e
+                else return Nothing
 

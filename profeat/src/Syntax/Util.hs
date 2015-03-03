@@ -2,6 +2,7 @@
 
 module Syntax.Util
   ( identExpr
+  , valueExpr
 
   , neutralElement
 
@@ -27,15 +28,23 @@ module Syntax.Util
 import Control.Applicative
 import Control.Lens
 
-import Data.List          ( sortBy )
+import Data.List          ( foldl', sortBy )
 import Data.List.NonEmpty ( NonEmpty(..) )
 import Data.Ord           ( comparing )
 
 import Syntax
+import Types
 
 -- | Generates a 'NameExpr' with the given identifier.
 identExpr :: Ident -> SrcLoc -> LExpr
 identExpr ident l = NameExpr (_Ident # (ident, l)) l
+
+-- | Generate an 'Expr'ession that represents a 'Value'.
+valueExpr :: Value -> LExpr
+valueExpr = \case
+    BoolVal b -> BoolExpr b noLoc
+    IntVal i  -> IntegerExpr i noLoc
+    DblVal d  -> DecimalExpr d noLoc
 
 -- | Returns the neutral element for the given 'BinOp' if it exists.
 neutralElement :: BinOp -> Maybe LExpr
@@ -68,7 +77,7 @@ normalizeExpr = transform $ \e -> case e of
 -- | Isomorphism of a list of 'Expr'essions and their conjunction.
 conjunction :: Iso' [LExpr] LExpr
 conjunction = iso f g where
-    f = foldr lAnd (BoolExpr True noLoc)
+    f = foldl' lAnd (BoolExpr True noLoc)
     g (BinaryExpr (LogicBinOp LAnd) l r _) = g l ++ g r
     g (BoolExpr True _)                    = []
     g e                                    = [e]

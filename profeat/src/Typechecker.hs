@@ -118,7 +118,6 @@ checkIfConst e
 
 isConstExpr :: ( Functor m
                , MonadReader r m
-               , MonadError Error m
                , HasSymbolTable r
                )
         => LExpr

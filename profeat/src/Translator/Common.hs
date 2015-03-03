@@ -5,7 +5,6 @@ module Translator.Common
   , trnsInfo
   , labelSets
   , invariants
-  , constraints
 
   , LabelSymbol(..)
   , LabelSets
@@ -20,6 +19,9 @@ module Translator.Common
   , trnsActionLabel
 
   , activeGuard
+  , activeExpr
+
+  , partialEval
 
   , labelSetToAction
   , labelSetName
@@ -39,13 +41,14 @@ import qualified Data.Set as Set
 import qualified Data.Text.Lazy as T
 
 import Error
+import Eval
 import Symbols
 import Syntax
 import Syntax.Util
 import Typechecker
 import Types
 
-import Translator.Constraints
+import Translator.Invariant
 import Translator.Names
 
 data LabelSymbol
@@ -59,8 +62,7 @@ data TrnsInfo = TrnsInfo
   { _trnsSymbolTable :: SymbolTable
   , _trnsScope       :: !Scope
   , _labelSets       :: LabelSets
-  , _invariants      :: [LExpr]
-  , _constraints     :: Set ConstraintExpr
+  , _invariants      :: Invariants
   }
 
 makeLenses ''TrnsInfo
@@ -71,8 +73,8 @@ instance HasSymbolTable TrnsInfo where
 instance HasScope TrnsInfo where
     scope = trnsScope
 
-trnsInfo :: SymbolTable -> Set ConstraintExpr -> TrnsInfo
-trnsInfo symTbl = TrnsInfo symTbl Global Set.empty []
+trnsInfo :: SymbolTable -> Invariants -> TrnsInfo
+trnsInfo symTbl = TrnsInfo symTbl Global Set.empty
 
 type Trans = ReaderT TrnsInfo (Either Error)
 
@@ -204,6 +206,35 @@ actionToLabel action = case action of
         case sc of
             Local ctx -> return . Just $ LsReconf ctx rt
             _         -> throw l IllegalReconfLabel
+
+activeGuard :: FeatureContext -> LExpr
+activeGuard = flip NameExpr noLoc . activeFormulaName
+
+activeExpr :: FeatureContext -> LExpr
+activeExpr ctx =
+    let ctxs = filter (not . _fsMandatory . thisFeature) $ parentContexts ctx
+    in view conjunction $ fmap isActive ctxs
+  where
+    isActive ctx' = let ident = activeIdent ctx' in identExpr ident noLoc `eq` 1
+
+partialEval :: ( Functor m
+               , MonadReader r m
+               , MonadError Error m
+               , HasSymbolTable r
+               )
+            => LExpr
+            -> m LExpr
+partialEval e = do
+    val <- view constValues
+    transformM (f val) e
+  where
+    f val e' = do
+        isConst <- isConstExpr e'
+        if isConst
+            then do
+                v <- eval' val e'
+                return (valueExpr v)
+            else return e'
 
 labelSetName :: Set LabelSymbol -> LName
 labelSetName ls = review _Ident (T.concat . fmap labelIdent $ toList ls, noLoc)

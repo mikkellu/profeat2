@@ -42,14 +42,14 @@ endfeature</code></pre>
 <pre><code>feature my_feat
     some of a[2], b, c;
 
-    constraint b =&gt; (a[0] &amp; c);
+    constraint active(b) =&gt; (active(a[0]) &amp; active(c));
 endfeature</code></pre>
 <p>If feature <code>b</code> is part of the feature combination, then both <code>a[0]</code> and <code>c</code> must also be part of the feature combination.</p>
 <p>A <code>constraint</code> must always hold and is therefore enforced in both static and dynamic product lines. However, if it is only necessary to constrain the initial configurations of the product line, an <code>initial constraint</code> can be specified:</p>
 <pre><code>feature my_feat
     some of a[2], b, c;
 
-    initial constraint b =&gt; (a[0] &amp; c);
+    initial constraint active(b) =&gt; (active(a[0]) &amp; active(c));
 endfeature</code></pre>
 <p>Here, the constraint only holds for the initial configuration, but the <a href="#feature-controller">Feature Controller</a> is free to establish a feature combination that violates this constraint.</p>
 <h4 id="referencing-feature-modules">Referencing Feature Modules</h4>
@@ -122,6 +122,18 @@ module my_module
     [deactivate] !busy -&gt; true;
 endmodule</code></pre>
 <p>In this example, the feature <code>my_feat</code> can only be deactivated by the controller if the module is not <code>busy</code>.</p>
+<p>By default, actions are not blocked if the feature is deactivated. In case this is undesired, actions can be marked with the <code>block</code> keyword indicating that the actions is blocked by the module when the feature is not activated:</p>
+<pre><code>feature my_feature
+    modules my_module;
+endfeatur
+
+module my_module
+    s : bool;
+
+    [tick]      !s -&gt; (s&#39; = true);
+    [block tock] s -&gt; (s&#39; = false);
+endmodule</code></pre>
+<p>Here, the <code>tock</code> action is blocked if <code>my_feature</code> is not active.</p>
 <h3 id="feature-controller">Feature Controller</h3>
 <p>The feature controller is optional and has the following general form:</p>
 <pre><code>controller

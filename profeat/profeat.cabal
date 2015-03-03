@@ -1,5 +1,5 @@
 name:                profeat
-version:             0.73.0.0
+version:             0.74.0.0
 synopsis:            A feature modelling framework
 author:              Philipp Chrszon
 maintainer:          Philipp.Chrszon@tu-dresden.de
@@ -27,7 +27,6 @@ library
                        Template,
                        Translator,
                        Translator.Common,
-                       Translator.Constraints,
                        Translator.Controller,
                        Translator.Initial,
                        Translator.Invariant,

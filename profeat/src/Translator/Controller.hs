@@ -28,22 +28,20 @@ import Typechecker
 import Types
 
 import Translator.Common
-import Translator.Constraints
 import Translator.Initial
+import Translator.Invariant
 import Translator.Names
 
 type Reconfiguration = Map FeatureContext ReconfType
 
-trnsControllerDef :: InitialConstraintSet
-                  -> Trans ([LDefinition], LabelSets)
-trnsControllerDef initConstrs = do
-    (defs, lss)    <- trnsController initConstrs
+trnsControllerDef :: InitExprs -> Trans ([LDefinition], LabelSets)
+trnsControllerDef initExprs = do
+    (defs, lss)    <- trnsController initExprs
     activeFormulas <- genActiveFormulas
     return (defs ++ activeFormulas, lss)
 
-trnsController :: InitialConstraintSet
-               -> Trans ([LDefinition], LabelSets)
-trnsController initConstrs =
+trnsController :: InitExprs -> Trans ([LDefinition], LabelSets)
+trnsController initExprs =
     flip runStateT Set.empty . local (scope .~ LocalCtrlr) $ do
         (decls, stmts, l) <- view controller >>= \case
             Just cts -> do
@@ -53,21 +51,22 @@ trnsController initConstrs =
             Nothing -> return ([], [], noLoc)
 
         root     <- view rootFeature
-        actDecls <- genActiveVars
-        initDef  <- genInit initConstrs
+        invs     <- view invariants
 
-        let decls'  = actDecls ++ decls
-            body'   = ModuleBody decls' (Repeatable stmts) l
+        actDecls <- genActiveVars
+        let initDef' = genInit initExprs invs root
+            decls'   = actDecls ++ decls
+            body'    = ModuleBody decls' (Repeatable stmts) l
 
         confLbl <- genInitConfLabel
 
         return $ if hasSingleConfiguration root
             then if null decls && null stmts
-                     then [ initDef ]
-                     else [ initDef
+                     then [ initDef' ]
+                     else [ initDef'
                           , ModuleDef (Module controllerIdent [] [] (ModuleBody decls (Repeatable stmts) l))
                           ]
-            else [ initDef
+            else [ initDef'
                  , ModuleDef (Module controllerIdent [] [] body')
                  ] ++ confLbl
 
@@ -98,9 +97,13 @@ trnsStmt (Stmt action grd (Repeatable ss) l) = do
     action' <- genActionLabel action (reconfsToLabelSet reconfs)
     grd'    <- trnsExpr isBoolType grd
 
-    constrGrds  <- traverse constraintGuard reconfs
-    let cardGrds = fmap cardGuards reconfs
-        grd''    = (grd' : cardGrds ++ constrGrds)^.conjunction
+    invs <- view invariants
+    let cardGrd = view conjunction $ fmap cardGuards reconfs
+        invGrd  = genInvariantGuard invs (upds'^..ones)
+
+    cardGrd' <- partialEval cardGrd
+    invGrd'  <- partialEval invGrd
+    let grd''   = grd' `lAnd` cardGrd' `lAnd` invGrd'
 
     return $ Stmt action' grd'' upds' l
   where
@@ -131,18 +134,6 @@ trnsStmt (Stmt action grd (Repeatable ss) l) = do
             Just ReconfActivate   -> 1
             Just ReconfDeactivate -> 0
             Nothing -> identExpr (activeIdent childCtx) noLoc
-
-    constraintGuard reconf =
-        view conjunction .
-        fmap (trnsConstraintExpr . specialize reconf) .
-        filter (\c -> any (refersTo c) $ keys reconf) .
-        toList <$>
-        view constraints
-
-    specialize reconf = transform $ \c -> case c of
-        FeatConstr ctx -> maybe c
-            (BoolConstr . view (from reconfType)) $ reconf^.at ctx
-        _              -> c
 
 trnsAssign :: ( Applicative m
               , MonadReader TrnsInfo m
@@ -222,11 +213,4 @@ genInitConfLabel =
               , lblAnnot = noLoc
               }
         Nothing -> return []
-
-activeExpr :: FeatureContext -> LExpr
-activeExpr ctx =
-    let ctxs = filter (not . _fsMandatory . thisFeature) $ parentContexts ctx
-    in view conjunction $ fmap isActive ctxs
-  where
-    isActive ctx' = let ident = activeIdent ctx' in identExpr ident noLoc `eq` 1
 

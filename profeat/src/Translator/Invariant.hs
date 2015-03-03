@@ -1,10 +1,10 @@
 {-# LANGUAGE ViewPatterns #-}
 
 module Translator.Invariant
-  ( genInvariantGuard
+  ( Invariants(..)
+  , genInvariantGuard
   ) where
 
-import Control.Applicative
 import Control.Lens
 
 import Data.Map                  ( Map )
@@ -14,15 +14,15 @@ import Syntax
 import Syntax.Util
 import Template
 
-import Translator.Common
+newtype Invariants = Invariants [LExpr]
 
 -- | Generate the invariant guard. The 'Update's have to be translated
 -- already.
-genInvariantGuard :: [LUpdate] -> Trans LExpr
-genInvariantGuard upds = do
+genInvariantGuard :: Invariants -> [LUpdate] -> LExpr
+genInvariantGuard (Invariants invs) upds =
     let defs   = assignments upds
         idents = Map.keys defs
-    substitute defs . view conjunction . filterInvariants idents <$> view invariants
+    in substitute defs . view conjunction . filterInvariants idents $ invs
 
 filterInvariants :: [Ident] -> [LExpr] -> [LExpr]
 filterInvariants idents = filter (idents `occurIn`)

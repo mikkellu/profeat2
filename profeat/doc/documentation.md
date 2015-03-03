@@ -84,7 +84,7 @@ feature instances of the feature model, e.g.:
     feature my_feat
         some of a[2], b, c;
 
-        constraint b => (a[0] & c);
+        constraint active(b) => (active(a[0]) & active(c));
     endfeature
 
 If feature `b` is part of the feature combination, then both `a[0]` and `c` must
@@ -98,7 +98,7 @@ specified:
     feature my_feat
         some of a[2], b, c;
 
-        initial constraint b => (a[0] & c);
+        initial constraint active(b) => (active(a[0]) & active(c));
     endfeature
 
 Here, the constraint only holds for the initial configuration, but the

@@ -1,0 +1,36 @@
+init
+    ((((1 <= (_a + _b) + _c &
+    (_a + _b) + _c <= 3) &
+    (_a = 1 => !(_b = 1 &
+    _c = 1))) & _a_active) &
+    _a_x = false) & __s = 0
+endinit
+
+formula _active = true;
+formula _a_active = _a = 1;
+formula _b_active = _b = 1;
+formula _c_active = _c = 1;
+
+module _a_a_impl
+    _a_x : bool;
+
+    [] _a_active -> (_a_x' = !_a_x);
+
+    [_a_activate_b_activate_c_activate]     !_a_active        -> (_a_x' = false);
+    [_a_activate_b_deactivate_c_deactivate] !_a_active        -> (_a_x' = false);
+    [_a_deactivate_b_activate_c_activate]    _a_active & _a_x -> true;
+endmodule
+
+module _controller
+    _a : [0..1];
+    _b : [0..1];
+    _c : [0..1];
+
+    __s : [0..1];
+
+    [_a_deactivate_b_activate_c_activate] __s = 0 -> (__s' = 1) & (_a' = 0) & (_b' = 1) & (_c' = 1);
+    [_a_activate_b_deactivate_c_deactivate] __s = 1 -> (__s' = 0) & (_a' = 1) & (_b' = 0) & (_c' = 0);
+    [_a_activate_b_activate_c_activate] false -> (_a' = 1) & (_b' = 1) & (_c' = 1);
+    [_b_activate_c_activate] (1 <= (_a + 1) + 1 & (_a + 1) + 1 <= 3) & (_a = 1 => false) -> (_b' = 1) & (_c' = 1);
+endmodule
+
