@@ -58,13 +58,10 @@ extendSymbolTable symTbl defs = flip evalStateT symTbl $ do -- TODO: refactor
     checkIfNonCyclicConstants =<< use constants
     evalConstValues
 
-    symTbl' <- get
-    forOf_ (traverse._GlobalDef) defs $ \decl@(VarDecl ident vt _ l) ->
-        ifNot containsSymbol ident l $ do
-            decl' <- runReaderT (prepExprs decl) (Env Global symTbl')
-            globals.at ident .= Just (GlobalSymbol (fromVarType' vt) decl')
-    symTbl'' <- get
+    addGlobals False _GlobalDef    defs
+    addGlobals True  _AttributeDef defs
 
+    symTbl'' <- get
     forOf_ (traverse._ControllerDef) defs $ \(Controller body) ->
         ifNot containsController "controller" (modAnnot body) $ do
             body' <- runReaderT (prepModuleBody body) (Env LocalCtrlr symTbl'')
@@ -83,23 +80,38 @@ extendSymbolTable symTbl defs = flip evalStateT symTbl $ do -- TODO: refactor
             invariantExpr .= Just e'
     symTbl''''' <- get
 
-    symTbl'''''' <- flip runReaderT (Env Global symTbl''''') .
-                  forOf (globals.traverse) symTbl''''' $ \gs -> do
-        t <- fromVarType $ gs^.gsDecl.to declType
-        return (gs & gsType .~ t)
-    put symTbl''''''
-
-    root <- rootFeatureSymbol symTbl''''''
+    root <- rootFeatureSymbol symTbl'''''
     setControllerVarTypes
 
-    symTbl''''''' <- get
-    return $ symTbl''''''' & rootFeature .~ root
+    symTbl'''''' <- get
+    return $ symTbl'''''' & rootFeature .~ root
   where
-    ifNot contains ident loc m = do
-        st <- get
-        case st `contains` ident of
-            Just l' -> throw loc $ MultipleDeclarations ident l'
-            Nothing -> m
+
+addGlobals :: (Applicative m, MonadState SymbolTable m, MonadError Error m)
+           => Bool
+           -> Prism' LDefinition LVarDecl
+           -> [LDefinition]
+           -> m ()
+addGlobals isAttrib _Def defs = do
+    symTbl <- get
+    forOf_ (traverse._Def) defs $ \decl@(VarDecl ident vt _ l) ->
+        ifNot containsSymbol ident l $
+            flip runReaderT (Env Global symTbl) $ do
+                decl' <- prepExprs decl
+                t     <- fromVarType vt
+                globals.at ident .= Just (GlobalSymbol t isAttrib decl')
+
+ifNot :: (MonadState SymbolTable m, MonadError Error m)
+      => (SymbolTable -> Ident -> Maybe SrcLoc)
+      -> Ident
+      -> SrcLoc
+      -> m ()
+      -> m ()
+ifNot contains ident loc m = do
+    st <- get
+    case st `contains` ident of
+        Just l' -> throw loc $ MultipleDeclarations ident l'
+        Nothing -> m
 
 setControllerVarTypes :: ( Applicative m
                          , MonadState SymbolTable m
@@ -111,7 +123,7 @@ setControllerVarTypes = do
     let cts = symTbl^.controller
     void . flip runReaderT (Env LocalCtrlr symTbl) $
         for (cts^.._Just.ctsBody.to modVars.traverse) $ \decl -> do
-            vs <- toVarSymbol False decl
+            vs <- toVarSymbol False False decl
             controller._Just.ctsVars.at (declIdent decl) .= Just vs
 
 findInitConfLabel :: (Applicative m, MonadState SymbolTable m) => m ()

@@ -20,6 +20,7 @@ module Syntax
   , _ControllerDef
   , _ModuleDef
   , _GlobalDef
+  , _AttributeDef
   , _ConstDef
   , _FormulaDef
   , _LabelDef
@@ -141,6 +142,7 @@ data Definition a
   | ControllerDef (Controller a)
   | ModuleDef     (Module a)
   | GlobalDef     (VarDecl a)
+  | AttributeDef  (VarDecl a)
   | ConstDef      (Constant a)
   | FormulaDef    (Formula a)
   | LabelDef      (Label a)
@@ -153,6 +155,7 @@ data Definition a
 data Feature a = Feature
   { featIdent       :: !Ident
   , featParams      :: [Ident]
+  , featAttributes  :: [VarDecl a]
   , featDecomp      :: Maybe (Decomposition a)
   , featConstraints :: [Constraint a]
   , featModules     :: [Instance a]
@@ -161,8 +164,9 @@ data Feature a = Feature
   } deriving (Eq, Functor, Show)
 
 instance HasExprs Feature where
-    exprs f (Feature ident params decomp constrs mods rws a) =
-        Feature ident params <$> traverse (exprs f) decomp
+    exprs f (Feature ident params attribs decomp constrs mods rws a) =
+        Feature ident params <$> traverse (exprs f) attribs
+                             <*> traverse (exprs f) decomp
                              <*> traverse (exprs f) constrs
                              <*> traverse (exprs f) mods
                              <*> traverse (exprs f) rws
@@ -563,6 +567,7 @@ defAnnot = \case
     ControllerDef (Controller c) -> modAnnot c
     ModuleDef m                  -> modAnnot (modBody m)
     GlobalDef g                  -> declAnnot g
+    AttributeDef a               -> declAnnot a
     ConstDef c                   -> constAnnot c
     FormulaDef f                 -> frmAnnot f
     LabelDef l                   -> lblAnnot l
@@ -674,6 +679,7 @@ instance Pretty (Definition a) where
         ControllerDef c -> pretty c
         ModuleDef     m -> pretty m
         GlobalDef     g -> "global" <+> pretty g
+        AttributeDef  a -> "attribute" <+> pretty a
         ConstDef      c -> pretty c
         FormulaDef    f -> pretty f
         LabelDef      l -> pretty l
@@ -683,13 +689,18 @@ instance Pretty (Definition a) where
         PropertyDef   p -> pretty p
 
 instance Pretty (Feature a) where
-    pretty (Feature ident params decomp constrs mods rws _) =
+    pretty (Feature ident params attribs decomp constrs mods rws _) =
         "feature" <+> text ident <> prettyParams params <> line <>
         indent 4 body <> line <> "endfeature"
       where
-        body = pretty decomp <> line <> constrList <> line <> line <>
+        body = attribList attribs <>
+               pretty decomp <> line <>
+               constrList <> line <> line <>
                modList <> line <> line <>
                vsep (fmap pretty rws)
+        attribList = \case
+            [] -> empty
+            as -> vsep (fmap pretty as) <> line <> line
         constrList = vsep (fmap pretty constrs)
         modList
           | null mods = empty

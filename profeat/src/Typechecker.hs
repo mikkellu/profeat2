@@ -27,6 +27,8 @@ module Typechecker
   , getLabelInfo
   , lookupLabelInfo
 
+  , isAttributeSymbol
+
   , getFeature
   , getContext
   ) where
@@ -326,6 +328,14 @@ lookupLabelInfo (viewSimpleName -> Just (ident, idx, _)) = do
     i <- _Just evalInteger idx
     return . Just $ LabelInfo Global ident i
 lookupLabelInfo _ = error "Typechecker.lookupLabelInfo: not implemented"
+
+isAttributeSymbol :: (MonadReader r m, HasSymbolTable r) => SymbolInfo -> m Bool
+isAttributeSymbol (SymbolInfo sc ident _ _) = do
+    symTbl <- view symbolTable
+    return $ case sc of
+        Global     -> symTbl^?!globals.at ident._Just.gsIsAttrib
+        Local ctx  -> ctx^?!this.fsVars.at ident._Just.vsIsAttrib
+        LocalCtrlr -> False -- attributes cannot be defined in controller
 
 getSymbolInfo :: ( Applicative m
                  , MonadReader r m

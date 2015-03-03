@@ -13,15 +13,16 @@ import Control.Lens
 import Data.List          ( sortBy )
 import Data.List.NonEmpty ( NonEmpty(..) )
 import qualified Data.List.NonEmpty as N
+import Data.Map ( assocs )
+import Data.Maybe ( mapMaybe )
 import Data.Ord ( comparing )
 import Data.Semigroup
 
-import Text.PrettyPrint.Leijen.Text ( Pretty(..), Doc, text )
+import Text.PrettyPrint.Leijen.Text ( Pretty(..), Doc )
 
 import Symbols
 import Syntax hiding ( Range )
 import Syntax.Util
-import Translator.Names ( seedVarIdent )
 import Types
 
 newtype VarOrdering = VarOrdering [(Doc, Range)] deriving (Show)
@@ -33,7 +34,7 @@ instance Monoid VarOrdering where
 data LVarOrdering = LVarOrdering
   { stripLoc :: VarOrdering
   , getLoc   :: !SrcLoc
-  }
+  } deriving (Show)
 
 instance Monoid LVarOrdering where
     mempty = LVarOrdering mempty noLoc
@@ -41,7 +42,7 @@ instance Monoid LVarOrdering where
         LVarOrdering (x `mappend` y) l
 
 mkLVarOrdering :: [(Doc, Range)] -> SrcLoc -> LVarOrdering
-mkLVarOrdering vo l = LVarOrdering (VarOrdering vo) l
+mkLVarOrdering vo = LVarOrdering (VarOrdering vo)
 
 data Range
   = RangeFeature
@@ -55,11 +56,15 @@ varOrdering = stripLoc .
               mconcat .
               sortBy (comparing getLoc) .
               concat .
-              sequence [globalVars, moduleVars, controllerVars]
+              sequence [globalVars, moduleVars, controllerVars] -- TODO: globals are always first
 
 globalVars :: SymbolTable -> [LVarOrdering]
-globalVars symTbl =
-    flip fmap (symTbl^..globals.traverse) $ \(GlobalSymbol t decl) ->
+globalVars =
+    fmap globalToVarOrdering .
+    filter (not . _gsIsAttrib) .
+    toListOf (globals.traverse)
+  where
+    globalToVarOrdering (GlobalSymbol t _ decl) =
         toVarOrdering Global (declIdent decl) t (declAnnot decl)
 
 moduleVars :: SymbolTable -> [LVarOrdering]
@@ -71,19 +76,40 @@ moduleVars symTbl =
 
 controllerVars :: SymbolTable -> [LVarOrdering]
 controllerVars symTbl =
-    let (LVarOrdering (VarOrdering vars) l) =
+    let (VarOrdering vars, l) =
             case symTbl^.controller of
-                Just (ControllerSymbol vs body) -> localVars vs LocalCtrlr body
-                Nothing -> mempty
-        fvars   = concatMap f . allContexts $ view rootFeature symTbl
-        seedVar = if hasSingleConfiguration (symTbl^.rootFeature)
-                        then []
-                        else [(text seedVarIdent, RangeInternal)]
-    in [mkLVarOrdering (seedVar ++ fvars ++ vars) l]
+                Just (ControllerSymbol vs body) ->
+                    (stripLoc $ localVars vs LocalCtrlr body, modAnnot body)
+                Nothing -> (mempty, noLoc)
+        actVars = concatMap f . allContexts $ view rootFeature symTbl
+        VarOrdering attribVars = stripLoc $ attributeVars symTbl
+    in [mkLVarOrdering (actVars ++ attribVars ++ vars) l]
   where
     f ctx
       | ctx^.this.fsMandatory = []
       | otherwise             = [(pretty ctx, RangeFeature)]
+
+attributeVars :: SymbolTable -> LVarOrdering
+attributeVars symTbl =
+    mconcat $ sortBy (comparing getLoc) (globalAttribs ++ localAttribs)
+  where
+    globalAttribs =
+        let decls = filter _gsIsAttrib $ symTbl^..globals.traverse
+        in fmap globalAttrib decls
+    globalAttrib (GlobalSymbol t _ decl) =
+        toVarOrdering Global (declIdent decl) t (declAnnot decl)
+
+    localAttribs :: [LVarOrdering]
+    localAttribs =
+        let ctxs = symTbl^.rootFeature.to allContexts
+        in concat . flip fmap ctxs $ \ctx ->
+            mapMaybe (localAttrib ctx) $ ctx^.this.fsVars.to assocs
+
+    localAttrib :: FeatureContext -> (Ident, VarSymbol) -> Maybe LVarOrdering
+    localAttrib ctx (ident, vs)
+      | vs^.vsIsAttrib =
+          Just $ toVarOrdering (Local ctx) ident (vs^.vsType) (vs^.vsLoc)
+      | otherwise = Nothing
 
 localVars :: Table VarSymbol -> Scope -> LModuleBody -> LVarOrdering
 localVars vs sc body =

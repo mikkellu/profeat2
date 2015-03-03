@@ -84,8 +84,8 @@ trnsConst ident (ConstSymbol l t ct e) = case e of
 
 trnsGlobals :: Trans [LDefinition]
 trnsGlobals = do
-    globalTbl <- view globals
-    fmap concat . for (globalTbl^..traverse) $ \(GlobalSymbol t decl) ->
+    gss <- filter (not . _gsIsAttrib) . toList <$> view globals
+    fmap concat . for gss $ \(GlobalSymbol t _ decl) ->
         fmap GlobalDef <$> trnsVarDecl t decl
 
 trnsLabelDefs :: Translator [LDefinition]

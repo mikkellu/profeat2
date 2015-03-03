@@ -1,0 +1,25 @@
+attribute x : [0..2];
+
+feature root {
+    all of a;
+
+    constraint x != 1;
+}
+
+feature a {
+    y : bool;
+
+    modules a_impl;
+}
+
+module a_impl {
+    z : bool init false;
+
+    [] x > 1 & y -> (z' = true);
+}
+
+controller {
+    [] x < 2 -> (x' = x + 1);
+    [] true  -> (a.y' = !a.y);
+}
+

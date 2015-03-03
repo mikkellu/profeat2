@@ -84,6 +84,11 @@ toFeatureSymbols mandatory ref@(FeatureRef isOptional inst _ cntExpr) = do
         feat <- lookupFeature ident l >>=
                 instantiateWithId idx ident args l
 
+        attribDecls' <- traverse prepExprs (featAttributes feat)
+
+        attribVarSyms <- fmap fromList . for attribDecls' $ \decl ->
+            (declIdent decl,) <$> toVarSymbol False True decl
+
         (groupCard, childFeats) <- case featDecomp feat of
             Nothing -> return ((0, 0), Map.empty)
             Just decomp@(Decomposition decompOp refs _) -> do
@@ -110,12 +115,13 @@ toFeatureSymbols mandatory ref@(FeatureRef isOptional inst _ cntExpr) = do
             { _fsIdent          = featRefIdent ref
             , _fsIndex          = idx
             , _fsIsMultiFeature = cnt > 1
+            , _fsAttributes     = attribDecls'
             , _fsGroupCard      = groupCard
             , _fsChildren       = childFeats
             , _fsMandatory      = mandatory && not isOptional
             , _fsOptional       = isOptional
             , _fsModules        = mods
-            , _fsVars           = varSyms
+            , _fsVars           = Map.union attribVarSyms varSyms
             , _fsConstraints    = constraints'
             , _fsRewards        = rewards'
             }
@@ -154,7 +160,7 @@ instantiateModule idx (Instance ident args l) = do
 
     varSyms <- fmap Map.fromList . for (modVars body') $ \decl ->
                    let ident' = declIdent decl
-                   in (ident',) <$> toVarSymbol (ident' `elem` public) decl
+                   in (ident',) <$> toVarSymbol (ident' `elem` public) False decl
 
     return (body', varSyms)
 

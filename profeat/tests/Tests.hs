@@ -52,6 +52,7 @@ translatorTestCases = testGroup "Translator" $ map translatorTestCase
   , "Init"
   , "Invariant"
   , "Blocking"
+  , "Attributes"
   ]
 
 -- }}

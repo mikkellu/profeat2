@@ -7,6 +7,7 @@
 module Symbols
   ( GlobalSymbol(..)
   , gsType
+  , gsIsAttrib
   , gsDecl
 
   , ConstSymbol(..)
@@ -19,12 +20,14 @@ module Symbols
   , vsLoc
   , vsType
   , vsPublic
+  , vsIsAttrib
   , vsInit
 
   , FeatureSymbol(..)
   , fsIdent
   , fsIndex
   , fsIsMultiFeature
+  , fsAttributes
   , fsGroupCard
   , fsChildren
   , fsMandatory
@@ -107,8 +110,9 @@ import Types
 type Table a = Map Ident a
 
 data GlobalSymbol = GlobalSymbol
-  { _gsType    :: !Type
-  , _gsDecl    :: LVarDecl
+  { _gsType     :: !Type
+  , _gsIsAttrib :: !Bool
+  , _gsDecl     :: LVarDecl
   } deriving (Show)
 
 makeLenses ''GlobalSymbol
@@ -123,10 +127,11 @@ data ConstSymbol = ConstSymbol
 makeLenses ''ConstSymbol
 
 data VarSymbol = VarSymbol
-  { _vsLoc     :: !SrcLoc
-  , _vsPublic  :: !Bool
-  , _vsType    :: !Type
-  , _vsInit    :: Maybe LExpr
+  { _vsLoc      :: !SrcLoc
+  , _vsPublic   :: !Bool
+  , _vsIsAttrib :: !Bool
+  , _vsType     :: !Type
+  , _vsInit     :: Maybe LExpr
   } deriving (Show)
 
 makeLenses ''VarSymbol
@@ -142,6 +147,7 @@ data FeatureSymbol = FeatureSymbol
   { _fsIdent          :: !Ident
   , _fsIndex          :: !Integer
   , _fsIsMultiFeature :: !Bool
+  , _fsAttributes     :: [LVarDecl]
   , _fsGroupCard      :: (Integer, Integer)
   , _fsChildren       :: Table (Array Integer FeatureSymbol)
   , _fsMandatory      :: !Bool -- ^ the feature is mandatory (relative to its parent)
@@ -232,6 +238,7 @@ emptyFeatureSymbol :: FeatureSymbol
 emptyFeatureSymbol = FeatureSymbol
   { _fsIdent          = ""
   , _fsIndex          = 0
+  , _fsAttributes     = []
   , _fsIsMultiFeature = False
   , _fsGroupCard      = (0, 0)
   , _fsChildren       = empty

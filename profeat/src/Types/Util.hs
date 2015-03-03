@@ -28,13 +28,14 @@ toVarSymbol :: ( Applicative m
                , HasScope r
                )
             => Bool
+            -> Bool
             -> LVarDecl
             -> m VarSymbol
-toVarSymbol public (VarDecl _ vt mInit l) = do
+toVarSymbol public isAttrib (VarDecl _ vt mInit l) = do
     t      <- fromVarType vt
     mInit' <- _Just (\e -> checkInitialization t e *> prepExpr e) mInit
 
-    return $ VarSymbol l public t mInit'
+    return $ VarSymbol l public isAttrib t mInit'
 
 fromVarType :: ( Applicative m
                , MonadReader r m

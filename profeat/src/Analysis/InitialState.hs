@@ -27,9 +27,9 @@ initialState :: SymbolTable -> ModelState
 initialState = concat . sequence [globalVars, localVars, controllerVars]
 
 globalVars :: SymbolTable -> ModelState
-globalVars symTbl = concatMap fromGlobalSymbol $ symTbl^..globals.traverse
+globalVars = concatMap fromGlobalSymbol . toListOf (globals.traverse)
   where
-    fromGlobalSymbol (GlobalSymbol t (VarDecl ident _ mInit _)) =
+    fromGlobalSymbol (GlobalSymbol t _ (VarDecl ident _ mInit _)) =
         modelState mInit t Global ident
 
 localVars :: SymbolTable -> ModelState

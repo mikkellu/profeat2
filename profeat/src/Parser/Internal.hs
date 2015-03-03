@@ -199,6 +199,7 @@ model = do
                             , controllerDef
                             , moduleDef
                             , globalDef
+                            , attributeDef
                             , constantDef
                             , formulaDef
                             , labelDef
@@ -230,7 +231,8 @@ feature = loc $ do
     ident <- identifier
     ps    <- params
     block "feature" $
-        Feature ident ps <$> optionMaybe decomposition
+        Feature ident ps <$> many varDecl
+                         <*> optionMaybe decomposition
                          <*> many constraint
                          <*> moduleList
                          <*> many rewards
@@ -294,6 +296,10 @@ moduleBody = loc (ModuleBody <$> many varDecl <*> repeatable stmt many)
 globalDef :: Parser LDefinition
 globalDef = GlobalDef <$> (reserved "global" *> varDecl)
          <?> "variable declaration"
+
+attributeDef :: Parser LDefinition
+attributeDef = AttributeDef <$> (reserved "attribute" *> varDecl)
+            <?> "attribute definition"
 
 varDecl :: Parser LVarDecl
 varDecl = loc (VarDecl <$> identifier <* colon

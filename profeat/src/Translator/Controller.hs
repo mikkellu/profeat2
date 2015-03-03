@@ -50,12 +50,14 @@ trnsController initExprs =
                 return (decls, stmts, l)
             Nothing -> return ([], [], noLoc)
 
-        root     <- view rootFeature
-        invs     <- view invariants
+        root <- view rootFeature
+        invs <- view invariants
 
-        actDecls <- genActiveVars
+        actDecls    <- genActiveVars
+        attribDecls <- trnsAttributeVars
+
         let initDef' = genInit initExprs invs root
-            decls'   = actDecls ++ decls
+            decls'   = actDecls ++ attribDecls ++ decls
             body'    = ModuleBody decls' (Repeatable stmts) l
 
         confLbl <- genInitConfLabel
@@ -64,7 +66,7 @@ trnsController initExprs =
             then if null decls && null stmts
                      then [ initDef' ]
                      else [ initDef'
-                          , ModuleDef (Module controllerIdent [] [] (ModuleBody decls (Repeatable stmts) l))
+                          , ModuleDef (Module controllerIdent [] [] (ModuleBody decls' (Repeatable stmts) l))
                           ]
             else [ initDef'
                  , ModuleDef (Module controllerIdent [] [] body')
@@ -81,9 +83,23 @@ trnsLocalVars :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
               -> m [LVarDecl]
 trnsLocalVars decls = do
     cts <- view controller
-    fmap concat . for decls $ \decl ->
+    fmap concat . for (sortVarDeclsByLoc decls) $ \decl ->
         let t = cts^?!_Just.ctsVars.at (declIdent decl)._Just.vsType
         in trnsVarDecl t decl
+
+trnsAttributeVars :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
+                  => m [LVarDecl]
+trnsAttributeVars = do
+    globalAttribSyms <- filter _gsIsAttrib . toList <$> view globals
+    globalDecls <- fmap concat . for globalAttribSyms $
+        \(GlobalSymbol t _ decl) -> local (scope .~ Global) $ trnsVarDecl t decl
+
+    localDecls <- fmap concat . forAllContexts $ \ctx ->
+        fmap concat . for (ctx^.this.fsAttributes) $ \decl ->
+            let t = ctx^?!this.fsVars.at (declIdent decl)._Just.vsType
+            in local (scope .~ Local ctx) $ trnsVarDecl t decl
+
+    return . sortVarDeclsByLoc $ globalDecls ++ localDecls
 
 trnsStmt :: LStmt -> StateT LabelSets Trans LStmt
 trnsStmt (Stmt action grd (Repeatable ss) l) = do

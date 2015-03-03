@@ -1,0 +1,21 @@
+init
+    x != 1 & _a_z = false
+endinit
+
+formula _active   = true;
+formula _a_active = true;
+
+module _a_a_impl
+    _a_z : bool;
+
+    [] _a_active & (x > 1 & _a_y) -> (_a_z' = true);
+endmodule
+
+module _controller
+    x    : [0 .. 2];
+    _a_y : bool;
+
+    [] x < 2 & x + 1 != 1 -> (x' = x + 1);
+    [] true -> (_a_y' = !_a_y);
+endmodule
+
