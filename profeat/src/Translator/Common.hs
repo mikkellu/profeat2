@@ -188,7 +188,9 @@ trnsActionLabel action =
                 _  -> fmap (labelSetToAction &&& id) lss
 
 labelSetToAction :: Set LabelSymbol -> LActionLabel
-labelSetToAction ls = Action NonBlocking (labelSetName ls) noLoc
+labelSetToAction ls
+  | Set.null ls = NoAction
+  | otherwise   = Action NonBlocking (labelSetName ls) noLoc
 
 getLabelSetsFor :: (MonadReader TrnsInfo m) => LabelSymbol -> m LabelSets
 getLabelSetsFor lbl = do
