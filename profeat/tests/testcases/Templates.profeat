@@ -1,6 +1,6 @@
 formula f(x) = x + 1;
 
-feature root {
+root feature {
     all of sub(f, 1);
 }
 

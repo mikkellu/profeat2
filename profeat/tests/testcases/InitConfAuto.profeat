@@ -1,4 +1,4 @@
-feature root {
+root feature {
     one of a, b;
 }
 

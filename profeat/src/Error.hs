@@ -31,6 +31,7 @@ throw l = throwError . Error l
 data ErrorDesc
   = SyntaxError !Text
   | NoProducts
+  | MultipleRootFeatures !SrcLoc
   | InvalidConstraint
   | UndefinedIdentifier !Ident
   | MultipleDeclarations !Ident !SrcLoc
@@ -69,6 +70,9 @@ instance Pretty ErrorDesc where
         SyntaxError msg -> string msg
         NoProducts ->
             "the specified product line has no products"
+        MultipleRootFeatures l ->
+            "multiple root features" <+>
+            parens ("first declaration was at" <+> pretty l)
         InvalidConstraint -> "invalid constraint"
         UndefinedIdentifier ident -> "undefined identifier" <+> text ident
         MultipleDeclarations ident l ->

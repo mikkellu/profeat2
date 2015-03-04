@@ -1,9 +1,5 @@
 const int n = 3;
 
-feature root {
-    modules root_impl;
-}
-
 module root_impl {
     s    : [1..n] init 1;
     last : array [1..n] of bool init false;

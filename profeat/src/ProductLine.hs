@@ -26,22 +26,45 @@ import Types.Util
 rootFeatureSymbol :: (Applicative m, MonadError Error m)
                   => SymbolTable
                   -> m FeatureSymbol
-rootFeatureSymbol symTbl =
-    let roots = rootFeatures symTbl
-    in flip runReaderT (Env Global symTbl) $ do
-        syms <- for roots $ \ident -> (ident,) <$> toFeatureSymbol' True ident
-        return $ case syms of
-            []         -> emptyFeatureSymbol & fsIdent .~ "root"
-            [(_, sym)] -> sym ! 0
-            _          ->
-                let card = genericLength syms
-                in emptyFeatureSymbol & fsGroupCard .~ (card, card)
-                                      & fsChildren  .~ fromList syms
+rootFeatureSymbol symTbl = flip runReaderT (Env Global symTbl) $
+    case rootFeatures symTbl of
+        [root]    -> (! 0) <$> toFeatureSymbol' True (featIdent root)
+        []        -> mkRootFeatureSymbol
+        (f1:f2:_) -> throw (featAnnot f2) $ MultipleRootFeatures (featAnnot f1)
+  where
+    mkRootFeatureSymbol = do
+        let roots = unreferencedFeatures symTbl
+            mods  = fmap modInstance (unreferencedModules symTbl)
 
--- | Returns all root features, i.e. non-parametrized features that are not
--- referenced in any feature decomposition.
-rootFeatures :: SymbolTable -> [Ident]
-rootFeatures symTbl =
+        (mods', varSyms) <- instantiateModules 0 mods
+        syms <- for roots $ \ident -> (ident,) <$> toFeatureSymbol' True ident
+
+        let card = genericLength syms
+            root = emptyFeatureSymbol & fsGroupCard .~ (card, card)
+                                      & fsChildren  .~ fromList syms
+                                      & fsModules   .~ mods'
+                                      & fsVars      .~ varSyms
+        return root
+
+    modInstance m = Instance (modIdent m) [] noLoc
+
+-- | Returns all features that are marked as root features.
+rootFeatures :: SymbolTable -> [LFeature]
+rootFeatures = filter featIsRoot . toListOf (features.traverse)
+
+unreferencedModules :: SymbolTable -> [LModule]
+unreferencedModules symTbl =
+    let refMods = symTbl^..features.traverse
+                          .to featModules
+                          .traverse
+                          .to instIdent
+    in filter ((`notElem` refMods) . modIdent) .
+       filter (null . modParams) $ symTbl^..modules.traverse
+
+-- | Returns all non-parametrized features that are not referenced in any
+-- feature decomposition.
+unreferencedFeatures :: SymbolTable -> [Ident]
+unreferencedFeatures symTbl =
     let feats = map featIdent .
                 filter (null . featParams) $
                 symTbl^..features.traverse -- exclude templates as they must be explicitly instantiated

@@ -1,4 +1,4 @@
-feature root {
+root feature {
     one of a, b;
 
     modules root_impl;
@@ -14,5 +14,5 @@ module root_impl {
     [] s = 0 -> (s' = 2);
 }
 
-label "initconf" = root.s > 0;
+label "initconf" = s > 0;
 

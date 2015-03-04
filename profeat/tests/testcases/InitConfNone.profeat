@@ -1,6 +1,2 @@
-feature root {
-    all of a, b;
-}
-
 feature a {}
 feature b {}

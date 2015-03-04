@@ -1,4 +1,4 @@
-feature root {
+root feature {
     some of a, b, c;
 
     initial constraint active(a);

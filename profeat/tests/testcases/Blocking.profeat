@@ -1,4 +1,4 @@
-feature root {
+root feature {
     [0..1] of a;
 }
 

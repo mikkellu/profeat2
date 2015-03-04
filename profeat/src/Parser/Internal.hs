@@ -97,7 +97,7 @@ toSyntaxError = SyntaxError . pack .
 
 reservedNames, reservedOpNames :: [String]
 reservedNames =
-    [ "feature", "endfeature", "global", "const", "formula", "label"
+    [ "feature", "endfeature", "root", "global", "const", "formula", "label"
     , "modules", "all" , "one", "some", "of", "optional", "as", "constraint"
     , "initial", "rewards" , "endrewards", "controller", "endcontroller"
     , "module", "endmodule", "this", "public", "active", "activate"
@@ -227,15 +227,19 @@ featureDef = FeatureDef <$> feature <?> "feature"
 
 feature :: Parser LFeature
 feature = loc $ do
+    isRoot <- option False (True <$ reserved "root")
     reserved "feature"
-    ident <- identifier
+    ident <- if isRoot
+                then return "root"
+                else identifier
     ps    <- params
     block "feature" $
-        Feature ident ps <$> many varDecl
-                         <*> optionMaybe decomposition
-                         <*> many constraint
-                         <*> moduleList
-                         <*> many rewards
+        Feature isRoot ident ps
+            <$> many varDecl
+            <*> optionMaybe decomposition
+            <*> many constraint
+            <*> moduleList
+            <*> many rewards
   where
     moduleList = option [] $ reserved "modules" *> commaSep1 inst <* semi
 

@@ -1,6 +1,6 @@
 attribute x : [0..2];
 
-feature root {
+root feature {
     all of a;
 
     constraint x != 1;

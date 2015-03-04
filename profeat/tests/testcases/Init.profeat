@@ -1,10 +1,6 @@
 global x : bool;
 global y : [0..2] init 1;
 
-feature root {
-    modules root_impl;
-}
-
 module root_impl {
     arr : array [0..2] of bool;
 }

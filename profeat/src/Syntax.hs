@@ -153,7 +153,8 @@ data Definition a
   deriving (Eq, Functor, Show)
 
 data Feature a = Feature
-  { featIdent       :: !Ident
+  { featIsRoot      :: !Bool
+  , featIdent       :: !Ident
   , featParams      :: [Ident]
   , featAttributes  :: [VarDecl a]
   , featDecomp      :: Maybe (Decomposition a)
@@ -164,13 +165,14 @@ data Feature a = Feature
   } deriving (Eq, Functor, Show)
 
 instance HasExprs Feature where
-    exprs f (Feature ident params attribs decomp constrs mods rws a) =
-        Feature ident params <$> traverse (exprs f) attribs
-                             <*> traverse (exprs f) decomp
-                             <*> traverse (exprs f) constrs
-                             <*> traverse (exprs f) mods
-                             <*> traverse (exprs f) rws
-                             <*> pure a
+    exprs f (Feature isRoot ident params attribs decomp constrs mods rws a) =
+        Feature isRoot ident params
+            <$> traverse (exprs f) attribs
+            <*> traverse (exprs f) decomp
+            <*> traverse (exprs f) constrs
+            <*> traverse (exprs f) mods
+            <*> traverse (exprs f) rws
+            <*> pure a
 
 data Decomposition a = Decomposition
   { decompOperator :: DecompOp a
@@ -689,9 +691,11 @@ instance Pretty (Definition a) where
         PropertyDef   p -> pretty p
 
 instance Pretty (Feature a) where
-    pretty (Feature ident params attribs decomp constrs mods rws _) =
-        "feature" <+> text ident <> prettyParams params <> line <>
-        indent 4 body <> line <> "endfeature"
+    pretty (Feature isRoot ident params attribs decomp constrs mods rws _)
+      | isRoot    = "root" <+> "feature" <> line <> indent 4 body <> line <>
+                    "endfeature"
+      | otherwise = "feature" <+> text ident <> prettyParams params <> line <>
+                    indent 4 body <> line <> "endfeature"
       where
         body = attribList attribs <>
                pretty decomp <> line <>

@@ -1,9 +1,5 @@
 global x : [0..5] init 0;
 
-feature root {
-    modules test;
-}
-
 invariant {
     !(s <=> t) & mod(x, 2) = 0
 }
