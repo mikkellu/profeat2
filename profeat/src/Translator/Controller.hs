@@ -63,7 +63,7 @@ trnsController initExprs =
         confLbl <- genInitConfLabel
 
         return $ if hasSingleConfiguration root
-            then if null decls && null stmts
+            then if null decls' && null stmts
                      then [ initDef' ]
                      else [ initDef'
                           , ModuleDef (Module controllerIdent [] [] (ModuleBody decls' (Repeatable stmts) l))
