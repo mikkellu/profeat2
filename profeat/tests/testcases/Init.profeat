@@ -10,6 +10,6 @@ module root_impl {
 }
 
 init {
-    x => for i in [0..2] { root.arr[i] | ... }
+    x => for i in [0..2] { arr[i] | ... }
 }
 

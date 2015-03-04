@@ -5,7 +5,7 @@ feature root {
 }
 
 invariant {
-    !(root.s <=> root.t) & mod(x, 2) = 0
+    !(s <=> t) & mod(x, 2) = 0
 }
 
 module test {

@@ -360,8 +360,13 @@ lookupSymbolInfo :: ( Applicative m
 lookupSymbolInfo (viewSimpleName -> Just (ident, idx, _)) = do
     sc <- view scope
     lookupType ident >>= \case
-        Just t  -> return . Just $ SymbolInfo sc ident idx t
-        Nothing -> fmap (SymbolInfo Global ident idx) <$> lookupTypeGlobal ident
+        Just t  -> return . Just $ SymbolInfo sc ident idx t -- first try local scope...
+        Nothing -> lookupTypeGlobal ident >>= \case
+            Just t  -> return . Just $ SymbolInfo Global ident idx t -- ...then try global scope...
+            Nothing -> do
+                ctx <- view $ symbolTable.rootFeature.to rootContext
+                return $ SymbolInfo (Local ctx) ident idx <$> -- ...and finally try local scope of root feature
+                    lookupTypeIn ctx ident
 lookupSymbolInfo name@(Name _ l) = getContext name >>= \case
     (_, Nothing)      -> throw l $ NotAVariable (prettyText name)
     (ctx, Just name') -> case name' of
