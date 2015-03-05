@@ -5,6 +5,7 @@ module Translator.Properties
   ) where
 
 import Control.Lens
+import Control.Monad
 
 import Data.Maybe
 
@@ -15,16 +16,11 @@ import Template
 import Translator.Common
 
 trnsProperty :: Translator LProperty
-trnsProperty prop = do
-    prop' <- prepExprs prop
-    root  <- view rootFeature
-    if hasSingleConfiguration root
-        then exprs (trnsExpr (const True)) prop'
-        else genFilterProperty prop'
+trnsProperty = prepExprs >=> genFilterProperty
 
 genFilterProperty :: Translator LProperty
 genFilterProperty (Property ident e l) = do
-    e' <- trnsExpr (const True) e
+    e'  <- trnsExpr (const True) e
     lbl <- view initConfLabel
     let li         = if isJust lbl
                          then initConfLabelIdent
