@@ -46,6 +46,7 @@ data ErrorDesc
   | NonConstExpr LExpr
   | MalformedLoopBody
   | NoNeutralElement !BinOp
+  | NoNeutralElementFunc !LExpr
   | AmbiguousDecomposition !Ident
   | AmbiguousIdentifier !Ident
   | AmbiguousFeature !Ident [Ident]
@@ -110,6 +111,9 @@ instance Pretty ErrorDesc where
         NoNeutralElement binOpT ->
             "the loop generates an empty expression," <> line <> "but the" <+>
             pretty binOpT <+> "operator does not have a neutral element"
+        NoNeutralElementFunc e ->
+            "the loop generates an empty expression," <> line <> "but the" <+>
+            pretty e <+> "function does not have a neutral element"
         AmbiguousDecomposition ident ->
             "the feature" <+> text ident <+> "is referenced more than once"
         AmbiguousIdentifier ident ->

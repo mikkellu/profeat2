@@ -1,5 +1,11 @@
 const int n = 3;
 
+formula add(x, y) = x + y;
+
+const int x = for i in [0..-1] { i * ... };
+const int y = for i in [1..n]  { add(i, ...) };
+const int z = for i in [1..n]  { min(i, ...) };
+
 module root_impl {
     s    : [1..n] init 1;
     last : array [1..n] of bool init false;

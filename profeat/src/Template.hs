@@ -1,4 +1,7 @@
-{-# LANGUAGE FlexibleContexts, LambdaCase, OverloadedStrings, ViewPatterns #-}
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ViewPatterns      #-}
 
 module Template
   ( Template(..)
@@ -165,13 +168,21 @@ unrollExprLoop = unrollLoop f where
         flip (transformMOf plateBody) e $ \case
             BinaryExpr binOp e' (MissingExpr _) l ->
                 maybe (throw l $ NoNeutralElement binOp) return $
-                    unrollExpr binOp defss e'
+                    unrollExpr (binaryExpr binOp) (neutralElement binOp) defss e'
+            CallExpr func [e', MissingExpr _] l ->
+                maybe (throw l $ NoNeutralElementFunc func) return $
+                    unrollExpr (funcExpr func) Nothing defss e'
             e' -> return e'
+    funcExpr func e1 e2 = CallExpr func [e1, e2] noLoc
 
-unrollExpr :: BinOp -> [Map Ident LExpr] -> LExpr -> Maybe LExpr
-unrollExpr binOp defss e = case defss of
-    [] -> neutralElement binOp
-    _  -> Just . foldr1 (binaryExpr binOp) . map (`substitute` e) $ defss
+unrollExpr :: (LExpr -> LExpr -> LExpr)
+           -> Maybe LExpr
+           -> [Map Ident LExpr]
+           -> LExpr
+           -> Maybe LExpr
+unrollExpr combinator onEmpty defss e = case defss of
+    [] -> onEmpty
+    _  -> Just . foldr1 combinator . map (`substitute` e) $ defss
 
 unrollLoop :: ( Applicative m
               , MonadReader r m
@@ -235,18 +246,21 @@ substitute defs
     _ -> node
 
 -- | Check whether the given expression contains exactly one expression of
--- the form @e * ...@, where @*@ is any binary operator.
+-- the form @e * ...@ (where @*@ is any binary operator) or @f(e, ...)@.
 checkLoopBody :: (Applicative m, MonadError Error m) => LExpr -> m ()
 checkLoopBody e = go e >>= \cnt ->
     when (cnt /= 1) (throw (exprAnnot e) MalformedLoopBody)
   where
     go e' = case e' of
         BinaryExpr _ lhs (MissingExpr _) _
-          | has (traverse._MissingExpr) $ universeOf plateBody lhs ->
-                throw (exprAnnot lhs) MalformedLoopBody
-          | otherwise -> return (1 :: Integer)
+          | hasMissingExpr lhs -> throw (exprAnnot lhs) MalformedLoopBody
+          | otherwise          -> return (1 :: Integer)
+        CallExpr _ [e'', MissingExpr _] _
+          | hasMissingExpr e'' -> throw (exprAnnot e'') MalformedLoopBody
+          | otherwise          -> return 1
         MissingExpr _ -> throw (exprAnnot e') MalformedLoopBody
         _             -> sum <$> traverse go (e'^..plateBody)
+    hasMissingExpr = has (traverse._MissingExpr) . universeOf plateBody
 
 -- Traversal of the immediate children of the given expression, ommitting
 -- the body of nested 'LoopExpr's.
