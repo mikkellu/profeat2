@@ -276,10 +276,10 @@ rewards = loc (Rewards <$> (reserved "rewards" *> doubleQuotes identifier)
                        <*> block "rewards" (many reward)) <?> "rewards"
 
 reward :: Parser LReward
-reward = loc (Reward <$> brackets actionLabel
+reward = loc (Reward <$> optionMaybe (brackets actionLabel)
                      <*> (expr <* colon)
                      <*> (expr <* semi))
-      <?> "cost"
+      <?> "reward"
 
 controllerDef :: Parser LDefinition
 controllerDef = ControllerDef . Controller <$>

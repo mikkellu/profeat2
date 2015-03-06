@@ -241,7 +241,7 @@ instance HasExprs Rewards where
         Rewards ident <$> traverse (exprs f) rws <*> pure a
 
 data Reward a = Reward
-  { rwAction :: ActionLabel a
+  { rwAction :: Maybe (ActionLabel a)
   , rwGuard  :: Expr a
   , rwReward :: Expr a
   , rwAnnot  :: !a
@@ -249,7 +249,7 @@ data Reward a = Reward
 
 instance HasExprs Reward where
     exprs f (Reward actionLabel grd e a) =
-        Reward <$> exprs f actionLabel <*> f grd <*> f e <*> pure a
+        Reward <$> traverse (exprs f) actionLabel <*> f grd <*> f e <*> pure a
 
 data Init a = Init
   { initExpr  :: Expr a
@@ -744,7 +744,8 @@ instance Pretty (Rewards a) where
 
 instance Pretty (Reward a) where
     pretty (Reward action grd e _) =
-        brackets (pretty action) <+> pretty grd <+> colon <+> pretty e <> semi
+        maybe empty (brackets . pretty) action <+>
+        pretty grd <+> colon <+> pretty e <> semi
 
 instance Pretty (Init a) where
     pretty (Init e _) =

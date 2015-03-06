@@ -3,3 +3,8 @@ init
 endinit
 
 formula _active    = true;
+
+rewards "test"
+    true : 1;
+endrewards
+

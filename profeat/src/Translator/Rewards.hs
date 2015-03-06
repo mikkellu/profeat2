@@ -38,10 +38,10 @@ extractRewards ctx =
 trnsReward :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
            => LReward
            -> m [LReward]
-trnsReward (Reward action grd e a) = do
-    actions' <- trnsActionLabel action
-    for actions' $ \(action', _) ->
-        Reward action' <$> trnsExpr isBoolType grd
-                       <*> trnsExpr isNumericType e
-                       <*> pure a
+trnsReward (Reward action grd e a) = maybe ((:[]) <$> trns Nothing)
+    (traverse (trns . Just . fst) <=< trnsActionLabel) action
+  where
+    trns act = Reward act <$> trnsExpr isBoolType grd
+                          <*> trnsExpr isNumericType e
+                          <*> pure a
 

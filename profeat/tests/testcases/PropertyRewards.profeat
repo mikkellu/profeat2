@@ -1,0 +1,6 @@
+root feature {
+    rewards "test" {
+        true : 1;
+    }
+}
+
