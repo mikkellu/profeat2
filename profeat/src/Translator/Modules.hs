@@ -7,6 +7,7 @@ import Control.Lens
 import Control.Monad.Reader
 
 import Data.Map ( assocs )
+import Data.Maybe
 import Data.Set ( member )
 import Data.Traversable
 
@@ -70,10 +71,12 @@ trnsStmt (Stmt action grd upds l) = do
                           else actGrd
 
         return $ Stmt action' (actGrd' `lAnd` invGrd' `lAnd` grd') upds' l :
-                [Stmt action' negActGrd (Repeatable []) l | isNonBlocking]
+                [Stmt action' negActGrd (Repeatable []) l |
+                 isNonBlocking && isNotMandatory ctx]
   where
     localActivateLabel ctx = LsReconf ctx ReconfActivate
-    isNonBlocking = case action of
+    isNotMandatory = isJust . atomicSetRoot
+    isNonBlocking  = case action of
         Action NonBlocking _ _ -> True
         _                      -> False
 
