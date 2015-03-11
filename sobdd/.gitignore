@@ -1,6 +1,4 @@
 .DS_Store
-.project
-*.pyc
 dist
 *.o
 *.hi
@@ -8,4 +6,3 @@ dist
 .cabal-sandbox/
 .ghci
 cabal.sandbox.config
-temp/

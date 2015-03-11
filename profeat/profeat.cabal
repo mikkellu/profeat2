@@ -1,0 +1,84 @@
+name:                profeat
+version:             0.68.0.0
+synopsis:            A feature modelling framework
+author:              Philipp Chrszon
+maintainer:          Philipp.Chrszon@tu-dresden.de
+category:            Language
+build-type:          Simple
+cabal-version:       >=1.8
+
+library
+  exposed-modules:     Analysis.VarOrdering,
+                       Error,
+                       Eval,
+                       Parser,
+                       Parser.Internal,
+                       Parser.Results,
+                       ProductLine,
+                       ProFeat,
+                       Result,
+                       SrcLoc,
+                       Symbols,
+                       SymbolTable,
+                       Syntax,
+                       Syntax.Operators,
+                       Syntax.Util,
+                       Template,
+                       Translator,
+                       Translator.Common,
+                       Translator.Constraints,
+                       Translator.Controller,
+                       Translator.Modules,
+                       Translator.Names,
+                       Translator.Properties,
+                       Translator.Rewards,
+                       Translator.Seeding,
+                       Translator.Seeding.Bdd,
+                       Translator.Seeding.Common,
+                       Translator.Seeding.Fd,
+                       Typechecker,
+                       Types,
+                       Types.Util
+  other-modules:       Data.Strict.Tuple.Lens,
+                       Paths_profeat
+  hs-source-dirs:      src
+  build-depends:       base >=4.6 && <5,
+                       array >=0.5,
+                       containers >=0.5.5,
+                       lens >=4.7,
+                       mtl >=2.2.1,
+                       optparse-applicative >=0.11,
+                       parsec >=3.1.5,
+                       process-listlike >=1.0,
+                       semigroups >=0.8.4 && <1,
+                       sobdd >=0.6.7.0,
+                       strict >=0.3.2,
+                       transformers >=0.4,
+                       text >=1.1,
+                       vector >=0.10.12,
+                       wl-pprint-text >=1.1
+  ghc-options:         -Wall
+
+executable profeat
+  main-is:             Main.hs
+  build-depends:       base >=4.6 && <5,
+                       text >=1.1,
+                       wl-pprint-text >=1.1,
+                       profeat
+  ghc-options:         -Wall
+
+test-suite profeat-tests
+  type:                exitcode-stdio-1.0
+  main-is:             Tests.hs
+  -- other-modules:
+  hs-source-dirs:      tests
+  build-depends:       base >=4.3 && <5,
+                       directory,
+                       filepath,
+                       tasty >=0.10,
+                       tasty-hunit >=0.9,
+                       text >=1.1,
+                       transformers >=0.4,
+                       wl-pprint-text >=1.1,
+                       profeat
+

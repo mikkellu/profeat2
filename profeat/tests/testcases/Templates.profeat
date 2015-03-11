@@ -1,0 +1,17 @@
+formula f(x) = x + 1;
+
+feature root {
+    all of sub(f, 1);
+}
+
+feature sub(func, y) {
+    modules sub_impl(func(y));
+
+    rewards "test" {
+        [] true : y;
+    }
+}
+
+module sub_impl(y) {
+    s : [0..y] init y;
+}

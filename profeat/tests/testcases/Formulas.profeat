@@ -1,0 +1,6 @@
+formula apply(f, x, y, z) = f(f(x, y), z);
+formula add(x, y) = x + y;
+
+formula x = 1;
+
+const int result = apply(add, x, 2, 3);
