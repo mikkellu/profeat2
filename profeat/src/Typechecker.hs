@@ -329,13 +329,10 @@ lookupLabelInfo (viewSimpleName -> Just (ident, idx, _)) = do
     return . Just $ LabelInfo Global ident i
 lookupLabelInfo _ = error "Typechecker.lookupLabelInfo: not implemented"
 
-isAttributeSymbol :: (MonadReader r m, HasSymbolTable r) => SymbolInfo -> m Bool
-isAttributeSymbol (SymbolInfo sc ident _ _) = do
-    symTbl <- view symbolTable
-    return $ case sc of
-        Global     -> symTbl^?!globals.at ident._Just.gsIsAttrib
-        Local ctx  -> ctx^?!this.fsVars.at ident._Just.vsIsAttrib
-        LocalCtrlr -> False -- attributes cannot be defined in controller
+isAttributeSymbol :: SymbolInfo -> Bool
+isAttributeSymbol (SymbolInfo sc ident _ _) = case sc of
+    Local ctx -> ctx^?!this.fsVars.at ident._Just.vsIsAttrib
+    _         -> False
 
 getSymbolInfo :: ( Applicative m
                  , MonadReader r m

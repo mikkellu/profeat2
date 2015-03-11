@@ -21,7 +21,6 @@ module Syntax
   , _ControllerDef
   , _ModuleDef
   , _GlobalDef
-  , _AttributeDef
   , _ConstDef
   , _FormulaDef
   , _LabelDef
@@ -142,7 +141,6 @@ data Definition a
   | ControllerDef (Controller a)
   | ModuleDef     (Module a)
   | GlobalDef     (VarDecl a)
-  | AttributeDef  (VarDecl a)
   | ConstDef      (Constant a)
   | FormulaDef    (Formula a)
   | LabelDef      (Label a)
@@ -566,7 +564,6 @@ defAnnot = \case
     ControllerDef (Controller c) -> modAnnot c
     ModuleDef m                  -> modAnnot (modBody m)
     GlobalDef g                  -> declAnnot g
-    AttributeDef a               -> declAnnot a
     ConstDef c                   -> constAnnot c
     FormulaDef f                 -> frmAnnot f
     LabelDef l                   -> lblAnnot l
@@ -678,7 +675,6 @@ instance Pretty (Definition a) where
         ControllerDef c -> pretty c
         ModuleDef     m -> pretty m
         GlobalDef     g -> "global" <+> pretty g
-        AttributeDef  a -> "attribute" <+> pretty a
         ConstDef      c -> pretty c
         FormulaDef    f -> pretty f
         LabelDef      l -> pretty l

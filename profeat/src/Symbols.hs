@@ -1,13 +1,12 @@
-{-# LANGUAGE FlexibleContexts
-           , OverloadedStrings
-           , RankNTypes
-           , TemplateHaskell
-           , TupleSections #-}
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes        #-}
+{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE TupleSections     #-}
 
 module Symbols
   ( GlobalSymbol(..)
   , gsType
-  , gsIsAttrib
   , gsDecl
 
   , ConstSymbol(..)
@@ -112,7 +111,6 @@ type Table a = Map Ident a
 
 data GlobalSymbol = GlobalSymbol
   { _gsType     :: !Type
-  , _gsIsAttrib :: !Bool
   , _gsDecl     :: LVarDecl
   } deriving (Show)
 

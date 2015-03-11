@@ -59,12 +59,9 @@ varOrdering = stripLoc .
               sequence [globalVars, moduleVars, controllerVars] -- TODO: globals are always first
 
 globalVars :: SymbolTable -> [LVarOrdering]
-globalVars =
-    fmap globalToVarOrdering .
-    filter (not . _gsIsAttrib) .
-    toListOf (globals.traverse)
+globalVars = fmap globalToVarOrdering . toListOf (globals.traverse)
   where
-    globalToVarOrdering (GlobalSymbol t _ decl) =
+    globalToVarOrdering (GlobalSymbol t decl) =
         toVarOrdering Global (declIdent decl) t (declAnnot decl)
 
 moduleVars :: SymbolTable -> [LVarOrdering]
@@ -90,23 +87,13 @@ controllerVars symTbl =
       | otherwise             = [(pretty ctx, RangeFeature)]
 
 attributeVars :: SymbolTable -> LVarOrdering
-attributeVars symTbl =
-    mconcat $ sortBy (comparing getLoc) (globalAttribs ++ localAttribs)
+attributeVars symTbl = mconcat $ sortBy (comparing getLoc) attribs
   where
-    globalAttribs =
-        let decls = filter _gsIsAttrib $ symTbl^..globals.traverse
-        in fmap globalAttrib decls
-    globalAttrib (GlobalSymbol t _ decl) =
-        toVarOrdering Global (declIdent decl) t (declAnnot decl)
-
-    localAttribs :: [LVarOrdering]
-    localAttribs =
+    attribs =
         let ctxs = symTbl^.rootFeature.to allContexts
         in concat . flip fmap ctxs $ \ctx ->
-            mapMaybe (localAttrib ctx) $ ctx^.this.fsVars.to assocs
-
-    localAttrib :: FeatureContext -> (Ident, VarSymbol) -> Maybe LVarOrdering
-    localAttrib ctx (ident, vs)
+            mapMaybe (attrib ctx) $ ctx^.this.fsVars.to assocs
+    attrib ctx (ident, vs)
       | vs^.vsIsAttrib =
           Just $ toVarOrdering (Local ctx) ident (vs^.vsType) (vs^.vsLoc)
       | otherwise = Nothing

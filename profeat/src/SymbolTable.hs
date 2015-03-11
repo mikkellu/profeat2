@@ -1,4 +1,7 @@
-{-# LANGUAGE FlexibleContexts, LambdaCase, OverloadedStrings, RankNTypes #-}
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes        #-}
 
 module SymbolTable
   ( module Symbols
@@ -58,8 +61,7 @@ extendSymbolTable symTbl defs = flip evalStateT symTbl $ do -- TODO: refactor
     checkIfNonCyclicConstants =<< use constants
     evalConstValues
 
-    addGlobals False _GlobalDef    defs
-    addGlobals True  _AttributeDef defs
+    addGlobals defs
 
     symTbl'' <- get
     forOf_ (traverse._ControllerDef) defs $ \(Controller body) ->
@@ -88,18 +90,16 @@ extendSymbolTable symTbl defs = flip evalStateT symTbl $ do -- TODO: refactor
   where
 
 addGlobals :: (Applicative m, MonadState SymbolTable m, MonadError Error m)
-           => Bool
-           -> Prism' LDefinition LVarDecl
-           -> [LDefinition]
+           => [LDefinition]
            -> m ()
-addGlobals isAttrib _Def defs = do
+addGlobals defs = do
     symTbl <- get
-    forOf_ (traverse._Def) defs $ \decl@(VarDecl ident vt _ l) ->
+    forOf_ (traverse._GlobalDef) defs $ \decl@(VarDecl ident vt _ l) ->
         ifNot containsSymbol ident l $
             flip runReaderT (Env Global symTbl) $ do
                 decl' <- prepExprs decl
                 t     <- fromVarType vt
-                globals.at ident .= Just (GlobalSymbol t isAttrib decl')
+                globals.at ident .= Just (GlobalSymbol t decl')
 
 ifNot :: (MonadState SymbolTable m, MonadError Error m)
       => (SymbolTable -> Ident -> Maybe SrcLoc)

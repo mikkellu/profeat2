@@ -121,9 +121,9 @@ trnsVarAssign name e l = do
     sc <- view scope
     si@(SymbolInfo symSc ident idx _) <- getSymbolInfo name
 
-    isAttrib <- isAttributeSymbol si
-    when (if isAttrib then sc /= LocalCtrlr else symSc /= Global && symSc /= sc) $
-        throw l IllegalWriteAccess
+    when (if isAttributeSymbol si
+               then sc /= LocalCtrlr
+               else symSc /= Global && symSc /= sc) $ throw l IllegalWriteAccess
 
     t <- siType si
 

@@ -90,16 +90,12 @@ trnsLocalVars decls = do
 trnsAttributeVars :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
                   => m [LVarDecl]
 trnsAttributeVars = do
-    globalAttribSyms <- filter _gsIsAttrib . toList <$> view globals
-    globalDecls <- fmap concat . for globalAttribSyms $
-        \(GlobalSymbol t _ decl) -> local (scope .~ Global) $ trnsVarDecl t decl
-
-    localDecls <- fmap concat . forAllContexts $ \ctx ->
+    attribDecls <- fmap concat . forAllContexts $ \ctx ->
         fmap concat . for (ctx^.this.fsAttributes) $ \decl ->
             let t = ctx^?!this.fsVars.at (declIdent decl)._Just.vsType
             in local (scope .~ Local ctx) $ trnsVarDecl t decl
 
-    return . sortVarDeclsByLoc $ globalDecls ++ localDecls
+    return $ sortVarDeclsByLoc attribDecls
 
 trnsStmt :: LStmt -> StateT LabelSets Trans LStmt
 trnsStmt (Stmt action grd (Repeatable ss) l) = do
