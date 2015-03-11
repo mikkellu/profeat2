@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TemplateHaskell   #-}
 
 module Syntax
@@ -52,7 +53,6 @@ module Syntax
   , Property(..)
   , Stmt(..)
   , ActionLabel(..)
-  , Blocking(..)
   , Update(..)
   , Assign(..)
   , Expr(..)
@@ -159,20 +159,22 @@ data Feature a = Feature
   , featAttributes  :: [VarDecl a]
   , featDecomp      :: Maybe (Decomposition a)
   , featConstraints :: [Constraint a]
+  , featBlocking    :: [Name a]
   , featModules     :: [Instance a]
   , featRewards     :: [Rewards a]
   , featAnnot       :: !a
   } deriving (Eq, Functor, Show)
 
 instance HasExprs Feature where
-    exprs f (Feature isRoot ident params attribs decomp constrs mods rws a) =
-        Feature isRoot ident params
-            <$> traverse (exprs f) attribs
-            <*> traverse (exprs f) decomp
-            <*> traverse (exprs f) constrs
-            <*> traverse (exprs f) mods
-            <*> traverse (exprs f) rws
-            <*> pure a
+    exprs f Feature{..} =
+        Feature featIsRoot featIdent featParams
+            <$> traverse (exprs f) featAttributes
+            <*> traverse (exprs f) featDecomp
+            <*> traverse (exprs f) featConstraints
+            <*> traverse (exprs f) featBlocking
+            <*> traverse (exprs f) featModules
+            <*> traverse (exprs f) featRewards
+            <*> pure featAnnot
 
 data Decomposition a = Decomposition
   { decompOperator :: DecompOp a
@@ -394,19 +396,14 @@ instance HasExprs Stmt where
 data ActionLabel a
   = ActActivate !a
   | ActDeactivate !a
-  | Action !Blocking (Name a) !a
+  | Action (Name a) !a
   | NoAction
   deriving (Eq, Functor, Show)
 
 instance HasExprs ActionLabel where
     exprs f actionLabel = case actionLabel of
-        Action block name a -> Action block <$> exprs f name <*> pure a
-        _                   -> pure actionLabel
-
-data Blocking
-  = Blocking
-  | NonBlocking
-  deriving (Eq, Show)
+        Action name a -> Action <$> exprs f name <*> pure a
+        _             -> pure actionLabel
 
 data Update a = Update
   { updProb   :: Maybe (Expr a)
@@ -691,25 +688,29 @@ instance Pretty (Definition a) where
         PropertyDef   p -> pretty p
 
 instance Pretty (Feature a) where
-    pretty (Feature isRoot ident params attribs decomp constrs mods rws _)
-      | isRoot    = "root" <+> "feature" <> line <> indent 4 body <> line <>
-                    "endfeature"
-      | otherwise = "feature" <+> text ident <> prettyParams params <> line <>
-                    indent 4 body <> line <> "endfeature"
+    pretty Feature{..}
+      | featIsRoot = "root" <+> "feature" <> line <> indent 4 body <> line <>
+                     "endfeature"
+      | otherwise  = "feature" <+> text featIdent <> prettyParams featParams <>
+                     line <> indent 4 body <> line <> "endfeature"
       where
-        body = attribList attribs <>
-               pretty decomp <> line <>
+        body = attribList featAttributes <>
+               pretty featDecomp <> line <>
                constrList <> line <> line <>
+               blockList <>
                modList <> line <> line <>
-               vsep (fmap pretty rws)
+               vsep (fmap pretty featRewards)
         attribList = \case
             [] -> empty
             as -> vsep (fmap pretty as) <> line <> line
-        constrList = vsep (fmap pretty constrs)
+        constrList = vsep (fmap pretty featConstraints)
+        blockList
+          | null featBlocking = empty
+          | otherwise         = "block" <+> vsep (fmap pretty featBlocking)
         modList
-          | null mods = empty
-          | otherwise = "modules" <+>
-            hang 4 (fillSep . punctuate comma $ fmap pretty mods) <> semi
+          | null featModules = empty
+          | otherwise        = "modules" <+>
+            hang 4 (fillSep . punctuate comma $ fmap pretty featModules) <> semi
 
 instance Pretty (Decomposition a) where
     pretty (Decomposition decompOp cs _) = pretty decompOp <+> "of" <+>
@@ -825,15 +826,10 @@ instance Pretty (Stmt a) where
 
 instance Pretty (ActionLabel a) where
     pretty action = case action of
-        ActActivate _    -> "activate"
-        ActDeactivate _  -> "deactivate"
-        Action block n _ -> pretty block <+> pretty n
-        NoAction         -> empty
-
-instance Pretty Blocking where
-    pretty = \case
-        Blocking    -> "block"
-        NonBlocking -> empty
+        ActActivate _   -> "activate"
+        ActDeactivate _ -> "deactivate"
+        Action n _      -> pretty n
+        NoAction        -> empty
 
 instance Pretty (Update a) where
     pretty (Update e asgns _) = prob e <>

@@ -238,9 +238,11 @@ feature = loc $ do
             <$> many varDecl
             <*> optionMaybe decomposition
             <*> many constraint
+            <*> blockList
             <*> moduleList
             <*> many rewards
   where
+    blockList  = option [] $ reserved "block" *> commaSep1 name <* semi
     moduleList = option [] $ reserved "modules" *> commaSep1 inst <* semi
 
 constraint :: Parser LConstraint
@@ -391,8 +393,7 @@ actionLabel :: Parser LActionLabel
 actionLabel = option NoAction . loc . choice $
     [ ActActivate   <$  reserved "activate"
     , ActDeactivate <$  reserved "deactivate"
-    , Action        <$> option NonBlocking (Blocking <$ reserved "block")
-                    <*> name
+    , Action        <$> name
     ]
 
 update :: Parser LUpdate

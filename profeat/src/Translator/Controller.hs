@@ -181,7 +181,7 @@ genActionLabel :: LActionLabel
                -> StateT LabelSets Trans LActionLabel
 genActionLabel action ls = do
     lbl <- case action of
-        Action _ n _    -> Set.singleton . LsAction <$> getLabelInfo n
+        Action n _      -> Set.singleton . LsAction <$> getLabelInfo n
         NoAction        -> return Set.empty
         ActActivate l   -> throw l IllegalReconfLabel
         ActDeactivate l -> throw l IllegalReconfLabel

@@ -7,11 +7,9 @@
 <p>In general, a feature is declared as follows:</p>
 <pre><code>feature &lt;identifier&gt;[(&lt;parameter1&gt;, &lt;parameter2&gt;, ...)]
     [&lt;decomposition&gt;]
-
     [&lt;constraints&gt;]
-
+    [&lt;blocking-actions&gt;]
     [&lt;feature-modules&gt;]
-
     [&lt;rewards&gt;]
 endfeature</code></pre>
 <h4 id="decomposition">Decomposition</h4>
@@ -122,16 +120,17 @@ module my_module
     [deactivate] !busy -&gt; true;
 endmodule</code></pre>
 <p>In this example, the feature <code>my_feat</code> can only be deactivated by the controller if the module is not <code>busy</code>.</p>
-<p>By default, actions are not blocked if the feature is deactivated. In case this is undesired, actions can be marked with the <code>block</code> keyword indicating that the actions is blocked by the module when the feature is not activated:</p>
+<p>By default, actions are not blocked if the feature is deactivated. In case this is undesired, the <code>block</code> keyword followed by a list of actions can be used to mark actions as blocking.</p>
 <pre><code>feature my_feature
+    block tock;
     modules my_module;
 endfeatur
 
 module my_module
     s : bool;
 
-    [tick]      !s -&gt; (s&#39; = true);
-    [block tock] s -&gt; (s&#39; = false);
+    [tick] !s -&gt; (s&#39; = true);
+    [tock]  s -&gt; (s&#39; = false);
 endmodule</code></pre>
 <p>Here, the <code>tock</code> action is blocked if <code>my_feature</code> is not active.</p>
 <h3 id="feature-controller">Feature Controller</h3>

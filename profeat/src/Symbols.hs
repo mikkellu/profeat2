@@ -32,6 +32,7 @@ module Symbols
   , fsChildren
   , fsMandatory
   , fsOptional
+  , fsBlocking
   , fsModules
   , fsVars
   , fsConstraints
@@ -150,8 +151,9 @@ data FeatureSymbol = FeatureSymbol
   , _fsAttributes     :: [LVarDecl]
   , _fsGroupCard      :: (Integer, Integer)
   , _fsChildren       :: Table (Array Integer FeatureSymbol)
-  , _fsMandatory      :: !Bool -- ^ the feature is mandatory (relative to its parent)
-  , _fsOptional       :: !Bool -- ^ the feature is marked as optional
+  , _fsMandatory      :: !Bool                    -- ^ the feature is mandatory (relative to its parent)
+  , _fsOptional       :: !Bool                    -- ^ the feature is marked as optional
+  , _fsBlocking       :: [(Ident, Maybe Integer)] -- ^ actions to block when inactive
   , _fsModules        :: Table LModuleBody
   , _fsVars           :: Table VarSymbol
   , _fsConstraints    :: [LConstraint]
@@ -244,6 +246,7 @@ emptyFeatureSymbol = FeatureSymbol
   , _fsChildren       = empty
   , _fsMandatory      = True
   , _fsOptional       = False
+  , _fsBlocking       = []
   , _fsModules        = empty
   , _fsVars           = empty
   , _fsConstraints    = []

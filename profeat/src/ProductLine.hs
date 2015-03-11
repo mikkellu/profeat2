@@ -1,4 +1,7 @@
-{-# LANGUAGE FlexibleContexts, OverloadedStrings, TupleSections #-}
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE TupleSections     #-}
 
 module ProductLine
   ( rootFeatureSymbol
@@ -9,11 +12,11 @@ import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.State
 
+import Data.Array
 import Data.List ( (\\), group, genericLength, sort )
 import Data.Map ( fromList )
 import qualified Data.Map as Map
 import Data.Maybe
-import Data.Array
 import Data.Traversable
 
 import Error
@@ -104,15 +107,15 @@ toFeatureSymbols mandatory ref@(FeatureRef isOptional inst _ cntExpr) = do
     cnt <- evalFeatureCardinality cntExpr
 
     fss <- for [0..cnt-1] $ \idx -> do
-        feat <- lookupFeature ident l >>=
-                instantiateWithId idx ident args l
+        Feature{..} <- instantiateWithId idx ident args l =<<
+                       lookupFeature ident l
 
-        attribDecls' <- traverse prepExprs (featAttributes feat)
+        attribDecls' <- traverse prepExprs featAttributes
 
         attribVarSyms <- fmap fromList . for attribDecls' $ \decl ->
             (declIdent decl,) <$> toVarSymbol False True decl
 
-        (groupCard, childFeats) <- case featDecomp feat of
+        (groupCard, childFeats) <- case featDecomp of
             Nothing -> return ((0, 0), Map.empty)
             Just decomp@(Decomposition decompOp refs _) -> do
                 checkDecomposition decomp
@@ -129,10 +132,13 @@ toFeatureSymbols mandatory ref@(FeatureRef isOptional inst _ cntExpr) = do
 
                 return (card, cfs)
 
-        (mods, varSyms) <- instantiateModules idx (featModules feat)
+        (mods, varSyms) <- instantiateModules idx featModules
 
-        constraints' <- traverse prepExprs (featConstraints feat)
-        rewards'     <- traverse prepExprs (featRewards feat)
+        constraints' <- traverse prepExprs featConstraints
+        rewards'     <- traverse prepExprs featRewards
+        blocking' <- for featBlocking $ \n -> do
+            LabelInfo{..} <- getLabelInfo =<< prepExprs n
+            return (liIdent, liIndex)
 
         return FeatureSymbol
             { _fsIdent          = featRefIdent ref
@@ -143,6 +149,7 @@ toFeatureSymbols mandatory ref@(FeatureRef isOptional inst _ cntExpr) = do
             , _fsChildren       = childFeats
             , _fsMandatory      = mandatory && not isOptional
             , _fsOptional       = isOptional
+            , _fsBlocking       = blocking'
             , _fsModules        = mods
             , _fsVars           = Map.union attribVarSyms varSyms
             , _fsConstraints    = constraints'

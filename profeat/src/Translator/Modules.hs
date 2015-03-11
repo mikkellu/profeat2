@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module Translator.Modules
   ( trnsModules
   ) where
@@ -15,6 +17,7 @@ import Error
 import Symbols
 import Syntax
 import Syntax.Util
+import Typechecker
 import Types
 
 import Translator.Common
@@ -65,6 +68,12 @@ trnsStmt (Stmt action grd upds l) = do
     let actGrd    = activeGuard ctx
         negActGrd = unaryExpr (LogicUnOp LNot) actGrd
 
+    isNonBlocking <- case action of
+        Action n _ -> do
+            LabelInfo{..} <- getLabelInfo n
+            return $ (liIdent, liIndex) `notElem` ctx^.this.fsBlocking
+        _ -> return False
+
     fmap concat . for actions' $ \(action', labelSet) -> do
         let actGrd' = if localActivateLabel ctx `member` labelSet
                           then negActGrd
@@ -75,10 +84,7 @@ trnsStmt (Stmt action grd upds l) = do
                  isNonBlocking && isNotMandatory ctx]
   where
     localActivateLabel ctx = LsReconf ctx ReconfActivate
-    isNotMandatory = isJust . atomicSetRoot
-    isNonBlocking  = case action of
-        Action NonBlocking _ _ -> True
-        _                      -> False
+    isNotMandatory         = isJust . atomicSetRoot
 
 trnsAssign :: Translator LAssign
 trnsAssign (Assign name e l) = trnsVarAssign name e l

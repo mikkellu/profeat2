@@ -17,8 +17,8 @@ module _a_a_impl
     [tick]  _a_active & _a_s = 0 -> (_a_s' = 1);
     [tick] !_a_active            -> true;
 
-    // [block tock] s = 1  -> (s' = 2);
-    [tock] _a_active & _a_s = 1 -> (_a_s' = 2);
+    // [tock[id+1]] s = 1  -> (s' = 2);
+    [tock_1] _a_active & _a_s = 1 -> (_a_s' = 2);
 
     // [] s = 2  -> (s' = 0);
     [] _a_active & _a_s = 2 -> (_a_s' = 0);
