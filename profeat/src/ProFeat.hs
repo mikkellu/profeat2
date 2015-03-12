@@ -22,6 +22,8 @@ module ProFeat
   , liftEither'
   ) where
 
+import Control.Concurrent
+import Control.Exception
 import Control.Exception.Lens
 import Control.Lens hiding ( argument )
 import Control.Monad.Reader
@@ -41,7 +43,7 @@ import System.Exit
 import System.IO hiding ( withFile )
 import qualified System.IO as IO
 import System.IO.Error.Lens
-import System.Process.Text          ( readProcessWithExitCode )
+import System.Process hiding ( readProcessWithExitCode )
 
 import Text.PrettyPrint.Leijen.Text ( Pretty, displayT, pretty, renderPretty )
 
@@ -263,7 +265,7 @@ callPrism prismModel prismProps = do
     prismPath <- asks prismExecPath
 
     (exitCode, std, err) <- liftIO $
-        readProcessWithExitCode prismPath args S.empty
+        readProcessWithExitCode prismPath args
 
     vPutStrLn "done"
 
@@ -394,4 +396,31 @@ renderToFile path = liftIO . LIO.writeFile path . render
 
 render :: (Pretty p) => p -> L.Text
 render = displayT . renderPretty 0.4 80 . pretty
+
+readProcessWithExitCode :: FilePath -> [String] -> IO (ExitCode, S.Text, S.Text)
+readProcessWithExitCode cmd args = mask $ \restore -> do
+    let p = (proc cmd args)
+              { std_out = CreatePipe
+              , std_err = CreatePipe
+              }
+    (_, Just hOut, Just hErr, pid) <- createProcess p
+
+    flip onException (terminateProcess pid >> release hOut hErr pid) $ restore $ do
+        mOut <- newEmptyMVar
+        mErr <- newEmptyMVar
+
+        _ <- forkIO (SIO.hGetContents hOut >>= putMVar mOut)
+        _ <- forkIO (SIO.hGetContents hErr >>= putMVar mErr)
+
+        out <- readMVar mOut
+        err <- readMVar mErr
+
+        exitCode <- release hOut hErr pid
+
+        return (exitCode, out, err)
+  where
+    release hOut hErr pid = do
+        hClose hOut
+        hClose hErr
+        waitForProcess pid
 
