@@ -75,6 +75,8 @@ helpExportModel = "Export the translated model to <file>"
 helpExportProperties = "Export the translated properties to <file>"
 -- -r --export-results
 helpExportResults = "Export the results of model checking to <file>"
+--    --prism-log
+helpPrismLog = "Show PRISM log messages"
 --    --import-results
 helpImportResults = "Import the PRISM results from <file> for postprocessing"
 --    --group-results
@@ -111,6 +113,7 @@ data ProFeatOptions = ProFeatOptions
   , prismModelPath     :: Maybe FilePath
   , prismPropsPath     :: Maybe FilePath
   , proFeatResultsPath :: Maybe FilePath
+  , showPrismLog       :: !Bool
   , prismResultsPath   :: Maybe FilePath
   , groupResults       :: !Bool
   , roundResults       :: Maybe Int
@@ -130,6 +133,7 @@ defaultOptions = ProFeatOptions
   , prismModelPath     = Nothing
   , prismPropsPath     = Nothing
   , proFeatResultsPath = Nothing
+  , showPrismLog       = False
   , prismResultsPath   = Nothing
   , groupResults       = False
   , roundResults       = Nothing
@@ -157,6 +161,9 @@ proFeatOptions = ProFeatOptions
                            <> metavar "<file>"
                            <> hidden
                            <> help helpExportResults ))
+  <*> switch                ( long "prism-log"
+                           <> hidden
+                           <> help helpPrismLog )
   <*> optional (strOption   ( long "import-results"
                            <> metavar "<file>"
                            <> hidden
@@ -318,7 +325,7 @@ postprocessPrismOutput spec = (return . fmap removeNonConfVars)
     >=> (return . fmap sortStateResults)
     >=> applyRounding
     >=> applyGrouping
-    >=> (return . renderResultCollections . prettyResultCollections True spec)
+    >=> renderResultCollections
   where
     applyRounding rcs = asks roundResults <&> \case
         Just precision -> fmap (roundStateResults precision) rcs
@@ -330,7 +337,10 @@ postprocessPrismOutput spec = (return . fmap removeNonConfVars)
             then fmap groupStateVecs rcs
             else rcs
 
-    renderResultCollections = displayT . renderPretty 1.0 300
+    renderResultCollections rcs = do
+        showLog <- asks showPrismLog
+        return . displayT . renderPretty 1.0 300 $
+            prettyResultCollections showLog spec rcs
 
 runApp :: ProFeat () -> ProFeatOptions -> IO ()
 runApp m opts = do
