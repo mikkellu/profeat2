@@ -15,6 +15,8 @@ module Result
   , rcFinalResult
   , rcTrace
   , rcLog
+  , rcBuildingTime
+  , rcCheckingTime
   , emptyResultCollection
   , appendResultCollection
 
@@ -81,6 +83,8 @@ data ResultCollection = ResultCollection
   , _rcFinalResult         :: !Result
   , _rcTrace               :: !(Seq StateVec)
   , _rcLog                 :: !(Seq Text)
+  , _rcBuildingTime        :: !Double
+  , _rcCheckingTime        :: !Double
   } deriving (Show)
 
 makeLenses ''ResultCollection
@@ -93,13 +97,15 @@ emptyResultCollection vo = ResultCollection
   , _rcFinalResult         = ResultBool False
   , _rcTrace               = Seq.empty
   , _rcLog                 = Seq.empty
+  , _rcBuildingTime        = 0.0
+  , _rcCheckingTime        = 0.0
   }
 
 appendResultCollection :: ResultCollection
                        -> ResultCollection
                        -> ResultCollection
-appendResultCollection (ResultCollection xVo xSrs xGrs xR xTr xL)
-                       (ResultCollection _   ySrs yGrs yR _   yL) =
+appendResultCollection (ResultCollection xVo xSrs xGrs xR xTr xL xBt xCt)
+                       (ResultCollection _   ySrs yGrs yR _   yL yBt yCt) =
     let r = case (xR, yR) of
                 (ResultBool x, ResultBool y) -> ResultBool (x && y)
                 (ResultDouble x, ResultDouble y)
@@ -114,7 +120,7 @@ appendResultCollection (ResultCollection xVo xSrs xGrs xR xTr xL)
                     ResultRange (min xl yl) (max xu yu)
                 _ -> error "Result.appendResultCollection: incompatible collections"
     in ResultCollection xVo (mappend xSrs ySrs) (mappend xGrs yGrs) r xTr
-           (mappend xL yL)
+           (mappend xL yL) (xBt + yBt) (xCt + yCt)
 
 sortStateResults :: ResultCollection -> ResultCollection
 sortStateResults = rcStateResults %~ Seq.sortBy (comparing (view _2'))
@@ -193,12 +199,14 @@ prettyResultCollections includeLog (Specification defs) rcs =
     separator = line <> line <> text (L.replicate 80 "-") <> line
 
 prettyResultCollection :: Bool -> ResultCollection -> Doc
-prettyResultCollection includeLog (ResultCollection vo srs gsrs r tr ls) =
+prettyResultCollection includeLog (ResultCollection vo srs gsrs r tr ls bt ct) =
     (if includeLog then prettyLog ls <> line <> line else empty) <>
     "Final result:" <+> pretty r <$>
     stateResults <$>
     groupedStateResults <$>
-    prettyTrace vo tr
+    prettyTrace vo tr <$>
+    "Time for model construction:" <+> pretty bt <$>
+    "Time for model checking:" <+> pretty ct
   where
     stateResults | Seq.null srs = empty
                  | otherwise    = "Results for initial configurations:" <$>

@@ -31,6 +31,8 @@ data Log
   = LogStateResults !(Seq (StateVec :!: Result))
   | LogFinalResult  !Result
   | LogTrace        !(Seq StateVec)
+  | LogBuildingTime !Double
+  | LogCheckingTime !Double
   | Log             !Text
   deriving (Show)
 
@@ -47,6 +49,8 @@ resultCollection vo ls =
         LogStateResults srs -> rcStateResults .= srs
         LogFinalResult  r   -> rcFinalResult  .= r
         LogTrace        svs -> rcTrace        .= svs
+        LogBuildingTime t   -> rcBuildingTime .= t
+        LogCheckingTime t   -> rcCheckingTime .= t
         Log             t   -> rcLog          %= (|> t)
 
 languageDef :: Monad m => P.GenLanguageDef Text u m
@@ -93,6 +97,8 @@ logs = many . choice $
   [ logStateResults
   , logFinalResult
   , logTrace
+  , logBuildingTime
+  , logCheckingTime
   , logAny
   ]
 
@@ -112,6 +118,16 @@ logFinalResult = LogFinalResult <$> (start *> result <* skipLine) where
 logTrace :: Parser Log
 logTrace = LogTrace . fromList <$> (start *> skipLine *> many stateVec) where
     start = trySymbol "Counterexample/witness"
+
+logBuildingTime :: Parser Log
+logBuildingTime = LogBuildingTime <$> (start *> float <* skipLine)
+  where
+    start = trySymbol "Time for model construction:"
+
+logCheckingTime :: Parser Log
+logCheckingTime = LogCheckingTime <$> (start *> float <* skipLine)
+  where
+    start = trySymbol "Time for model checking:"
 
 logAny :: Parser Log
 logAny = Log . pack <$> line
