@@ -1,7 +1,9 @@
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
+{-# OPTIONS_GHC -fno-warn-unused-binds       #-}
 
 {-# LANGUAGE LambdaCase                #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE RecordWildCards           #-}
 {-# LANGUAGE TypeOperators             #-}
 
 module Parser.Results
@@ -35,7 +37,8 @@ data Log
 parseResultCollections :: VarOrdering -> Text -> [ResultCollection]
 parseResultCollections vo output =
     case parse prismOutput "output" output of
-        Left err  -> error (show err)
+        Left err  -> error $ "internal error while parsing PRISM output\n:" ++
+                             show err
         Right lss -> fmap (resultCollection vo) lss
 
 resultCollection :: VarOrdering -> [Log] -> ResultCollection
@@ -64,15 +67,7 @@ languageDef = P.LanguageDef
 lexer :: Monad m => P.GenTokenParser Text u m
 lexer = P.makeTokenParser languageDef
 
-reservedOp = P.reservedOp lexer
-integer    = P.integer lexer
-float      = P.float lexer
-symbol     = P.symbol lexer
-lexeme     = P.lexeme lexer
-whiteSpace = P.whiteSpace lexer
-parens     = P.parens lexer
-colon      = P.colon lexer
-commaSep   = P.commaSep lexer
+P.TokenParser{..} = lexer
 
 int :: Parser Int
 int = fromInteger <$> integer
@@ -108,7 +103,7 @@ logStateResults =
     start       = trySymbol "Satisfying states" <|> trySymbol "Results"
     stateResult = (:!:) <$> (integer *> colon *> stateVec)
                         <*> option (ResultBool True)
-                                   (ResultDouble <$> (reservedOp "=" *> float))
+                                   (ResultDouble <$> (reservedOp "=" *> float'))
 
 logFinalResult :: Parser Log
 logFinalResult = LogFinalResult <$> (start *> result <* skipLine) where
@@ -123,9 +118,10 @@ logAny = Log . pack <$> line
 
 result :: Parser Result
 result = choice
-  [ ResultBool True  <$  symbol "true"
-  , ResultBool False <$  symbol "false"
-  , ResultDouble     <$> float
+  [ ResultBool True  <$ symbol "true"
+  , ResultBool False <$ symbol "false"
+  , brackets (ResultRange <$> (float <* comma) <*> float)
+  , ResultDouble <$> float'
   ]
 
 stateVec :: Parser StateVec
@@ -136,5 +132,12 @@ value = choice
   [ 0 <$ symbol "false"
   , 1 <$ symbol "true"
   , int
+  ]
+
+float' :: Parser Double
+float' = choice
+  [ ( 1.0/0) <$ symbol "Infinity"
+  , (-1.0/0) <$ symbol "-Infinity"
+  , float
   ]
 

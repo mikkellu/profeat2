@@ -56,13 +56,16 @@ import Syntax hiding ( Range )
 data Result
   = ResultBool !Bool
   | ResultDouble !Double
+  | ResultRange !Double !Double
   deriving (Eq, Ord, Show)
 
 instance Pretty Result where
     pretty = \case
-        ResultBool False -> "false"
-        ResultBool True  -> "true"
-        ResultDouble d   -> double d
+        ResultBool False        -> "false"
+        ResultBool True         -> "true"
+        ResultDouble d          -> double d
+        ResultRange lower upper ->
+            brackets (double lower <> comma <> double upper)
 
 type StateVec = UV.Vector Int
 
