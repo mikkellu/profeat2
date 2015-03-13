@@ -271,12 +271,12 @@ callPrism :: Maybe LSpecification -> LModel -> ProFeat S.Text
 callPrism prismProps prismModel = do
     vPutStr "Model Checking..."
 
-    modelPath <- getPath prismModelPath "prism" prismModel
+    renderToFile modelPath prismModel
 
     args <- case prismProps of
         Nothing    -> return [modelPath]
         Just props -> do
-            propsPath <- getPath prismPropsPath "props" props
+            renderToFile propsPath props
             return [modelPath, propsPath]
 
     prismPath <- asks prismExecPath
@@ -293,12 +293,8 @@ callPrism prismProps prismModel = do
 
     return std
   where
-    getPath exportOpt ext m = asks exportOpt >>= \case
-        Just path -> return path
-        Nothing   -> do
-            let path = "out." ++ ext
-            renderToFile path m
-            return path
+    modelPath = "out.prism"
+    propsPath = "out.props"
 
 writeProFeatOutput :: LSpecification -> [S.Text] -> ProFeat ()
 writeProFeatOutput spec prismOutputs = do
