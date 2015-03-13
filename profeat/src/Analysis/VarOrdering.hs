@@ -52,11 +52,11 @@ data Range
   deriving (Show)
 
 varOrdering :: SymbolTable -> VarOrdering
-varOrdering = stripLoc .
-              mconcat .
-              sortBy (comparing getLoc) .
-              concat .
-              sequence [globalVars, moduleVars, controllerVars] -- TODO: globals are always first
+varOrdering symTbl =
+    let gs = sortBy (comparing getLoc) $ globalVars symTbl
+        ls = sortBy (comparing getLoc) . concat $
+             sequence [moduleVars, controllerVars] symTbl
+    in stripLoc . mconcat $ gs ++ ls
 
 globalVars :: SymbolTable -> [LVarOrdering]
 globalVars = fmap globalToVarOrdering . toListOf (globals.traverse)
