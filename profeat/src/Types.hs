@@ -28,6 +28,8 @@ module Types
 
   , prettyValuation
   , prettyRange
+
+  , enumValues
   ) where
 
 import Control.Lens.Iso
@@ -163,4 +165,10 @@ prettyValuation =
   where
     idx i | i > 0     = brackets (integer i)
           | otherwise = empty
+
+enumValues :: SimpleType -> [Value]
+enumValues st = case st of
+    IntType (Just (lower, upper)) -> fmap IntVal [lower..upper]
+    BoolType                      -> [BoolVal False, BoolVal True]
+    _                             -> []
 

@@ -16,7 +16,9 @@ module Result
   , rcTrace
   , rcLog
   , emptyResultCollection
+  , appendResultCollection
 
+  , sortStateResults
   , removeNonConfVars
   , roundStateResults
   , groupStateVecs
@@ -33,6 +35,7 @@ import qualified Data.Foldable as F
 import qualified Data.Map as Map
 import Data.Maybe                   ( mapMaybe)
 import Data.Monoid                  ( mappend )
+import Data.Ord                     ( comparing )
 import Data.Sequence                ( Seq, ViewL(..), viewl )
 import qualified Data.Sequence as Seq
 import Data.IntSet                  ( IntSet, member, findMin, findMax, singleton, size )
@@ -91,6 +94,30 @@ emptyResultCollection vo = ResultCollection
   , _rcTrace               = Seq.empty
   , _rcLog                 = Seq.empty
   }
+
+appendResultCollection :: ResultCollection
+                       -> ResultCollection
+                       -> ResultCollection
+appendResultCollection (ResultCollection xVo xSrs xGrs xR xTr xL)
+                       (ResultCollection _   ySrs yGrs yR _   yL) =
+    let r = case (xR, yR) of
+                (ResultBool x, ResultBool y) -> ResultBool (x && y)
+                (ResultDouble x, ResultDouble y)
+                  | x < y     -> ResultRange x y
+                  | x > y     -> ResultRange y x
+                  | otherwise -> ResultDouble x
+                (ResultRange xl xu, ResultDouble y) ->
+                    ResultRange (min y xl) (max y xu)
+                (ResultDouble x, ResultRange yl yu) ->
+                    ResultRange (min x yl) (max x yu)
+                (ResultRange xl xu, ResultRange yl yu) ->
+                    ResultRange (min xl yl) (max xu yu)
+                _ -> error "Result.appendResultCollection: incompatible collections"
+    in ResultCollection xVo (mappend xSrs ySrs) (mappend xGrs yGrs) r xTr
+           (mappend xL yL)
+
+sortStateResults :: ResultCollection -> ResultCollection
+sortStateResults = rcStateResults %~ Seq.sortBy (comparing (view _2'))
 
 groupStateVecs :: ResultCollection -> ResultCollection
 groupStateVecs rc =
@@ -167,11 +194,11 @@ prettyResultCollections includeLog (Specification defs) rcs =
 
 prettyResultCollection :: Bool -> ResultCollection -> Doc
 prettyResultCollection includeLog (ResultCollection vo srs gsrs r tr ls) =
+    (if includeLog then prettyLog ls <> line <> line else empty) <>
     "Final result:" <+> pretty r <$>
     stateResults <$>
     groupedStateResults <$>
-    prettyTrace vo tr <$>
-    if includeLog then prettyLog ls else empty
+    prettyTrace vo tr
   where
     stateResults | Seq.null srs = empty
                  | otherwise    = "Results for initial configurations:" <$>

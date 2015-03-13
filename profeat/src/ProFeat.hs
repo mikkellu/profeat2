@@ -40,6 +40,7 @@ import Data.Traversable
 import Options.Applicative
 
 import System.Exit
+import System.FilePath
 import System.IO hiding ( withFile )
 import qualified System.IO as IO
 import System.IO.Error.Lens
@@ -66,6 +67,8 @@ helpModelFile = "The ProFeat model file (if '-' is given, the model is read from
 helpPropsFile = "The ProFeat property list"
 --
 -- Options
+--    --one-by-one
+helpOneByOne = "Check (or export) all configurations one by one"
 -- -o --export-model
 helpExportModel = "Export the translated model to <file>"
 -- -p --export-properties
@@ -104,6 +107,7 @@ proFeatMain = handling _IOException ioeHandler $
 data ProFeatOptions = ProFeatOptions
   { proFeatModelPath   :: FilePath
   , proFeatPropsPath   :: Maybe FilePath
+  , oneByOne           :: !Bool
   , prismModelPath     :: Maybe FilePath
   , prismPropsPath     :: Maybe FilePath
   , proFeatResultsPath :: Maybe FilePath
@@ -120,8 +124,9 @@ data Verbosity = Normal | Verbose deriving (Eq)
 
 defaultOptions :: ProFeatOptions
 defaultOptions = ProFeatOptions
-  { proFeatModelPath = "-"
+  { proFeatModelPath   = "-"
   , proFeatPropsPath   = Nothing
+  , oneByOne           = False
   , prismModelPath     = Nothing
   , prismPropsPath     = Nothing
   , proFeatResultsPath = Nothing
@@ -140,6 +145,8 @@ proFeatOptions = ProFeatOptions
                            <> help helpModelFile )
   <*> optional (strArgument ( metavar "<properties-file>"
                            <> help helpPropsFile ))
+  <*> switch                ( long "one-by-one"
+                           <> help helpOneByOne )
   <*> optional (strOption   ( long "export-model" <> short 'o'
                            <> metavar "<file>"
                            <> help helpExportModel ))
@@ -188,28 +195,24 @@ proFeat = withProFeatModel . withProFeatProps $ \proFeatProps ->
                 exitWith $ ExitFailure 4
             Just props -> withFile resultsPath ReadMode $ \hIn -> do
                 prismOutput <- liftIO $ SIO.hGetContents hIn
-                writeProFeatOutput props prismOutput
+                writeProFeatOutput props [prismOutput]
         Nothing -> do
             vPutStr "Translating..."
-            prismModel <- translate
+            prismModels <- translate
             prismProps <- _Just translateProps proFeatProps
             vPutStrLn "done"
 
-            with prismModelPath $ \p -> do
-                vPutStrLn $ "Writing PRISM model to " ++ p
-                renderToFile p prismModel
-            with prismPropsPath $ \p -> do
-                vPutStrLn $ "Writing PRISM properties list to " ++ p
-                void . for prismProps $ renderToFile p
+            with prismModelPath $ \p -> renderToFiles p prismModels
+            with prismPropsPath $ void . for prismProps . renderToFile
 
             when' (asks translateOnly) $ liftIO exitSuccess
 
-            prismOutput <- callPrism prismModel prismProps
+            prismOutputs <- for prismModels (callPrism prismProps)
 
             when' (asks modelCheckOnly) $ liftIO exitSuccess
 
             case proFeatProps of
-                Just props -> writeProFeatOutput props prismOutput
+                Just props -> writeProFeatOutput props prismOutputs
                 Nothing    -> return ()
 
 withProFeatModel :: ProFeat a -> ProFeat a
@@ -224,8 +227,13 @@ withProFeatModel m = do
 
         put symTbl >> m
 
-translate :: ProFeat LModel
-translate = liftEither' . translateModel =<< get
+translate :: ProFeat [LModel]
+translate = do
+    symTbl       <- get
+    genInstances <- asks oneByOne
+    liftEither' $ if genInstances
+        then translateModelInstances symTbl
+        else (:[]) <$> translateModel symTbl
 
 withProFeatProps :: (Maybe LSpecification -> ProFeat a) -> ProFeat a
 withProFeatProps m = asks proFeatPropsPath >>= \case
@@ -243,15 +251,17 @@ withProFeatProps m = asks proFeatPropsPath >>= \case
         m (Just spec)
 
 withTranslatedModel :: (LModel -> ProFeat a) -> ProFeat a
-withTranslatedModel = withProFeatModel . (translate >>=)
+withTranslatedModel m = withProFeatModel $ do
+    symTbl <- get
+    m =<< liftEither' (translateModel symTbl)
 
 translateProps :: LSpecification -> ProFeat LSpecification
 translateProps spec = do
     symTbl <- get
     liftEither' $ translateSpec symTbl spec
 
-callPrism :: LModel -> Maybe LSpecification -> ProFeat S.Text
-callPrism prismModel prismProps = do
+callPrism :: Maybe LSpecification -> LModel -> ProFeat S.Text
+callPrism prismProps prismModel = do
     vPutStr "Model Checking..."
 
     modelPath <- getPath prismModelPath "prism" prismModel
@@ -283,25 +293,33 @@ callPrism prismModel prismProps = do
             renderToFile path m
             return path
 
-writeProFeatOutput :: LSpecification -> S.Text -> ProFeat ()
-writeProFeatOutput props prismOutput = do
+writeProFeatOutput :: LSpecification -> [S.Text] -> ProFeat ()
+writeProFeatOutput spec prismOutputs = do
     vPutStr "Processing results..."
-    proFeatOutput <- postprocessPrismOutput props prismOutput
+    proFeatOutput <- postprocessPrismOutput spec =<<
+                     parsePrismOutputs prismOutputs
     vPutStrLn "done"
 
     maybeWriteFile proFeatOutput =<< asks proFeatResultsPath
 
-postprocessPrismOutput :: LSpecification -> S.Text -> ProFeat L.Text
-postprocessPrismOutput spec = parse
-    >=> (return . fmap removeNonConfVars)
-    >=> applyRounding
-    >=> applyGrouping
-    >=> (return . renderResultCollections . prettyResultCollections False spec)
+parsePrismOutputs :: [S.Text] -> ProFeat [ResultCollection]
+parsePrismOutputs []      = return []
+parsePrismOutputs outputs = do
+    rcs <- traverse parse outputs
+    return $ foldr1 (zipWith appendResultCollection) rcs
   where
+    parse :: S.Text -> ProFeat [ResultCollection]
     parse out = do
         symTbl <- get
         return $ parseResultCollections (varOrdering symTbl) out
 
+postprocessPrismOutput :: LSpecification -> [ResultCollection] -> ProFeat L.Text
+postprocessPrismOutput spec = (return . fmap removeNonConfVars)
+    >=> (return . fmap sortStateResults)
+    >=> applyRounding
+    >=> applyGrouping
+    >=> (return . renderResultCollections . prettyResultCollections True spec)
+  where
     applyRounding rcs = asks roundResults <&> \case
         Just precision -> fmap (roundStateResults precision) rcs
         Nothing        -> rcs
@@ -390,6 +408,17 @@ pathToMaybe :: FilePath -> Maybe FilePath
 pathToMaybe path = case path of
     "-" -> Nothing
     _   -> Just path
+
+renderToFiles :: (Pretty p) => FilePath -> [p] -> ProFeat ()
+renderToFiles path = \case
+    []  -> return ()
+    [x] -> renderToFile path x
+    xs  -> void . for (zip xs [0 :: Integer ..]) $ \(x, i) ->
+               renderToFile (path `addIndex` i) x
+  where
+    addIndex p i =
+        let (file, ext) = splitExtensions p
+        in (file ++ "_" ++ show i) `addExtension` ext
 
 renderToFile :: (Pretty p) => FilePath -> p -> ProFeat ()
 renderToFile path = liftIO . LIO.writeFile path . render
