@@ -1,4 +1,10 @@
-{-# LANGUAGE ExistentialQuantification, LambdaCase, OverloadedStrings #-}
+{-# OPTIONS_GHC -fno-warn-missing-signatures #-}
+{-# OPTIONS_GHC -fno-warn-unused-binds       #-}
+
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE LambdaCase                #-}
+{-# LANGUAGE OverloadedStrings         #-}
+{-# LANGUAGE RecordWildCards           #-}
 
 module Parser.Internal
   ( Language(..)
@@ -131,14 +137,10 @@ languageDef = T.LanguageDef
 lexer :: T.GenTokenParser Text UserState Identity
 lexer = T.makeTokenParser languageDef
 
-integer :: (Integral a) => Parser a
-integer = fromInteger <$> T.integer lexer
+T.TokenParser{..} = lexer
 
-float :: Parser Double
-float = T.float lexer
-
-decimal :: Parser Text
-decimal = T.lexeme lexer $ try $ do
+decimal' :: Parser Text
+decimal' = T.lexeme lexer $ try $ do
     w <- many digit
     option (pack w) $ do
         void $ char '.'
@@ -149,33 +151,11 @@ bool :: Parser Bool
 bool = False <$ reserved "false"
    <|> True  <$ reserved "true"
 
-identifier :: Parser Text
-identifier = pack <$> T.identifier lexer
+identifier' :: Parser Text
+identifier' = pack <$> identifier
 
-reserved, reservedOp :: String -> Parser ()
-reserved   = T.reserved lexer
-reservedOp = T.reservedOp lexer
-
-symbol :: String -> Parser String
-symbol = T.symbol lexer
-
-semi, colon, comma :: Parser String
-semi  = T.semi lexer
-colon = T.colon lexer
-comma = T.comma lexer
-
-parens, brackets, braces, doubleQuotes :: forall a. Parser a -> Parser a
-parens       = T.parens lexer
-brackets     = T.brackets lexer
-braces       = T.braces lexer
+doubleQuotes :: forall a. Parser a -> Parser a
 doubleQuotes = let quote = symbol "\"" in between quote quote
-
-commaSep, commaSep1 :: Parser a -> Parser [a]
-commaSep  = T.commaSep  lexer
-commaSep1 = T.commaSep1 lexer
-
-whiteSpace :: Parser ()
-whiteSpace = T.whiteSpace lexer
 
 block :: String -> Parser a -> Parser a
 block blockName p = braces p <|> (p <* reserved ("end" ++ blockName))
@@ -230,7 +210,7 @@ feature = loc $ do
     reserved "feature"
     ident <- if isRoot
                 then return "root"
-                else identifier
+                else identifier'
     ps    <- params
     block "feature" $
         Feature isRoot ident ps
@@ -263,17 +243,17 @@ decompOp =  AllOf  <$  reserved "all"
 featureRef :: Parser LFeatureRef
 featureRef = FeatureRef <$> option False (True <$ reserved "optional")
                         <*> inst
-                        <*> optionMaybe (reserved "as" *> identifier)
+                        <*> optionMaybe (reserved "as" *> identifier')
                         <*> optionMaybe (brackets expr)
 
 inst :: Parser LInstance
-inst = loc $ Instance <$> identifier <*> option [] (args expr)
+inst = loc $ Instance <$> identifier' <*> option [] (args expr)
 
 rewardsDef :: Parser LDefinition
 rewardsDef = RewardsDef <$> rewards
 
 rewards :: Parser LRewards
-rewards = loc (Rewards <$> (reserved "rewards" *> doubleQuotes identifier)
+rewards = loc (Rewards <$> (reserved "rewards" *> doubleQuotes identifier')
                        <*> block "rewards" (many reward)) <?> "rewards"
 
 reward :: Parser LReward
@@ -289,11 +269,11 @@ controllerDef = ControllerDef . Controller <$>
 moduleDef :: Parser LDefinition
 moduleDef = fmap ModuleDef $ do
     reserved "module"
-    ident <- identifier
+    ident <- identifier'
     ps    <- params
     block "module" $ Module ident ps <$> public <*> moduleBody
   where
-    public = option [] $ reserved "public" *> commaSep1 identifier <* semi
+    public = option [] $ reserved "public" *> commaSep1 identifier' <* semi
 
 moduleBody :: Parser LModuleBody
 moduleBody = loc (ModuleBody <$> many varDecl <*> repeatable stmt many)
@@ -303,7 +283,7 @@ globalDef = GlobalDef <$> (reserved "global" *> varDecl)
          <?> "variable declaration"
 
 varDecl :: Parser LVarDecl
-varDecl = loc (VarDecl <$> identifier <* colon
+varDecl = loc (VarDecl <$> identifier' <* colon
                        <*> varType
                        <*> optionMaybe (reserved "init" *> expr) <* semi)
        <?> "variable declaration"
@@ -328,7 +308,7 @@ constantDef :: Parser LDefinition
 constantDef = ConstDef <$>
     loc (Constant <$> (reserved "const" *>
                        option IntConstType constantType)
-                  <*> (identifier <* reservedOp "=")
+                  <*> (identifier' <* reservedOp "=")
                   <*> (expr <* semi)) <?> "constant definition"
 
 constantType :: Parser ConstType
@@ -341,7 +321,7 @@ formulaDef :: Parser LDefinition
 formulaDef = FormulaDef <$> formula
 
 formula :: Parser LFormula
-formula = loc (Formula <$> (reserved "formula" *> identifier)
+formula = loc (Formula <$> (reserved "formula" *> identifier')
                        <*> params
                        <*> (reservedOp "=" *> expr <* semi))
        <?> "formula"
@@ -350,7 +330,7 @@ labelDef :: Parser LDefinition
 labelDef = LabelDef <$> label
 
 label :: Parser LLabel
-label = loc (Label <$> (reserved "label" *> doubleQuotes identifier)
+label = loc (Label <$> (reserved "label" *> doubleQuotes identifier')
                    <*> (reservedOp "=" *> expr <* semi))
      <?> "label definition"
 
@@ -370,7 +350,7 @@ propertyDef :: Parser LDefinition
 propertyDef = PropertyDef <$>
     loc (Property <$> propertyIdent <*> property <* semi) <?> "property"
   where
-    propertyIdent = option Nothing (Just <$> doubleQuotes identifier <* colon)
+    propertyIdent = option Nothing (Just <$> doubleQuotes identifier' <* colon)
 
 stmt :: Parser LStmt
 stmt =  loc (Stmt <$> brackets actionLabel
@@ -485,8 +465,8 @@ rewardExpr =
 rewardProp :: Parser LRewardProp
 rewardProp = choice
   [ Reachability <$> (reserved "F" *> expr' True)
-  , Cumulative   <$> (reserved "C" *> reservedOp "<=" *> decimal)
-  , Instant      <$> (reserved "I" *> reservedOp "="  *> decimal)
+  , Cumulative   <$> (reserved "C" *> reservedOp "<=" *> decimal')
+  , Instant      <$> (reserved "I" *> reservedOp "="  *> decimal')
   , Steady       <$   reserved "S"
   ]
 
@@ -499,7 +479,7 @@ repeatable p c = Repeatable <$> c some'
          <|> One  <$> p
 
 forLoop :: Parser (b SrcLoc) -> Parser (LForLoop b)
-forLoop p = loc (ForLoop <$> (reserved "for" *> identifier)
+forLoop p = loc (ForLoop <$> (reserved "for" *> identifier')
                          <*> (reserved "in"  *> range)
                          <*> block "for" p)
          <?> "for loop"
@@ -516,7 +496,7 @@ labelExpr False = parserZero
 labelExpr True  = LabelExpr <$> doubleQuotes labelIdent <?> "label"
   where
     labelIdent =  "init" <$ reserved "init"
-              <|> identifier
+              <|> identifier'
 
 arrayExpr :: Parser (SrcLoc -> LExpr)
 arrayExpr = ArrayExpr . fromList <$> braces (commaSep1 expr)
@@ -557,7 +537,7 @@ function = choice
 
 bound :: Parser Bound
 bound = choice
-  [ Bound <$> boundOp <*> decimal
+  [ Bound <$> boundOp <*> decimal'
   , Query QueryMinValue <$ reserved "min" <* reservedOp "=?"
   , Query QueryMaxValue <$ reserved "max" <* reservedOp "=?"
   , Query QueryValue    <$ reservedOp "=?"
@@ -577,13 +557,13 @@ name =  loc (toName <$> (this <|> qualifier)
   where
     toName q qs = Name (q :| qs)
     this        = ("this", Nothing) <$ reserved "this"
-    qualifier   = (,) <$> identifier <*> optionMaybe (brackets expr)
+    qualifier   = (,) <$> identifier' <*> optionMaybe (brackets expr)
 
 args :: Parser LExpr -> Parser [LExpr]
 args = parens . commaSep
 
 params :: Parser [Ident]
-params = option [] . parens $ commaSep1 identifier
+params = option [] . parens $ commaSep1 identifier'
 
 range :: Parser LRange
 range = brackets ((,) <$> expr <*> (reservedOp ".." *> expr))
