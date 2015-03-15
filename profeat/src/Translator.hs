@@ -14,7 +14,7 @@ import Control.Monad.Reader
 
 import Data.Array
 import Data.Foldable ( toList )
-import Data.List ( genericLength, genericTake, sortBy )
+import Data.List ( genericLength, sortBy )
 import Data.Map ( Map, union, unions )
 import qualified Data.Map as Map
 import Data.Maybe
@@ -248,9 +248,8 @@ configurations isOptional (lower, upper) as = filter valid . subsequences $ as
                in lower - opt <= mand && cnt <= upper
 
 subsequences :: [Array Integer a] -> [[a]]
-subsequences (a:as) = let (lower, upper) = bounds a in do
-    ss <- subsequences as
-    i  <- enumFromTo lower (upper + 1)
-    return $ genericTake i (elems a) ++ ss
-subsequences [] = return []
+subsequences = powerset . concatMap elems
+
+powerset :: [a] -> [[a]]
+powerset = filterM (const [True, False])
 
