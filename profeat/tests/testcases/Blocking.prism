@@ -3,12 +3,15 @@ init
     _a_s = 0
 endinit
 
-module _controller
-    _a : [0 .. 1];
-endmodule
-
 formula _active  = true;
 formula _a_active = _a = 1;
+
+module _controller
+    _a : [0 .. 1];
+
+    [_a_activate]  !_a_active -> (_a' = 1);
+    [_a_deactivate] _a_active -> (_a' = 0);
+endmodule
 
 module _a_a_impl
     _a_s : [0 .. 2];

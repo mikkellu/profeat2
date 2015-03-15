@@ -185,8 +185,14 @@ trnsActionLabel action =
         Just lbl -> do
             lss <- toList <$> getLabelSetsFor lbl
             return $ case lss of
-                [] -> [(Action (labelName lbl) noLoc, Set.singleton lbl)]
+                [] | isReconfLabel lbl -> [] -- there is no such reconfiguration in controller; remove statement
+                   | otherwise ->
+                     [(Action (labelName lbl) noLoc, Set.singleton lbl)]
                 _  -> fmap (labelSetToAction &&& id) lss
+  where
+    isReconfLabel = \case
+        LsReconf _ _ -> True
+        _            -> False
 
 labelSetToAction :: Set LabelSymbol -> LActionLabel
 labelSetToAction ls

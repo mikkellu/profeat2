@@ -7,6 +7,11 @@ feature a {
     modules a_impl;
 }
 
+controller {
+    [] !active(a) -> activate(a);
+    []  active(a) -> deactivate(a);
+}
+
 module a_impl {
     s : [0..2] init 0;
 
