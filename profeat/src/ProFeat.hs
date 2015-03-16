@@ -90,6 +90,8 @@ helpModelChecking = "Translate and model check only, do not postprocess results"
 --    --prism-path
 helpPrismPath    = "Set the path of the PRISM executable"
 defaultPrismPath = "prism"
+--    --prism-args
+helpPrismArgs = "Pass <args> to PRISM"
 -- -v --verbose
 helpVerbose = "Enable verbose output"
 
@@ -120,6 +122,7 @@ data ProFeatOptions = ProFeatOptions
   , translateOnly      :: !Bool
   , modelCheckOnly     :: !Bool
   , prismExecPath      :: FilePath
+  , prismArguments     :: Maybe String
   , verbosity          :: !Verbosity
   }
 
@@ -140,6 +143,7 @@ defaultOptions = ProFeatOptions
   , translateOnly      = False
   , modelCheckOnly     = False
   , prismExecPath      = defaultPrismPath
+  , prismArguments     = Nothing
   , verbosity          = Normal
   }
 
@@ -187,6 +191,10 @@ proFeatOptions = ProFeatOptions
                            <> showDefault
                            <> hidden
                            <> help helpPrismPath )
+  <*> optional (strOption   ( long "prism-args"
+                           <> metavar "<args>"
+                           <> hidden
+                           <> help helpPrismArgs ))
   <*> flag Normal Verbose   ( long "verbose" <> short 'v'
                            <> hidden
                            <> help helpVerbose )
@@ -280,9 +288,10 @@ callPrism prismProps prismModel = do
             return [modelPath, propsPath]
 
     prismPath <- asks prismExecPath
+    prismArgs <- maybe [] words <$> asks prismArguments
 
     (exitCode, std, err) <- liftIO $
-        readProcessWithExitCode prismPath args
+        readProcessWithExitCode prismPath (args ++ prismArgs)
 
     vPutStrLn "done"
 
