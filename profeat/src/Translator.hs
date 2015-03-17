@@ -81,14 +81,20 @@ translateModelInstances symTbl = do
         let initExprs' = InitExprs initExprs <> valInitExprs val
         in translateModel' symTbl initExprs' invs
 
-initialValuations :: (MonadReader r m, MonadError Error m, HasSymbolTable r)
+initialValuations :: ( Applicative m
+                     , MonadReader r m
+                     , MonadError Error m
+                     , HasSymbolTable r
+                     )
                   => LExpr
                   -> m [Valuation]
 initialValuations e = do
     symTbl <- view symbolTable
+    val <- attribInitialValues
     let vals = union <$> initialConfigurations symTbl
-                     <*> initialAttribVals symTbl
-    filterM (`satisfies` e) vals
+                     <*> attribValuations symTbl
+        vals' = fmap (union val) vals
+    filterM (`satisfies` e) vals'
 
 initialConfigurations :: SymbolTable -> [Valuation]
 initialConfigurations symTbl =
@@ -112,12 +118,13 @@ initialConfigurations symTbl =
             let v = IntVal $ if ctx' `elem` confCtxs then 1 else 0
             in ((activeIdent ctx', 0), v)
 
-initialAttribVals :: SymbolTable -> [Valuation]
-initialAttribVals symTbl =
+attribValuations :: SymbolTable -> [Valuation]
+attribValuations symTbl =
     let ctxs = symTbl^.rootFeature.to allContexts
     in fmap unions . for ctxs $ \ctx -> do
         let attribs = filter (^._2.vsIsAttrib) $ ctx^.this.fsVars.to Map.assocs
-        fmap unions . for attribs $ \(ident, vs) ->
+            nondet  = filter (has $ _2.vsInit._Nothing) attribs
+        fmap unions . for nondet $ \(ident, vs) ->
             case vs^.vsType of
                 CompoundType (ArrayType (Just (lower, upper)) st) ->
                     let values = enumValues st
@@ -129,6 +136,28 @@ initialAttribVals symTbl =
                         fqi    = fullyQualifiedIdent (Local ctx) ident Nothing
                     in fmap (Map.singleton (fqi, 0)) values
                 _ -> []
+
+attribInitialValues :: ( Applicative m
+                       , MonadReader r m
+                       , MonadError Error m
+                       , HasSymbolTable r
+                       )
+                    => m Valuation
+attribInitialValues = do
+    val  <- view constValues
+    ctxs <- view $ symbolTable.rootFeature.to allContexts
+    fmap unions . for ctxs $ \ctx ->
+        fmap unions . for (ctx^.this.fsVars.to Map.assocs) $ \(ident, vs) ->
+            case vs^.vsInit of
+                Just e | vs^.vsIsAttrib -> do
+                    v <- eval' val e
+                    return $ case vs^.vsType of
+                        CompoundType (ArrayType (Just (lower, upper)) _) ->
+                            Map.fromList . flip fmap [lower..upper] $ \i ->
+                                ((fullyQualifiedIdent (Local ctx) ident (Just i), 0), v)
+                        _ -> Map.singleton
+                            (fullyQualifiedIdent (Local ctx) ident Nothing, 0) v
+                _ -> return Map.empty
 
 satisfies :: (MonadReader r m, MonadError Error m, HasSymbolTable r)
           => Valuation
