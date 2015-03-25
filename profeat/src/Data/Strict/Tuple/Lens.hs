@@ -1,15 +1,16 @@
-{-# LANGUAGE TypeOperators #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Data.Strict.Tuple.Lens
-  ( _1'
-  , _2'
-  ) where
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
+module Data.Strict.Tuple.Lens where
+
+import Control.Lens.Tuple
 import Data.Strict.Tuple
 
-_1' :: Functor f => (a -> f a') -> (a :!: b) -> f (a' :!: b)
-_1' f (x :!: y) = fmap (:!: y) (f x)
+instance Field1 (Pair a b) (Pair a' b) a a' where
+    _1 k (x :!: y) = fmap (:!: y) (k x)
 
-_2' :: Functor f => (b -> f b') -> (a :!: b) -> f (a :!: b')
-_2' f (x :!: y) = fmap (x :!:) (f y)
+instance Field2 (Pair a b) (Pair a b') b b' where
+    _2 k (x :!: y) = fmap (x :!:) (k y)
 

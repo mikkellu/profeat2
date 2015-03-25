@@ -43,7 +43,7 @@ import qualified Data.Sequence as Seq
 import Data.IntSet                  ( IntSet, member, findMin, findMax, singleton, size )
 import qualified Data.IntSet as Set
 import Data.Strict.Tuple            ( (:!:), Pair(..) )
-import Data.Strict.Tuple.Lens
+import Data.Strict.Tuple.Lens       ()
 import qualified Data.Strict.Tuple as ST
 
 import Data.Text                    ( Text )
