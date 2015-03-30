@@ -68,6 +68,7 @@ import Text.Parsec.Text.Lazy ()
 import Error
 import Syntax
 import Syntax.Util
+import Types
 
 data Language = PrismLang | ProFeat
 
@@ -103,15 +104,15 @@ toSyntaxError = SyntaxError . pack .
 
 reservedNames, reservedOpNames :: [String]
 reservedNames =
-    [ "family", "endfamily", "parameters", "feature", "endfeature", "root"
-    , "global", "const", "formula", "label", "modules", "all" , "one", "some"
-    , "of", "optional", "as", "constraint", "initial", "rewards"
-    , "endrewards", "controller", "endcontroller", "module", "endmodule"
-    , "this", "public", "active", "activate", "deactivate", "array", "bool"
-    , "int", "double", "init" , "endinit", "invariant", "endinvariant", "for"
-    , "endfor" , "in", "id", "block", "filter", "min", "max", "true", "false"
-    , "P", "Pmin", "Pmax", "R", "Rmin", "Rmax", "S" , "E", "A", "U", "W", "R"
-    , "X", "F", "G", "C", "I"
+    [ "mdp", "dtmc", "ctmc", "family", "endfamily", "parameters", "feature"
+    , "endfeature", "root", "global", "const", "formula", "label", "modules"
+    , "all" , "one", "some", "of", "optional", "as", "constraint", "initial"
+    , "rewards", "endrewards", "controller", "endcontroller", "module"
+    , "endmodule", "this", "public", "active", "activate", "deactivate"
+    , "array", "bool", "int", "double", "init" , "endinit", "invariant"
+    , "endinvariant", "for", "endfor" , "in", "id", "block", "filter", "min"
+    , "max", "true", "false", "P", "Pmin", "Pmax", "R", "Rmin", "Rmax", "S"
+    , "E", "A", "U", "W", "R", "X", "F", "G", "C", "I"
     ]
 reservedOpNames =
     [ "/", "*", "-", "+", "=", "!=", ">", "<", ">=", "<=", "&", "|", "!"
@@ -174,7 +175,7 @@ loc p = do
 model :: Parser LModel
 model = do
     lang <- getState
-    Model <$> many (choice $ definitions lang)
+    Model <$> modelType <*> many (choice $ definitions lang)
   where
     definitions ProFeat   = [ familyDef
                             , featureDef
@@ -195,6 +196,13 @@ model = do
                             , initDef
                             , rewardsDef
                             ]
+
+modelType :: Parser ModelType
+modelType = option defaultModelType $ choice
+  [ MDP  <$ reserved "mdp"
+  , DTMC <$ reserved "dtmc"
+  , CTMC <$ reserved "ctmc"
+  ]
 
 specification :: Parser LSpecification
 specification = Specification <$> many (choice [ constantDef

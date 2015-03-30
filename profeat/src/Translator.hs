@@ -60,6 +60,7 @@ translateModel' symTbl initExprs invs params =
     flip runReaderT (trnsInfo symTbl invs params) $ do
         (controllerDef, lss) <- trnsControllerDef initExprs
         local (labelSets .~ lss) $ do
+            modelT      <- view modelType
             constDefs   <- trnsConsts
             globalDefs  <- trnsGlobals
             moduleDefs  <- trnsModules
@@ -67,7 +68,7 @@ translateModel' symTbl initExprs invs params =
                                trnsLabels (symTbl^..labels.traverse)
             rewardsDefs <- trnsRewards
 
-            return . Model . sortBy (comparing defAnnot) $ concat
+            return . Model modelT . sortBy (comparing defAnnot) $ concat
                 [ constDefs
                 , globalDefs
                 , moduleDefs

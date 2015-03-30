@@ -26,6 +26,7 @@ import qualified Parser.Internal as Parser
 
 import ProFeat
 import Symbols
+import Types
 
 main = defaultMain tests
 -- }}
@@ -103,7 +104,7 @@ translatorTestCase name = testCase name $ do
     parsePrismProps = parseFile' PrismLang Parser.specification
 
 runTest m opts = do
-    result <- run m emptySymbolTable opts
+    result <- run m (emptySymbolTable defaultModelType) opts
     case result of
         Right _  -> return ()
         Left err -> assertFailure . show $ pretty err

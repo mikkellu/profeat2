@@ -182,7 +182,8 @@ instance Ord FeatureSymbol where
                   compare (x^.fsIndex) (y^.fsIndex)
 
 data SymbolTable = SymbolTable
-  { _globals       :: Table GlobalSymbol
+  { _modelType     :: !ModelType
+  , _globals       :: Table GlobalSymbol
   , _constants     :: Table ConstSymbol
   , _formulas      :: Table LFormula
   , _labels        :: Table LLabel
@@ -233,9 +234,10 @@ instance HasSymbolTable Env where
 instance HasScope Env where
     scope = envScope
 
-emptySymbolTable :: SymbolTable
-emptySymbolTable = SymbolTable
-  { _globals       = empty
+emptySymbolTable :: ModelType -> SymbolTable
+emptySymbolTable t = SymbolTable
+  { _modelType     = t
+  , _globals       = empty
   , _constants     = empty
   , _formulas      = empty
   , _labels        = empty

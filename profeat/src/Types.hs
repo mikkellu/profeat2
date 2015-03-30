@@ -1,7 +1,11 @@
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Types
   ( Ident
+
+  , ModelType(..)
+  , defaultModelType
 
   , Type(..)
   , CompoundType(..)
@@ -41,6 +45,18 @@ import Data.Text.Lazy ( Text )
 import Text.PrettyPrint.Leijen.Text
 
 type Ident = Text
+
+-- | The model type.
+data ModelType = MDP | DTMC | CTMC deriving (Eq, Show)
+
+instance Pretty ModelType where
+    pretty = \case
+        MDP  -> "mdp"
+        DTMC -> "dtmc"
+        CTMC -> "ctmc"
+
+defaultModelType :: ModelType
+defaultModelType = MDP
 
 -- | The type of a variable or constant.
 data Type

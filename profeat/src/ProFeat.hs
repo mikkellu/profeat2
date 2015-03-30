@@ -56,6 +56,7 @@ import Result
 import SymbolTable
 import Syntax
 import Translator
+import Types
 
 -- ProFeat CLI
 --
@@ -237,8 +238,8 @@ withProFeatModel m = do
         modelContents <- liftIO $ LIO.hGetContents hIn
 
         symTbl <- liftEither' $ do
-            Model defs <- parseModel path modelContents
-            extendSymbolTable emptySymbolTable defs
+            Model t defs <- parseModel path modelContents
+            extendSymbolTable (emptySymbolTable t) defs
 
         put symTbl >> m
 
@@ -349,7 +350,7 @@ postprocessPrismOutput spec = (return . fmap removeNonConfVars)
 
 runApp :: ProFeat () -> ProFeatOptions -> IO ()
 runApp m opts = do
-    result <- run m emptySymbolTable opts
+    result <- run m (emptySymbolTable defaultModelType) opts
     case result of
         Right _  -> return ()
         Left err -> do

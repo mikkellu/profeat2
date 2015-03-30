@@ -14,6 +14,7 @@ module Syntax
   , Ident
 
   , Model(..)
+  , ModelType(..)
   , Specification(..)
 
   , Definition(..)
@@ -135,7 +136,7 @@ import Syntax.Operators
 class HasExprs n where
     exprs :: Traversal' (n a) (Expr a)
 
-data Model a = Model [Definition a] deriving (Eq, Functor, Show)
+data Model a = Model !ModelType [Definition a] deriving (Eq, Functor, Show)
 
 data Specification a = Specification [Definition a] deriving (Eq, Functor, Show)
 
@@ -675,7 +676,8 @@ type LRange           = Range SrcLoc
 makePrisms ''Definition
 
 instance Pretty (Model a) where
-    pretty (Model defs) = vsep (punctuate line $ fmap pretty defs) <> line
+    pretty (Model t defs) = pretty t <> line <> line <>
+        vsep (punctuate line $ fmap pretty defs) <> line
 
 instance Pretty (Specification a) where
     pretty (Specification defs) =
