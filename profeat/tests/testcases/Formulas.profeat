@@ -4,3 +4,8 @@ formula add(x, y) = x + y;
 formula x = 1;
 
 const int result = apply(add, x, 2, 3);
+
+formula f(i) = for i in [0..2] { i + ... } + i;
+
+const int result2 = f(2);
+

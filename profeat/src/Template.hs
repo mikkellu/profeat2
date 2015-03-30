@@ -238,12 +238,17 @@ instantiate ident args l template =
            else return $ substitute defs template
 
 substitute :: (HasExprs n) => Map Ident LExpr -> n SrcLoc -> n SrcLoc
-substitute defs
-  | Map.null defs = id
-  | otherwise     = over exprs . transform $ \node -> case node of
-    NameExpr (viewIdent -> Just ident) l ->
-        maybe node (fmap (reLoc l)) $ defs^.at ident
-    _ -> node
+substitute = over exprs . go where
+    go :: Map Ident LExpr -> LExpr -> LExpr
+    go defs e = case e of
+        NameExpr (viewIdent -> Just ident) l ->
+            maybe e (fmap (reLoc l)) $ defs^.at ident
+        LoopExpr (ForLoop var range body l') l ->
+            let defs'  = Map.delete var defs
+                range' = over both (go defs') range
+                body'  = go defs' body
+            in LoopExpr (ForLoop var range' body' l') l
+        _ -> over plate (go defs) e
 
 -- | Check whether the given expression contains exactly one expression of
 -- the form @e * ...@ (where @*@ is any binary operator) or @f(e, ...)@.
