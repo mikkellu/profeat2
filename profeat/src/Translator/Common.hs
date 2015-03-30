@@ -6,8 +6,10 @@
 module Translator.Common
   ( TrnsInfo(..)
   , trnsInfo
+  , trnsInfo'
   , labelSets
   , invariants
+  , parameters
 
   , LabelSymbol(..)
   , LabelSets
@@ -66,6 +68,7 @@ data TrnsInfo = TrnsInfo
   , _trnsScope       :: !Scope
   , _labelSets       :: LabelSets
   , _invariants      :: Invariants
+  , _parameters      :: Set (Scope, Ident)
   }
 
 makeLenses ''TrnsInfo
@@ -76,8 +79,11 @@ instance HasSymbolTable TrnsInfo where
 instance HasScope TrnsInfo where
     scope = trnsScope
 
-trnsInfo :: SymbolTable -> Invariants -> TrnsInfo
+trnsInfo :: SymbolTable -> Invariants -> Set (Scope, Ident) -> TrnsInfo
 trnsInfo symTbl = TrnsInfo symTbl Global Set.empty
+
+trnsInfo' :: SymbolTable -> TrnsInfo
+trnsInfo' symTbl = trnsInfo symTbl (Invariants []) Set.empty
 
 type Trans = ReaderT TrnsInfo (Either Error)
 
@@ -120,9 +126,10 @@ trnsVarAssign :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
 trnsVarAssign name e l = do
     sc <- view scope
     si@(SymbolInfo symSc ident idx _) <- getSymbolInfo name
+    params <- view parameters
 
     when (if isAttributeSymbol si
-               then sc /= LocalCtrlr
+               then sc /= LocalCtrlr || (symSc, ident) `Set.member` params
                else symSc /= Global && symSc /= sc) $ throw l IllegalWriteAccess
 
     t <- siType si

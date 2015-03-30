@@ -13,17 +13,44 @@ the form of [Feature Modules][] and an optional [Feature Controller][].
 The ProFeat syntax mostly follows the syntax of the PRISM input language.
 In the following, all additional constructs of ProFeat are described.
 
+### Family Declaration
+
+Implicitly, a family (or product line) consists of all possible feature
+combinations and valid feature attribute valuations (i.e. products). If this
+is undesired, a family can be specified explictly by a list of parameters:
+
+    family
+        parameters N;
+        initial constraint N != 1;
+    endfamily
+
+    root feature
+        N : [0..2];
+        K : bool;
+    endfeature
+
+This example specifies a family with parameter `N`. One or more constraints can
+be given to restrict the set of family members. Here, the family consist of
+the members with `N = 0` and `N = 2`. Since `K` is not listed as a parameter,
+it is initialized nondeterministically for every member of the family.
+
 ### Features
 
 In general, a feature is declared as follows:
 
     feature <identifier>[(<parameter1>, <parameter2>, ...)]
+        [<attributes>]
         [<decomposition>]
         [<constraints>]
         [<blocking-actions>]
         [<feature-modules>]
         [<rewards>]
     endfeature
+
+#### Attributes
+
+A features may have one or more attributes. They are similar to [Variables][],
+but can only be modified by the [Feature Controller][].
 
 #### Decomposition
 

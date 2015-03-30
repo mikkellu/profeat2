@@ -17,6 +17,7 @@ module Syntax
   , Specification(..)
 
   , Definition(..)
+  , _FamilyDef
   , _FeatureDef
   , _ControllerDef
   , _ModuleDef
@@ -28,6 +29,7 @@ module Syntax
   , _InvariantDef
   , _PropertyDef
 
+  , Family(..)
   , Feature(..)
   , Decomposition(..)
   , DecompOp(..)
@@ -79,6 +81,7 @@ module Syntax
   , LModel
   , LSpecification
   , LDefinition
+  , LFamily
   , LFeature
   , LDecomposition
   , LDecompOp
@@ -137,7 +140,8 @@ data Model a = Model [Definition a] deriving (Eq, Functor, Show)
 data Specification a = Specification [Definition a] deriving (Eq, Functor, Show)
 
 data Definition a
-  = FeatureDef    (Feature a)
+  = FamilyDef     (Family a)
+  | FeatureDef    (Feature a)
   | ControllerDef (Controller a)
   | ModuleDef     (Module a)
   | GlobalDef     (VarDecl a)
@@ -149,6 +153,12 @@ data Definition a
   | InvariantDef  (Invariant a)
   | PropertyDef   (Property a)
   deriving (Eq, Functor, Show)
+
+data Family a = Family
+  { famParameters  :: [Name a]
+  , famConstraints :: [Expr a]
+  , famAnnot       :: !a
+  } deriving (Eq, Functor, Show)
 
 data Feature a = Feature
   { featIsRoot      :: !Bool
@@ -560,6 +570,7 @@ type Range a = (Expr a, Expr a)
 
 defAnnot :: Definition a -> a
 defAnnot = \case
+    FamilyDef f                  -> famAnnot f
     FeatureDef f                 -> featAnnot f
     ControllerDef (Controller c) -> modAnnot c
     ModuleDef m                  -> modAnnot (modBody m)
@@ -627,6 +638,7 @@ lAnd lhs rhs               = binaryExpr (LogicBinOp LAnd) lhs rhs
 type LModel           = Model SrcLoc
 type LSpecification   = Specification SrcLoc
 type LDefinition      = Definition SrcLoc
+type LFamily          = Family SrcLoc
 type LFeature         = Feature SrcLoc
 type LDecomposition   = Decomposition SrcLoc
 type LDecompOp        = DecompOp SrcLoc
@@ -671,6 +683,7 @@ instance Pretty (Specification a) where
 
 instance Pretty (Definition a) where
     pretty def = case def of
+        FamilyDef     f -> pretty f
         FeatureDef    f -> pretty f
         ControllerDef c -> pretty c
         ModuleDef     m -> pretty m
@@ -682,6 +695,17 @@ instance Pretty (Definition a) where
         InitDef       i -> pretty i
         InvariantDef  i -> pretty i
         PropertyDef   p -> pretty p
+
+instance Pretty (Family a) where
+    pretty Family{..} = "family" <> line <> indent 4 body <> line <> "endfamily"
+      where
+        body      = paramList <> line <> constrList
+        paramList = "parameters" <+>
+                    vsep (punctuate comma (fmap pretty famParameters)) <> semi
+        constrList = case famConstraints of
+            [] -> empty
+            cs -> hsep (fmap constr cs)
+        constr c = "initial" <+> "constraint" <+> pretty c <> semi
 
 instance Pretty (Feature a) where
     pretty Feature{..}

@@ -22,6 +22,11 @@ module Symbols
   , vsIsAttrib
   , vsInit
 
+  , FamilySymbol(..)
+  , fmsLoc
+  , fmsParameters
+  , fmsConstraints
+
   , FeatureSymbol(..)
   , fsIdent
   , fsIndex
@@ -50,6 +55,7 @@ module Symbols
 
   , containsSymbol
   , containsModule
+  , containsFamily
   , containsFeature
   , containsController
   , containsInit
@@ -142,6 +148,14 @@ data ControllerSymbol = ControllerSymbol
 
 makeLenses ''ControllerSymbol
 
+data FamilySymbol = FamilySymbol
+  { _fmsLoc         :: !SrcLoc
+  , _fmsParameters  :: [LName]
+  , _fmsConstraints :: [LExpr]
+  }
+
+makeLenses ''FamilySymbol
+
 data FeatureSymbol = FeatureSymbol
   { _fsIdent          :: !Ident
   , _fsIndex          :: !Integer
@@ -177,10 +191,11 @@ data SymbolTable = SymbolTable
   , _constValues   :: Valuation
   , _rootFeature   :: FeatureSymbol
   , _controller    :: Maybe ControllerSymbol
+  , _familySpec    :: Maybe FamilySymbol
   , _initConfExpr  :: Maybe LExpr
   , _invariantExpr :: Maybe LExpr
   , _initConfLabel :: Maybe LExpr
-  } deriving (Show)
+  }
 
 makeClassy ''SymbolTable
 
@@ -229,6 +244,7 @@ emptySymbolTable = SymbolTable
   , _constValues   = empty
   , _rootFeature   = emptyFeatureSymbol
   , _controller    = Nothing
+  , _familySpec    = Nothing
   , _initConfExpr  = Nothing
   , _invariantExpr = Nothing
   , _initConfLabel = Nothing
@@ -261,6 +277,9 @@ containsSymbol symTbl ident =
 containsModule :: SymbolTable -> Ident -> Maybe SrcLoc
 containsModule symTbl ident =
     symTbl^?modules.at ident._Just.to modBody.to modAnnot
+
+containsFamily :: SymbolTable -> Ident -> Maybe SrcLoc
+containsFamily symTbl _ = symTbl^?familySpec._Just.fmsLoc
 
 containsFeature :: SymbolTable -> Ident -> Maybe SrcLoc
 containsFeature symTbl ident = symTbl^?features.at ident._Just.to featAnnot

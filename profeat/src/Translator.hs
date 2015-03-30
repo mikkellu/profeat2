@@ -1,6 +1,8 @@
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE ViewPatterns      #-}
 
 module Translator
   ( translateModel
@@ -20,6 +22,8 @@ import qualified Data.Map as Map
 import Data.Maybe
 import Data.Monoid
 import Data.Ord ( comparing )
+import Data.Set ( Set )
+import qualified Data.Set as Set
 import Data.Traversable
 
 import Analysis.InitialState
@@ -29,6 +33,7 @@ import Symbols
 import Syntax
 import Syntax.Util
 import Template
+import Typechecker
 import Types
 
 import Translator.Common
@@ -41,12 +46,18 @@ import Translator.Properties
 import Translator.Rewards
 
 translateModel :: SymbolTable -> Either Error LModel
-translateModel symTbl =
-    uncurry (translateModel' symTbl) =<< extractInitsAndInvariants symTbl
+translateModel symTbl = do
+    (initExprs, invs) <- getInitsAndInvariants symTbl
+    params            <- getFamilyParameters symTbl
+    translateModel' symTbl initExprs invs params
 
-translateModel' :: SymbolTable -> InitExprs -> Invariants -> Either Error LModel
-translateModel' symTbl initExprs invs =
-    flip runReaderT (trnsInfo symTbl invs) $ do
+translateModel' :: SymbolTable
+                -> InitExprs
+                -> Invariants
+                -> Set (Scope, Ident)
+                -> Either Error LModel
+translateModel' symTbl initExprs invs params =
+    flip runReaderT (trnsInfo symTbl invs params) $ do
         (controllerDef, lss) <- trnsControllerDef initExprs
         local (labelSets .~ lss) $ do
             constDefs   <- trnsConsts
@@ -67,34 +78,45 @@ translateModel' symTbl initExprs invs =
 
 translateModelInstances :: SymbolTable -> Either Error [LModel]
 translateModelInstances symTbl = do
-    (InitExprs initExprs, invs) <- extractInitsAndInvariants symTbl
+    (InitExprs initExprs, Invariants invs) <- getInitsAndInvariants symTbl
+    constrs                                <- getFamilyConstraints symTbl
+    params                                 <- getFamilyParameters symTbl
 
-    (constrs, initConstrs) <-
-        flip runReaderT (trnsInfo symTbl (Invariants [])) $
-            (,) <$> extractConstraints False <*> extractConstraints True
+    let attribs = attributes (symTbl^.rootFeature)
+        params' = if Set.null params
+                      then Set.fromList $ fmap (\(ctx, ident, _) -> (Local ctx, ident)) attribs
+                      else params
 
-    let e = (constrs ++ initConstrs)^.conjunction
-        e' = substitute (activeDefs $ symTbl^.rootFeature) e -- substitute active formulas
+    let defs = activeDefs (symTbl^.rootFeature)
+        es   = concatMap (^.from conjunction) (initExprs ++ invs ++ constrs)
+        es'  = fmap (substitute defs) es -- substitute active formulas
 
-    vals <- runReaderT (initialValuations e') symTbl
+    vals <- runReaderT (initialValuations params' es') symTbl
     for vals $ \val ->
         let initExprs' = InitExprs initExprs <> valInitExprs val
-        in translateModel' symTbl initExprs' invs
+        in translateModel' symTbl initExprs' (Invariants invs) params
 
 initialValuations :: ( Applicative m
                      , MonadReader r m
                      , MonadError Error m
                      , HasSymbolTable r
                      )
-                  => LExpr
+                  => Set (Scope, Ident)
+                  -> [LExpr]
                   -> m [Valuation]
-initialValuations e = do
-    symTbl <- view symbolTable
-    val <- attribInitialValues
+initialValuations params es = do
+    symTbl   <- view symbolTable
+    constVal <- view constValues
+    initVal  <- attribInitialValues
     let vals = union <$> initialConfigurations symTbl
-                     <*> attribValuations symTbl
-        vals' = fmap (union val) vals
-    filterM (`satisfies` e) vals'
+                     <*> attribValuations (symTbl^.rootFeature) params
+        initVal' = constVal `union` initVal
+
+    flip filterM vals $ \val -> do
+        let val' = val `union` initVal'
+        fmap and . for es $ \e -> if canEval val' e
+            then val' `satisfies` e
+            else return True
 
 initialConfigurations :: SymbolTable -> [Valuation]
 initialConfigurations symTbl =
@@ -118,24 +140,21 @@ initialConfigurations symTbl =
             let v = IntVal $ if ctx' `elem` confCtxs then 1 else 0
             in ((activeIdent ctx', 0), v)
 
-attribValuations :: SymbolTable -> [Valuation]
-attribValuations symTbl =
-    let ctxs = symTbl^.rootFeature.to allContexts
-    in fmap unions . for ctxs $ \ctx -> do
-        let attribs = filter (^._2.vsIsAttrib) $ ctx^.this.fsVars.to Map.assocs
-            nondet  = filter (has $ _2.vsInit._Nothing) attribs
-        fmap unions . for nondet $ \(ident, vs) ->
-            case vs^.vsType of
-                CompoundType (ArrayType (Just (lower, upper)) st) ->
-                    let values = enumValues st
-                    in fmap unions . for [lower..upper] $ \i ->
-                        let fqi = fullyQualifiedIdent (Local ctx) ident (Just i)
-                        in fmap (Map.singleton (fqi, 0)) values
-                SimpleType st ->
-                    let values = enumValues st
-                        fqi    = fullyQualifiedIdent (Local ctx) ident Nothing
-                    in fmap (Map.singleton (fqi, 0)) values
-                _ -> []
+attribValuations :: FeatureSymbol -> Set (Scope, Ident) -> [Valuation]
+attribValuations root params =
+    let attribs = filter (\(ctx, ident, _) -> (Local ctx, ident) `Set.member` params) .
+                  filter (has $ _3.vsInit._Nothing) $ attributes root
+    in fmap unions . for attribs $ \(ctx, ident, vs) -> case vs^.vsType of
+        CompoundType (ArrayType (Just (lower, upper)) st) ->
+            let values = enumValues st
+            in fmap unions . for [lower..upper] $ \i ->
+                let fqi = fullyQualifiedIdent (Local ctx) ident (Just i)
+                in fmap (Map.singleton (fqi, 0)) values
+        SimpleType st ->
+            let values = enumValues st
+                fqi    = fullyQualifiedIdent (Local ctx) ident Nothing
+            in fmap (Map.singleton (fqi, 0)) values
+        _ -> []
 
 attribInitialValues :: ( Applicative m
                        , MonadReader r m
@@ -145,27 +164,37 @@ attribInitialValues :: ( Applicative m
                     => m Valuation
 attribInitialValues = do
     val  <- view constValues
-    ctxs <- view $ symbolTable.rootFeature.to allContexts
-    fmap unions . for ctxs $ \ctx ->
-        fmap unions . for (ctx^.this.fsVars.to Map.assocs) $ \(ident, vs) ->
-            case vs^.vsInit of
-                Just e | vs^.vsIsAttrib -> do
-                    v <- eval' val e
-                    return $ case vs^.vsType of
-                        CompoundType (ArrayType (Just (lower, upper)) _) ->
-                            Map.fromList . flip fmap [lower..upper] $ \i ->
-                                ((fullyQualifiedIdent (Local ctx) ident (Just i), 0), v)
-                        _ -> Map.singleton
-                            (fullyQualifiedIdent (Local ctx) ident Nothing, 0) v
-                _ -> return Map.empty
+    root <- view $ symbolTable.rootFeature
+    fmap unions . for (attributes root) $ \(ctx, ident, vs) ->
+        case vs^.vsInit of
+            Just e -> do
+                v <- eval' val e
+                return $ case vs^.vsType of
+                    CompoundType (ArrayType (Just (lower, upper)) _) ->
+                        Map.fromList . flip fmap [lower..upper] $ \i ->
+                            ((fullyQualifiedIdent (Local ctx) ident (Just i), 0), v)
+                    _ -> Map.singleton
+                        (fullyQualifiedIdent (Local ctx) ident Nothing, 0) v
+            Nothing -> return Map.empty
 
-satisfies :: (MonadReader r m, MonadError Error m, HasSymbolTable r)
-          => Valuation
-          -> LExpr
-          -> m Bool
+attributes :: FeatureSymbol -> [(FeatureContext, Ident, VarSymbol)]
+attributes = filter (^._3.vsIsAttrib) . localVars
+
+localVars :: FeatureSymbol -> [(FeatureContext, Ident, VarSymbol)]
+localVars = concatMap f . allContexts where
+    f ctx = flip fmap (ctx^.this.fsVars.to Map.assocs) $ \(ident, vs) ->
+        (ctx, ident, vs)
+
+canEval :: Valuation -> Expr a -> Bool
+canEval val = all contained . universe where
+    contained = \case
+        (viewIdentExpr -> Just ident) -> (ident, 0) `Map.member` val
+        (NameExpr _ _)                -> False
+        _                             -> True
+
+satisfies :: (MonadError Error m) => Valuation -> LExpr -> m Bool
 satisfies val e = do
-    constVal  <- view constValues
-    BoolVal b <- eval' (val `union` constVal) e
+    BoolVal b <- eval' val e
     return b
 
 valInitExprs :: Valuation -> InitExprs
@@ -178,7 +207,7 @@ translateSpec :: SymbolTable
               -> LSpecification
               -> Either Error LSpecification
 translateSpec symTbl (Specification defs) =
-    flip runReaderT (trnsInfo symTbl (Invariants [])) $ do
+    flip runReaderT (trnsInfo' symTbl) $ do
         -- constDefs <- trnsConsts
         let constDefs = []
         labelDefs <- trnsLabelDefs defs
@@ -218,19 +247,18 @@ trnsLabel (Label ident e l)
       e' <- trnsExpr isBoolType =<< prepExpr e
       return . Just $ Label ident e' l
 
-extractInitsAndInvariants :: SymbolTable -> Either Error (InitExprs, Invariants)
-extractInitsAndInvariants symTbl =
-    flip runReaderT (trnsInfo symTbl (Invariants [])) $
-        (,) <$> extractInits <*> extractInvariants
+getInitsAndInvariants :: SymbolTable -> Either Error (InitExprs, Invariants)
+getInitsAndInvariants symTbl = flip runReaderT (trnsInfo' symTbl) $
+    (,) <$> getInits <*> getInvariants
 
-extractInvariants :: Trans Invariants
-extractInvariants = do
+getInvariants :: Trans Invariants
+getInvariants = do
     symTbl <- view symbolTable
 
     invExprs <- case symTbl^.invariantExpr of
         Just e  -> view (from conjunction) <$> trnsExpr isBoolType e
         Nothing -> return []
-    constrs <- extractConstraints False
+    constrs <- getConstraints False
 
     let invs  = invExprs ++ constrs
         invs' = substitute (activeDefs $ symTbl^.rootFeature) <$> invs -- substitute active formulas
@@ -241,15 +269,33 @@ activeDefs :: FeatureSymbol -> Map Ident LExpr
 activeDefs = Map.fromList . fmap activeDef . allContexts where
     activeDef = (,) <$> activeFormulaIdent <*> activeExpr
 
-extractInits :: Trans InitExprs
-extractInits = do
+getFamilyParameters :: (Applicative m, MonadError Error m)
+                    => SymbolTable
+                    -> m (Set (Scope, Ident))
+getFamilyParameters symTbl = case symTbl^.familySpec of
+    Nothing  -> return Set.empty
+    Just fam -> flip runReaderT (Env Global symTbl) $
+        fmap Set.fromList . for (fam^.fmsParameters) $ \name -> do
+            SymbolInfo{..} <- getSymbolInfo name
+            return (siScope, siIdent)
+
+getFamilyConstraints :: (Applicative m, MonadError Error m)
+                     => SymbolTable
+                     -> m [LExpr]
+getFamilyConstraints symTbl = case symTbl^.familySpec of
+    Nothing  -> return []
+    Just fam -> flip runReaderT (trnsInfo' symTbl) $
+        for (fam^.fmsConstraints) $ trnsExpr isBoolType
+
+getInits :: Trans InitExprs
+getInits = do
     symTbl <- view symbolTable
 
     let varInit = fmap varInitExpr (initialState symTbl)
     eInit <- case symTbl^.initConfExpr of
         Just e  -> trnsExpr isBoolType e
         Nothing -> return $ BoolExpr True noLoc
-    initConstrExprs <- extractConstraints True
+    initConstrExprs <- getConstraints True
 
     return . InitExprs . concat $ [initConstrExprs, varInit, [eInit]]
 
@@ -257,8 +303,8 @@ varInitExpr :: (QualifiedVar, LExpr) -> LExpr
 varInitExpr (QualifiedVar sc ident idx, e) =
     NameExpr (fullyQualifiedName sc ident idx noLoc) noLoc `eq` e
 
-extractConstraints :: Bool -> Trans [LExpr]
-extractConstraints initial =
+getConstraints :: Bool -> Trans [LExpr]
+getConstraints initial =
     fmap (catMaybes . concat) . forAllContexts $ \ctx ->
         for (ctx^.this.fsConstraints) $ \(Constraint i e _) ->
             if i == initial

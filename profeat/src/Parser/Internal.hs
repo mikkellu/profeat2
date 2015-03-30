@@ -103,14 +103,15 @@ toSyntaxError = SyntaxError . pack .
 
 reservedNames, reservedOpNames :: [String]
 reservedNames =
-    [ "feature", "endfeature", "root", "global", "const", "formula", "label"
-    , "modules", "all" , "one", "some", "of", "optional", "as", "constraint"
-    , "initial", "rewards" , "endrewards", "controller", "endcontroller"
-    , "module", "endmodule", "this", "public", "active", "activate"
-    , "deactivate", "array", "bool", "int", "double", "init" , "endinit"
-    , "invariant", "endinvariant", "for", "endfor" , "in", "id", "block"
-    , "filter", "min", "max", "true", "false", "P", "Pmin", "Pmax", "R"
-    , "Rmin", "Rmax", "S" , "E", "A", "U", "W", "R", "X", "F", "G", "C", "I"
+    [ "family", "endfamily", "parameters", "feature", "endfeature", "root"
+    , "global", "const", "formula", "label", "modules", "all" , "one", "some"
+    , "of", "optional", "as", "constraint", "initial", "rewards"
+    , "endrewards", "controller", "endcontroller", "module", "endmodule"
+    , "this", "public", "active", "activate", "deactivate", "array", "bool"
+    , "int", "double", "init" , "endinit", "invariant", "endinvariant", "for"
+    , "endfor" , "in", "id", "block", "filter", "min", "max", "true", "false"
+    , "P", "Pmin", "Pmax", "R", "Rmin", "Rmax", "S" , "E", "A", "U", "W", "R"
+    , "X", "F", "G", "C", "I"
     ]
 reservedOpNames =
     [ "/", "*", "-", "+", "=", "!=", ">", "<", ">=", "<=", "&", "|", "!"
@@ -175,7 +176,8 @@ model = do
     lang <- getState
     Model <$> many (choice $ definitions lang)
   where
-    definitions ProFeat   = [ featureDef
+    definitions ProFeat   = [ familyDef
+                            , featureDef
                             , controllerDef
                             , moduleDef
                             , globalDef
@@ -200,6 +202,16 @@ specification = Specification <$> many (choice [ constantDef
                                                , labelDef
                                                , propertyDef
                                                ])
+
+familyDef :: Parser LDefinition
+familyDef = FamilyDef <$> family' <?> "family declaration"
+
+family' :: Parser LFamily
+family' = loc $
+    reserved "family" *> block "family" (Family <$> parameters <*> many constrs)
+  where
+    parameters = reserved "parameters" *> commaSep1 name <* semi
+    constrs    = reserved "initial" *> reserved "constraint" *> expr <* semi
 
 featureDef :: Parser LDefinition
 featureDef = FeatureDef <$> feature <?> "feature"

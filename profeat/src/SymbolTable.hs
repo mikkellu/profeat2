@@ -2,6 +2,7 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
+{-# LANGUAGE RecordWildCards   #-}
 
 module SymbolTable
   ( module Symbols
@@ -62,6 +63,7 @@ extendSymbolTable symTbl defs = flip evalStateT symTbl $ do -- TODO: refactor
     evalConstValues
 
     addGlobals defs
+    addFamily defs
 
     symTbl'' <- get
     forOf_ (traverse._ControllerDef) defs $ \(Controller body) ->
@@ -100,6 +102,18 @@ addGlobals defs = do
                 decl' <- prepExprs decl
                 t     <- fromVarType vt
                 globals.at ident .= Just (GlobalSymbol t decl')
+
+addFamily :: (Applicative m, MonadState SymbolTable m, MonadError Error m)
+          => [LDefinition]
+          -> m ()
+addFamily defs = do
+    symTbl <- get
+    forOf_ (traverse._FamilyDef) defs $ \Family{..} ->
+        ifNot containsFamily "family" famAnnot $
+            flip runReaderT (Env Global symTbl) $ do
+                params'  <- traverse prepExprs famParameters
+                constrs' <- traverse prepExpr famConstraints
+                familySpec .= Just (FamilySymbol famAnnot params' constrs')
 
 ifNot :: (MonadState SymbolTable m, MonadError Error m)
       => (SymbolTable -> Ident -> Maybe SrcLoc)
