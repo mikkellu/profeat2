@@ -1,10 +1,13 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase       #-}
 
 module Types.Util
   ( toVarSymbol
+  , toParamSymbol
   , fromVarType
   , fromVarType'
   , fromConstType
+  , toConstType
   ) where
 
 import Control.Applicative
@@ -33,9 +36,36 @@ toVarSymbol :: ( Applicative m
             -> m VarSymbol
 toVarSymbol public isAttrib (VarDecl _ vt mInit l) = do
     t      <- fromVarType vt
-    mInit' <- _Just (\e -> checkInitialization t e *> prepExpr e) mInit
-
+    mInit' <- checkInit t mInit
     return $ VarSymbol l public isAttrib t mInit'
+
+toParamSymbol :: ( Applicative m
+                 , MonadReader r m
+                 , MonadError Error m
+                 , HasSymbolTable r
+                 , HasScope r
+                 )
+              => LVarDecl
+              -> m ParamSymbol
+toParamSymbol (VarDecl ident vt mInit l) = do
+    vt'    <- prepExprs vt
+    t      <- fromVarType vt'
+    mInit' <- checkInit t mInit
+    return $ ParamSymbol t (VarDecl ident vt' mInit' l)
+
+checkInit :: ( Applicative m
+             , MonadReader r m
+             , MonadError Error m
+             , HasSymbolTable r
+             , HasScope r
+             )
+          => Type
+          -> Maybe LExpr
+          -> m (Maybe LExpr)
+checkInit t = _Just $ \e -> do
+    e' <- prepExpr e
+    checkInitialization t e'
+    return e'
 
 fromVarType :: ( Applicative m
                , MonadReader r m
@@ -93,4 +123,10 @@ fromConstType ct e =
         ArrayExpr (_ :| es) _ ->
             CompoundType $ ArrayType (Just (0, genericLength es)) st
         _ -> SimpleType st
+
+toConstType :: SimpleType -> ConstType
+toConstType = \case
+    BoolType   -> BoolConstType
+    IntType _  -> IntConstType
+    DoubleType -> DoubleConstType
 

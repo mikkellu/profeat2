@@ -3,18 +3,16 @@
 <p>This section gives an overview of the ProFeat input language.</p>
 <p>A ProFeat model is usually defined in two parts: The declaration of all <a href="#features">Features</a> that make up the product line, and a behavioural specification in the form of <a href="#feature-modules">Feature Modules</a> and an optional <a href="#feature-controller">Feature Controller</a>.</p>
 <p>The ProFeat syntax mostly follows the syntax of the PRISM input language. In the following, all additional constructs of ProFeat are described.</p>
-<h3 id="family-declaration">Family Declaration</h3>
-<p>Implicitly, a family (or product line) consists of all possible feature combinations and valid feature attribute valuations (i.e. products). If this is undesired, a family can be specified explictly by a list of parameters:</p>
+<h3 id="family-declaration">Family declaration</h3>
+<p>Implicitly, a family defined by a set of feature declarations (see <a href="#features">Features</a>) consists of of all valid feature combinations and attribute valuations (i.e. products). However, a model family can also be declared via an explicit family declaration:</p>
 <pre><code>family
-    parameters N;
-    initial constraint N != 1;
-endfamily
-
-root feature
-    N : [0..2];
-    K : bool;
-endfeature</code></pre>
-<p>This example specifies a family with parameter <code>N</code>. One or more constraints can be given to restrict the set of family members. Here, the family consist of the members with <code>N = 0</code> and <code>N = 2</code>. Since <code>K</code> is not listed as a parameter, it is initialized nondeterministically for every member of the family.</p>
+    n : [0..3];
+    b : bool;
+    initial constraint b =&gt; n != 1;
+endfamily</code></pre>
+<p>This family-block introduces two parameters <code>n</code> and <code>b</code> as well as an initial constraint to define the set of possible parameter valuations.</p>
+<p>Parameters are constant for any given model instance and can thus be used everywhere a constant may appear. Most importantly, this includes array sizes, number of multi-features and bounds of for-loops. This means a family declaration can be applied to parametrize the structure of a model.</p>
+<p>Note: if family-based translation is enabled (which is the default), a parameter used as a constant always has its upper bound as its value on translation.</p>
 <h3 id="features">Features</h3>
 <p>In general, a feature is declared as follows:</p>
 <pre><code>feature &lt;identifier&gt;[(&lt;parameter1&gt;, &lt;parameter2&gt;, ...)]
@@ -26,7 +24,7 @@ endfeature</code></pre>
     [&lt;rewards&gt;]
 endfeature</code></pre>
 <h4 id="attributes">Attributes</h4>
-<p>A features may have one or more attributes. They are similar to <a href="#variables">Variables</a>, but can only be modified by the <a href="#feature-controller">Feature Controller</a>.</p>
+<p>A feature may have one or more attributes. They are similar to <a href="#variables">Variables</a>, but can only be modified by the <a href="#feature-controller">Feature Controller</a>.</p>
 <h4 id="decomposition">Decomposition</h4>
 <p>A feature can be <em>decomposed</em> into one or more subfeatures. ProFeat provides the decomposition operators <code>all</code> (all subfeatures are required), <code>one</code> (exactly one subfeature may be active) and <code>some</code> (at least one subfeature is required).</p>
 <p>Consider the following example:</p>

@@ -6,7 +6,10 @@
 
 module SymbolTable
   ( module Symbols
+
   , extendSymbolTable
+  , getFamily
+  , updateSymbolTable
   ) where
 
 import Control.Applicative
@@ -31,10 +34,11 @@ import Syntax
 import Syntax.Util
 import Template
 import Typechecker
+import Types
 import Types.Util
 
 extendSymbolTable :: SymbolTable -> [LDefinition] -> Either Error SymbolTable
-extendSymbolTable symTbl defs = flip evalStateT symTbl $ do -- TODO: refactor
+extendSymbolTable symTbl defs = flip execStateT symTbl $ do -- TODO: refactor
     forOf_ (traverse._ConstDef) defs $ \(Constant ct ident e l) ->
         ifNot containsSymbol ident l $ constants.at ident .=
             Just (ConstSymbol l (fromConstType ct e) ct e)
@@ -62,8 +66,32 @@ extendSymbolTable symTbl defs = flip evalStateT symTbl $ do -- TODO: refactor
     checkIfNonCyclicConstants =<< use constants
     evalConstValues
 
+getFamily :: SymbolTable -> [LDefinition] -> Either Error (Maybe FamilySymbol)
+getFamily symTbl defs = flip runReaderT (Env Global symTbl) $
+    case defs^..traverse._FamilyDef of
+        f1:f2:_ -> throw (famAnnot f2) $
+                       MultipleDeclarations "family" (famAnnot f1)
+        [Family{..}] -> do
+            paramTbl <- execStateT (for famParameters addParamSymbol) Map.empty
+            constrs  <- for famConstraints checkConstraint
+            return . Just $ FamilySymbol paramTbl constrs
+        [] -> return Nothing
+  where
+    addParamSymbol decl@(VarDecl ident _ _ l) = do
+        tbl <- get
+        case tbl^?at ident._Just.psDecl.to declAnnot of
+            Just l'  -> throw l $ MultipleDeclarations ident l'
+            Nothing -> do
+                ps <- toParamSymbol decl
+                at ident .= Just ps
+    checkConstraint e = do
+        e' <- prepExpr e
+        checkIfType_ isBoolType e'
+        return e'
+
+updateSymbolTable :: SymbolTable -> [LDefinition] -> Either Error SymbolTable
+updateSymbolTable symTbl defs = flip evalStateT symTbl $ do -- TODO: refactor
     addGlobals defs
-    addFamily defs
 
     symTbl'' <- get
     forOf_ (traverse._ControllerDef) defs $ \(Controller body) ->
@@ -72,10 +100,9 @@ extendSymbolTable symTbl defs = flip evalStateT symTbl $ do -- TODO: refactor
             controller .= Just (ControllerSymbol Map.empty body')
     symTbl''' <- get
 
-    forOf_ (traverse._InitDef) defs $ \(Init e l) ->
-        ifNot containsInit "init" l $ do
-            e' <- runReaderT (prepExpr e) (Env Global symTbl''')
-            initConfExpr .= Just e'
+    forOf_ (traverse._InitDef) defs $ \(Init e _) -> do
+        e' <- runReaderT (prepExpr e) (Env Global symTbl''')
+        initConfExpr %= Just . maybe e' (`lAnd` e')
     symTbl'''' <- get
 
     forOf_ (traverse._InvariantDef) defs $ \(Invariant e l) ->
@@ -89,7 +116,6 @@ extendSymbolTable symTbl defs = flip evalStateT symTbl $ do -- TODO: refactor
 
     symTbl'''''' <- get
     return $ symTbl'''''' & rootFeature .~ root
-  where
 
 addGlobals :: (Applicative m, MonadState SymbolTable m, MonadError Error m)
            => [LDefinition]
@@ -102,18 +128,6 @@ addGlobals defs = do
                 decl' <- prepExprs decl
                 t     <- fromVarType vt
                 globals.at ident .= Just (GlobalSymbol t decl')
-
-addFamily :: (Applicative m, MonadState SymbolTable m, MonadError Error m)
-          => [LDefinition]
-          -> m ()
-addFamily defs = do
-    symTbl <- get
-    forOf_ (traverse._FamilyDef) defs $ \Family{..} ->
-        ifNot containsFamily "family" famAnnot $
-            flip runReaderT (Env Global symTbl) $ do
-                params'  <- traverse prepExprs famParameters
-                constrs' <- traverse prepExpr famConstraints
-                familySpec .= Just (FamilySymbol famAnnot params' constrs')
 
 ifNot :: (MonadState SymbolTable m, MonadError Error m)
       => (SymbolTable -> Ident -> Maybe SrcLoc)

@@ -22,10 +22,13 @@ module Symbols
   , vsIsAttrib
   , vsInit
 
+  , ParamSymbol(..)
+  , psType
+  , psDecl
+
   , FamilySymbol(..)
-  , fmsLoc
-  , fmsParameters
-  , fmsConstraints
+  , famsParameters
+  , famsConstraints
 
   , FeatureSymbol(..)
   , fsIdent
@@ -55,10 +58,8 @@ module Symbols
 
   , containsSymbol
   , containsModule
-  , containsFamily
   , containsFeature
   , containsController
-  , containsInit
   , containsInvariant
   , lookupLabel
   , lookupModule
@@ -148,11 +149,17 @@ data ControllerSymbol = ControllerSymbol
 
 makeLenses ''ControllerSymbol
 
+data ParamSymbol = ParamSymbol
+  { _psType :: !Type
+  , _psDecl :: LVarDecl
+  } deriving (Show)
+
+makeLenses ''ParamSymbol
+
 data FamilySymbol = FamilySymbol
-  { _fmsLoc         :: !SrcLoc
-  , _fmsParameters  :: [LName]
-  , _fmsConstraints :: [LExpr]
-  }
+  { _famsParameters  :: Table ParamSymbol
+  , _famsConstraints :: [LExpr]
+  } deriving (Show)
 
 makeLenses ''FamilySymbol
 
@@ -192,11 +199,10 @@ data SymbolTable = SymbolTable
   , _constValues   :: Valuation
   , _rootFeature   :: FeatureSymbol
   , _controller    :: Maybe ControllerSymbol
-  , _familySpec    :: Maybe FamilySymbol
   , _initConfExpr  :: Maybe LExpr
   , _invariantExpr :: Maybe LExpr
   , _initConfLabel :: Maybe LExpr
-  }
+  } deriving (Show)
 
 makeClassy ''SymbolTable
 
@@ -246,7 +252,6 @@ emptySymbolTable t = SymbolTable
   , _constValues   = empty
   , _rootFeature   = emptyFeatureSymbol
   , _controller    = Nothing
-  , _familySpec    = Nothing
   , _initConfExpr  = Nothing
   , _invariantExpr = Nothing
   , _initConfLabel = Nothing
@@ -280,17 +285,11 @@ containsModule :: SymbolTable -> Ident -> Maybe SrcLoc
 containsModule symTbl ident =
     symTbl^?modules.at ident._Just.to modBody.to modAnnot
 
-containsFamily :: SymbolTable -> Ident -> Maybe SrcLoc
-containsFamily symTbl _ = symTbl^?familySpec._Just.fmsLoc
-
 containsFeature :: SymbolTable -> Ident -> Maybe SrcLoc
 containsFeature symTbl ident = symTbl^?features.at ident._Just.to featAnnot
 
 containsController :: SymbolTable -> Ident -> Maybe SrcLoc
 containsController symTbl _ = symTbl^?controller._Just.ctsBody.to modAnnot
-
-containsInit :: SymbolTable -> Ident -> Maybe SrcLoc
-containsInit symTbl _ = symTbl^?initConfExpr._Just.to exprAnnot
 
 containsInvariant :: SymbolTable -> Ident -> Maybe SrcLoc
 containsInvariant symTbl _ = symTbl^?invariantExpr._Just.to exprAnnot

@@ -14,6 +14,9 @@ module Parser.Internal
   , model
   , specification
 
+  , familyDef
+  , family'
+
   , featureDef
   , feature
   , constraint
@@ -104,15 +107,15 @@ toSyntaxError = SyntaxError . pack .
 
 reservedNames, reservedOpNames :: [String]
 reservedNames =
-    [ "mdp", "dtmc", "ctmc", "family", "endfamily", "parameters", "feature"
-    , "endfeature", "root", "global", "const", "formula", "label", "modules"
-    , "all" , "one", "some", "of", "optional", "as", "constraint", "initial"
-    , "rewards", "endrewards", "controller", "endcontroller", "module"
-    , "endmodule", "this", "public", "active", "activate", "deactivate"
-    , "array", "bool", "int", "double", "init" , "endinit", "invariant"
-    , "endinvariant", "for", "endfor" , "in", "id", "block", "filter", "min"
-    , "max", "true", "false", "P", "Pmin", "Pmax", "R", "Rmin", "Rmax", "S"
-    , "E", "A", "U", "W", "R", "X", "F", "G", "C", "I"
+    [ "mdp", "dtmc", "ctmc", "family", "endfamily", "feature", "endfeature"
+    , "root", "global", "const", "formula", "label", "modules", "all" , "one"
+    , "some", "of", "optional", "as", "constraint", "initial", "rewards"
+    , "endrewards", "controller", "endcontroller", "module", "endmodule"
+    , "this", "public", "active", "activate", "deactivate", "array", "bool"
+    , "int", "double", "init", "endinit", "invariant", "endinvariant", "for"
+    , "endfor" , "in", "id", "block", "filter", "min", "max", "true", "false"
+    , "P", "Pmin", "Pmax", "R", "Rmin", "Rmax", "S", "E", "A", "U", "W", "R"
+    , "X", "F", "G", "C", "I"
     ]
 reservedOpNames =
     [ "/", "*", "-", "+", "=", "!=", ">", "<", ">=", "<=", "&", "|", "!"
@@ -215,11 +218,10 @@ familyDef :: Parser LDefinition
 familyDef = FamilyDef <$> family' <?> "family declaration"
 
 family' :: Parser LFamily
-family' = loc $
-    reserved "family" *> block "family" (Family <$> parameters <*> many constrs)
+family' = loc $ reserved "family" *> block "family"
+    (Family <$> many varDecl <*> many constr)
   where
-    parameters = reserved "parameters" *> commaSep1 name <* semi
-    constrs    = reserved "initial" *> reserved "constraint" *> expr <* semi
+    constr = reserved "initial" *> reserved "constraint" *> expr <* semi
 
 featureDef :: Parser LDefinition
 featureDef = FeatureDef <$> feature <?> "feature"

@@ -16,6 +16,7 @@ module Typechecker
 
   , checkInitialization
   , checkIfConst
+  , checkIfConst'
   , isConstExpr
   , checkIfType
   , checkIfType_
@@ -111,12 +112,16 @@ checkInitialization t e = checkIfType_ (`isAssignableTo` t) e >> checkIfConst e
 checkIfConst :: (MonadReader r m, MonadError Error m, HasSymbolTable r)
              => LExpr
              -> m ()
-checkIfConst e
+checkIfConst e = do
+    val <- view constValues
+    checkIfConst' val e
+
+checkIfConst' :: (MonadError Error m) => Valuation -> LExpr -> m ()
+checkIfConst' val e
   | containsLabelExpr e = throw (exprAnnot e) $ NonConstExpr e
-  | otherwise           = view constants >>= \constTbl ->
-        case unknownValues constTbl e of
-            []    -> return ()
-            names -> throw (exprAnnot e) $ UnknownValues e names
+  | otherwise           = case unknownValues val e of
+        []    -> return ()
+        names -> throw (exprAnnot e) $ UnknownValues e names
 
 isConstExpr :: ( Functor m
                , MonadReader r m
@@ -125,12 +130,12 @@ isConstExpr :: ( Functor m
         => LExpr
         -> m Bool
 isConstExpr e = (||) (containsLabelExpr e) <$>
-                     (null . flip unknownValues e <$> view constants)
+                     (null . flip unknownValues e <$> view constValues)
 
-unknownValues :: Table ConstSymbol -> Expr a -> [Name a]
-unknownValues constTbl = go where
+unknownValues :: Valuation -> Expr a -> [Name a]
+unknownValues val = go where
     go (NameExpr (viewSimpleName -> Just (ident, _, _)) _)
-      | ident `member` constTbl = []
+      | (ident, 0) `member` val = []
     go (NameExpr name _) = [name]
     go e = concatMap go (children e)
 

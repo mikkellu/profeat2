@@ -13,26 +13,29 @@ the form of [Feature Modules][] and an optional [Feature Controller][].
 The ProFeat syntax mostly follows the syntax of the PRISM input language.
 In the following, all additional constructs of ProFeat are described.
 
-### Family Declaration
+### Family declaration
 
-Implicitly, a family (or product line) consists of all possible feature
-combinations and valid feature attribute valuations (i.e. products). If this
-is undesired, a family can be specified explictly by a list of parameters:
+Implicitly, a family defined by a set of feature declarations (see
+[Features][]) consists of of all valid feature combinations and attribute
+valuations (i.e. products). However, a model family can also be declared via an
+explicit family declaration:
 
     family
-        parameters N;
-        initial constraint N != 1;
+        n : [0..3];
+        b : bool;
+        initial constraint b => n != 1;
     endfamily
 
-    root feature
-        N : [0..2];
-        K : bool;
-    endfeature
+This family-block introduces two parameters `n` and `b` as well as an initial
+constraint to define the set of possible parameter valuations.
 
-This example specifies a family with parameter `N`. One or more constraints can
-be given to restrict the set of family members. Here, the family consist of
-the members with `N = 0` and `N = 2`. Since `K` is not listed as a parameter,
-it is initialized nondeterministically for every member of the family.
+Parameters are constant for any given model instance and can thus be used
+everywhere a constant may appear. Most importantly, this includes array sizes,
+number of multi-features and bounds of for-loops. This means a family
+declaration can be applied to parametrize the structure of a model.
+
+Note: if family-based translation is enabled (which is the default), a parameter
+used as a constant always has its upper bound as its value on translation.
 
 ### Features
 
@@ -49,7 +52,7 @@ In general, a feature is declared as follows:
 
 #### Attributes
 
-A features may have one or more attributes. They are similar to [Variables][],
+A feature may have one or more attributes. They are similar to [Variables][],
 but can only be modified by the [Feature Controller][].
 
 #### Decomposition

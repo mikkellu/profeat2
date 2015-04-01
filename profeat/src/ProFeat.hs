@@ -203,7 +203,7 @@ proFeatOptions = ProFeatOptions
 type ProFeat = StateT SymbolTable (ExceptT Error (ReaderT ProFeatOptions IO))
 
 proFeat :: ProFeat ()
-proFeat = withProFeatModel . withProFeatProps $ \proFeatProps ->
+proFeat = withProFeatModel $ \model -> withProFeatProps $ \proFeatProps ->
     asks prismResultsPath >>= \case
         Just resultsPath -> case proFeatProps of -- only do postprocessing
             Nothing -> liftIO $ do
@@ -214,7 +214,7 @@ proFeat = withProFeatModel . withProFeatProps $ \proFeatProps ->
                 writeProFeatOutput props [prismOutput]
         Nothing -> do
             vPutStr "Translating..."
-            prismModels <- translate
+            prismModels <- translate model
             prismProps <- _Just translateProps proFeatProps
             vPutStrLn "done"
 
@@ -231,25 +231,25 @@ proFeat = withProFeatModel . withProFeatProps $ \proFeatProps ->
                 Just props -> writeProFeatOutput props prismOutputs
                 Nothing    -> return ()
 
-withProFeatModel :: ProFeat a -> ProFeat a
+withProFeatModel :: (LModel -> ProFeat a) -> ProFeat a
 withProFeatModel m = do
     path <- asks proFeatModelPath
     maybeWithFile ReadMode (pathToMaybe path) $ \hIn -> do
         modelContents <- liftIO $ LIO.hGetContents hIn
+        m =<< liftEither' (parseModel path modelContents)
 
-        symTbl <- liftEither' $ do
-            Model t defs <- parseModel path modelContents
-            extendSymbolTable (emptySymbolTable t) defs
-
-        put symTbl >> m
-
-translate :: ProFeat [LModel]
-translate = do
-    symTbl       <- get
+translate :: LModel -> ProFeat [LModel]
+translate model = do
     genInstances <- asks oneByOne
-    liftEither' $ if genInstances
-        then translateModelInstances symTbl
-        else (:[]) <$> translateModel symTbl
+    if genInstances
+        then do
+            (models', symTbl) <- liftEither' (translateModelInstances model)
+            put symTbl
+            return models'
+        else do
+            (model', symTbl) <- liftEither' (translateModel model)
+            put symTbl
+            return [model']
 
 withProFeatProps :: (Maybe LSpecification -> ProFeat a) -> ProFeat a
 withProFeatProps m = asks proFeatPropsPath >>= \case
@@ -267,9 +267,10 @@ withProFeatProps m = asks proFeatPropsPath >>= \case
         m (Just spec)
 
 withTranslatedModel :: (LModel -> ProFeat a) -> ProFeat a
-withTranslatedModel m = withProFeatModel $ do
-    symTbl <- get
-    m =<< liftEither' (translateModel symTbl)
+withTranslatedModel m = withProFeatModel $ \model -> do
+    (model', symTbl) <- liftEither' (translateModel model)
+    put symTbl
+    m model'
 
 translateProps :: LSpecification -> ProFeat LSpecification
 translateProps spec = do

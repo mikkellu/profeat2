@@ -156,10 +156,16 @@ data Definition a
   deriving (Eq, Functor, Show)
 
 data Family a = Family
-  { famParameters  :: [Name a]
+  { famParameters  :: [VarDecl a]
   , famConstraints :: [Expr a]
   , famAnnot       :: !a
   } deriving (Eq, Functor, Show)
+
+instance HasExprs Family where
+    exprs f Family{..} =
+        Family <$> traverse (exprs f) famParameters
+               <*> traverse f famConstraints
+               <*> pure famAnnot
 
 data Feature a = Feature
   { featIsRoot      :: !Bool
@@ -701,9 +707,8 @@ instance Pretty (Definition a) where
 instance Pretty (Family a) where
     pretty Family{..} = "family" <> line <> indent 4 body <> line <> "endfamily"
       where
-        body      = paramList <> line <> constrList
-        paramList = "parameters" <+>
-                    vsep (punctuate comma (fmap pretty famParameters)) <> semi
+        body       = paramList <> line <> constrList
+        paramList  = hsep (fmap pretty famParameters)
         constrList = case famConstraints of
             [] -> empty
             cs -> hsep (fmap constr cs)
