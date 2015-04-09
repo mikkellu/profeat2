@@ -80,28 +80,6 @@ translateModel (Model modelT defs) = do
                     Map.singleton (ident, idx) (IntVal upper)
                 _ -> Map.empty
 
-translateModel' :: SymbolTable -> InitExprs -> Invariants -> Either Error LModel
-translateModel' symTbl initExprs invs =
-    flip runReaderT (trnsInfo symTbl invs) $ do
-        (controllerDef, lss) <- trnsControllerDef initExprs
-        local (labelSets .~ lss) $ do
-            modelT      <- view modelType
-            constDefs   <- trnsConsts
-            globalDefs  <- trnsGlobals
-            moduleDefs  <- trnsModules
-            labelDefs   <- fmap LabelDef <$>
-                               trnsLabels (symTbl^..labels.traverse)
-            rewardsDefs <- trnsRewards
-
-            return . Model modelT . sortBy (comparing defAnnot) $ concat
-                [ constDefs
-                , globalDefs
-                , moduleDefs
-                , toList controllerDef
-                , labelDefs
-                , rewardsDefs
-                ]
-
 translateModelInstances :: LModel -> Either Error ([LModel], SymbolTable)
 translateModelInstances (Model modelT defs) = do
     symTbl <- extendSymbolTable (emptySymbolTable modelT) defs
@@ -136,6 +114,44 @@ translateModelInstances (Model modelT defs) = do
             fmap (, symTbl') . for vals $ \val ->
                 let initExprs' = InitExprs initExprs <> valInitExprs val
                 in translateModel' symTbl' initExprs' invs
+
+translateModel' :: SymbolTable -> InitExprs -> Invariants -> Either Error LModel
+translateModel' symTbl initExprs invs =
+    flip runReaderT (trnsInfo symTbl invs) $ do
+        (controllerDef, lss) <- trnsControllerDef initExprs
+        local (labelSets .~ lss) $ do
+            modelT      <- view modelType
+            constDefs   <- trnsConsts
+            globalDefs  <- trnsGlobals
+            moduleDefs  <- trnsModules
+            labelDefs   <- fmap LabelDef <$>
+                               trnsLabels (symTbl^..labels.traverse)
+            rewardsDefs <- trnsRewards
+
+            return . Model modelT . sortBy (comparing defAnnot) $ concat
+                [ constDefs
+                , globalDefs
+                , moduleDefs
+                , toList controllerDef
+                , labelDefs
+                , rewardsDefs
+                ]
+
+translateSpec :: SymbolTable
+              -> LSpecification
+              -> Either Error LSpecification
+translateSpec symTbl (Specification defs) = do
+    symTbl'  <- extendSymbolTable symTbl defs
+    symTbl'' <- updateSymbolTable symTbl' defs
+
+    flip runReaderT (trnsInfo symTbl'' (Invariants [])) $ do
+        -- constDefs <- trnsConsts
+        let constDefs = []
+        labelDefs <- trnsLabelDefs defs
+        propDefs  <- for (defs^..traverse._PropertyDef) $ \prop ->
+                         PropertyDef <$> trnsProperty prop
+
+        return . Specification $ concat [constDefs, labelDefs, propDefs]
 
 paramValuations :: Valuation -> FamilySymbol -> Either Error [Valuation]
 paramValuations constVal (FamilySymbol params constrs) = do
@@ -263,19 +279,6 @@ valInitExprs =
     InitExprs .
     fmap (\((ident, _), v) -> identExpr ident noLoc `eq` valueExpr v) .
     Map.assocs
-
-translateSpec :: SymbolTable
-              -> LSpecification
-              -> Either Error LSpecification
-translateSpec symTbl (Specification defs) =
-    flip runReaderT (trnsInfo symTbl (Invariants [])) $ do
-        -- constDefs <- trnsConsts
-        let constDefs = []
-        labelDefs <- trnsLabelDefs defs
-        propDefs  <- for (defs^..traverse._PropertyDef) $ \prop ->
-                         PropertyDef <$> trnsProperty prop
-
-        return . Specification $ concat [constDefs, labelDefs, propDefs]
 
 trnsConsts :: Trans [LDefinition]
 trnsConsts =
