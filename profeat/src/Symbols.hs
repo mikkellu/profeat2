@@ -89,6 +89,8 @@ module Symbols
 
   , Env(..)
 
+  , paramSymsToGlobalSyms
+
   , contextIdent
   , indexedIdent
   ) where
@@ -392,6 +394,9 @@ forAllContexts m =
     traverse inLocalCtx . allContexts =<< view rootFeature
   where
     inLocalCtx ctx = local (scope .~ Local ctx) (m ctx)
+
+paramSymsToGlobalSyms :: Table ParamSymbol -> Table GlobalSymbol
+paramSymsToGlobalSyms = traverse %~ (GlobalSymbol <$> _psType <*> _psDecl)
 
 contextIdent :: FeatureContext -> Ident
 contextIdent = T.concat . fmap (cons '_' . mkFsIdent) .

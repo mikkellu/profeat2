@@ -73,7 +73,8 @@ getFamily symTbl defs = flip runReaderT (Env Global symTbl) $
                        MultipleDeclarations "family" (famAnnot f1)
         [Family{..}] -> do
             paramTbl <- execStateT (for famParameters addParamSymbol) Map.empty
-            constrs  <- for famConstraints checkConstraint
+            constrs  <- local (globals .~ paramSymsToGlobalSyms paramTbl) $
+                for famConstraints checkConstraint
             return . Just $ FamilySymbol paramTbl constrs
         [] -> return Nothing
   where

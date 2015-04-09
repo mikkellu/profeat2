@@ -51,7 +51,7 @@ translateModel (Model modelT defs) = do
     mFams <- getFamily symTbl defs
     let (defs', symTbl') = case mFams of
             Just (FamilySymbol params constrs) ->
-                let gs  = genGlobalSyms params
+                let gs  = paramSymsToGlobalSyms params
                     i   = genInitDef constrs
                     val = paramValuation params
                 in (i ++ defs, symTbl & constValues %~ union val
@@ -64,8 +64,6 @@ translateModel (Model modelT defs) = do
     model' <- translateModel' symTbl'' initExprs invs
     return (model', symTbl'')
   where
-    genGlobalSyms = traverse %~ \ps -> GlobalSymbol (ps^.psType) (ps^.psDecl)
-
     genInitDef [] = []
     genInitDef cs = (:[]) . InitDef . flip Init noLoc $ foldr1 lAnd cs
 
