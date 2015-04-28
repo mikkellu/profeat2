@@ -123,12 +123,7 @@ checkIfConst' val e
         []    -> return ()
         names -> throw (exprAnnot e) $ UnknownValues e names
 
-isConstExpr :: ( Functor m
-               , MonadReader r m
-               , HasSymbolTable r
-               )
-        => LExpr
-        -> m Bool
+isConstExpr :: (MonadReader r m, HasSymbolTable r) => LExpr -> m Bool
 isConstExpr e = (||) (containsLabelExpr e) <$>
                      (null . flip unknownValues e <$> view constValues)
 

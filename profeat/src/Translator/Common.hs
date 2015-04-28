@@ -31,7 +31,6 @@ module Translator.Common
   , labelIdent
   ) where
 
-import Control.Applicative
 import Control.Arrow ( (&&&) )
 import Control.Lens
 import Control.Monad.Reader
@@ -83,7 +82,7 @@ type Trans = ReaderT TrnsInfo (Either Error)
 
 type Translator a = a -> Trans a
 
-trnsVarDecl :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
+trnsVarDecl :: (MonadReader TrnsInfo m, MonadError Error m)
             => Type
             -> LVarDecl
             -> m [LVarDecl]
@@ -103,7 +102,7 @@ trnsVarDecl t (VarDecl ident vt e l) = do
             error "Translator.Common.trnsVarDecl: unevaluated type"
         _ -> [VarDecl (mkIdent Nothing) vt' Nothing l]
 
-trnsUpdate :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
+trnsUpdate :: (MonadReader TrnsInfo m, MonadError Error m)
            => (LAssign -> m LAssign)
            -> LUpdate
            -> m LUpdate
@@ -112,7 +111,7 @@ trnsUpdate trns (Update e asgns l) =
            <*> ones trns asgns
            <*> pure l
 
-trnsVarAssign :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
+trnsVarAssign :: (MonadReader TrnsInfo m, MonadError Error m)
               => LName
               -> LExpr
               -> SrcLoc
@@ -136,7 +135,7 @@ trnsVarAssign name e l = do
     let name' = fullyQualifiedName symSc ident i l
     return $ Assign name' e' l
 
-trnsExpr :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
+trnsExpr :: (MonadReader TrnsInfo m, MonadError Error m)
          => (Type -> Bool)
          -> LExpr
          -> m LExpr
@@ -151,7 +150,7 @@ trnsExpr p e = checkIfType_ p e *> go e
         activeGuard <$> getFeature name
     go e' = plate go e'
 
-trnsIndex :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
+trnsIndex :: (MonadReader TrnsInfo m, MonadError Error m)
           => Type
           -> Ident
           -> Maybe LExpr
@@ -176,7 +175,7 @@ trnsIndex (CompoundType (ArrayType (Just (lower, upper)) _)) ident (Just e) l = 
                  noLoc
 trnsIndex _ ident _ l = return $ identExpr ident l
 
-trnsActionLabel :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
+trnsActionLabel :: (MonadReader TrnsInfo m, MonadError Error m)
                 => LActionLabel
                 -> m [(LActionLabel, Set LabelSymbol)]
 trnsActionLabel action =
@@ -204,7 +203,7 @@ getLabelSetsFor lbl = do
     lss <- view labelSets
     return $ Set.filter (Set.member lbl) lss
 
-actionToLabel :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
+actionToLabel :: (MonadReader TrnsInfo m, MonadError Error m)
               => LActionLabel
               -> m (Maybe LabelSymbol)
 actionToLabel action = case action of
@@ -229,11 +228,7 @@ activeExpr ctx =
   where
     isActive ctx' = let ident = activeIdent ctx' in identExpr ident noLoc `eq` 1
 
-partialEval :: ( Functor m
-               , MonadReader r m
-               , MonadError Error m
-               , HasSymbolTable r
-               )
+partialEval :: (MonadReader r m, MonadError Error m, HasSymbolTable r)
             => LExpr
             -> m LExpr
 partialEval e = do

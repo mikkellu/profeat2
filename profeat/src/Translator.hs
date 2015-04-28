@@ -9,7 +9,6 @@ module Translator
   , translateSpec
   ) where
 
-import Control.Applicative
 import Control.Lens
 import Control.Monad.Reader
 
@@ -187,8 +186,7 @@ allParamValuations paramTbl =
         SimpleType st -> fmap (Map.singleton (ident, 0)) (enumValues st)
         _ -> []
 
-initialValuations :: ( Applicative m
-                     , MonadReader r m
+initialValuations :: ( MonadReader r m
                      , MonadError Error m
                      , HasSymbolTable r
                      )
@@ -243,8 +241,7 @@ attribValuations symTbl =
                     in fmap (Map.singleton (fqi, 0)) values
                 _ -> []
 
-attribInitialValues :: ( Applicative m
-                       , MonadReader r m
+attribInitialValues :: ( MonadReader r m
                        , MonadError Error m
                        , HasSymbolTable r
                        )

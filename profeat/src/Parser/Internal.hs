@@ -52,17 +52,15 @@ module Parser.Internal
   , name
   ) where
 
-import Control.Applicative
 import Control.Lens hiding ( assign )
 import Control.Monad.Identity
 
-import Data.Foldable
 import Data.List.NonEmpty
 import Data.Monoid
 import Data.Text.Lazy ( Text, pack )
 import Data.Text.Lens
 
-import Text.Parsec hiding ( Reply(..), (<|>), many, label )
+import Text.Parsec hiding ( Reply(..), label )
 import Text.Parsec.Error ( errorMessages, showErrorMessages )
 import Text.Parsec.Expr
 import qualified Text.Parsec.Token as T

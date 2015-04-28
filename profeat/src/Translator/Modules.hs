@@ -4,7 +4,6 @@ module Translator.Modules
   ( trnsModules
   ) where
 
-import Control.Applicative
 import Control.Lens
 import Control.Monad.Reader
 

@@ -10,7 +10,6 @@ module Types.Util
   , toConstType
   ) where
 
-import Control.Applicative
 import Control.Lens
 import Control.Monad.Reader
 
@@ -24,8 +23,7 @@ import Types
 import Template
 import Typechecker
 
-toVarSymbol :: ( Applicative m
-               , MonadReader r m
+toVarSymbol :: ( MonadReader r m
                , MonadError Error m
                , HasSymbolTable r
                , HasScope r
@@ -39,8 +37,7 @@ toVarSymbol public isAttrib (VarDecl _ vt mInit l) = do
     mInit' <- checkInit t mInit
     return $ VarSymbol l public isAttrib t mInit'
 
-toParamSymbol :: ( Applicative m
-                 , MonadReader r m
+toParamSymbol :: ( MonadReader r m
                  , MonadError Error m
                  , HasSymbolTable r
                  , HasScope r
@@ -53,8 +50,7 @@ toParamSymbol (VarDecl ident vt mInit l) = do
     mInit' <- checkInit t mInit
     return $ ParamSymbol t (VarDecl ident vt' mInit' l)
 
-checkInit :: ( Applicative m
-             , MonadReader r m
+checkInit :: ( MonadReader r m
              , MonadError Error m
              , HasSymbolTable r
              , HasScope r
@@ -67,8 +63,7 @@ checkInit t = _Just $ \e -> do
     checkInitialization t e'
     return e'
 
-fromVarType :: ( Applicative m
-               , MonadReader r m
+fromVarType :: ( MonadReader r m
                , MonadError Error m
                , HasSymbolTable r
                , HasScope r
@@ -85,8 +80,7 @@ fromVarType vt = case vt of
         BoolVarType      -> pure BoolType
         IntVarType range -> IntType . Just <$> fromRange range
 
-fromRange :: ( Applicative m
-             , MonadReader r m
+fromRange :: ( MonadReader r m
              , MonadError Error m
              , HasSymbolTable r
              , HasScope r

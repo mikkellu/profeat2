@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE TypeFamilies      #-}
 
 module SymbolTable
   ( module Symbols
@@ -12,7 +13,6 @@ module SymbolTable
   , updateSymbolTable
   ) where
 
-import Control.Applicative
 import Control.Lens hiding ( contains )
 import Control.Monad.Reader
 import Control.Monad.State
@@ -118,7 +118,7 @@ updateSymbolTable symTbl defs = flip evalStateT symTbl $ do -- TODO: refactor
     symTbl'''''' <- get
     return $ symTbl'''''' & rootFeature .~ root
 
-addGlobals :: (Applicative m, MonadState SymbolTable m, MonadError Error m)
+addGlobals :: (MonadState SymbolTable m, MonadError Error m)
            => [LDefinition]
            -> m ()
 addGlobals defs = do
@@ -142,11 +142,7 @@ ifNot contains ident loc m = do
         Just l' -> throw loc $ MultipleDeclarations ident l'
         Nothing -> m
 
-setControllerVarTypes :: ( Applicative m
-                         , MonadState SymbolTable m
-                         , MonadError Error m
-                         )
-                      => m ()
+setControllerVarTypes :: (MonadState SymbolTable m, MonadError Error m) => m ()
 setControllerVarTypes = do
     symTbl <- get
     let cts = symTbl^.controller
@@ -155,30 +151,25 @@ setControllerVarTypes = do
             vs <- toVarSymbol False False decl
             controller._Just.ctsVars.at (declIdent decl) .= Just vs
 
-findInitConfLabel :: (Applicative m, MonadState SymbolTable m) => m ()
+findInitConfLabel :: (MonadState SymbolTable m) => m ()
 findInitConfLabel = use (labels.at initConfLabelIdent) >>= \case
     Just lbl -> initConfLabel .= Just (lblExpr lbl)
     Nothing  -> return ()
 
-expandExprsOf :: (Applicative m, MonadState SymbolTable m, MonadError Error m)
+expandExprsOf :: (MonadState SymbolTable m, MonadError Error m)
               => Traversal' SymbolTable LExpr
               -> m ()
 expandExprsOf t = do
     symTbl <- get
     put =<< t (expandFormulas (symTbl^.formulas)) symTbl
 
-evalConstValues :: ( Applicative m
-                   , MonadState SymbolTable m
-                   , MonadError Error m
-                   )
-                => m ()
+evalConstValues :: (MonadState SymbolTable m, MonadError Error m) => m ()
 evalConstValues = do
     symTbl <- get
     void . flip runReaderT (Env Global symTbl) $
         for (symTbl^.constants.to keys) evalConstValue
 
-evalConstValue :: ( Applicative m
-                  , MonadState SymbolTable m
+evalConstValue :: ( MonadState SymbolTable m
                   , MonadReader Env m
                   , MonadError Error m
                   )
@@ -210,30 +201,24 @@ evalConstValue ident = do
                         constValues.at (ident, i)       .= Just v
                         constants.at ident._Just.csExpr .= e'
 
-checkIfNonCyclicFormulas :: (Applicative m, MonadError Error m)
-                         => Table LFormula
-                         -> m ()
+checkIfNonCyclicFormulas :: (MonadError Error m) => Table LFormula -> m ()
 checkIfNonCyclicFormulas = checkIfNonCyclic post frmAnnot where
     post (Formula _ params e _) = universe e^..traverse.identifiers \\ params
 
-checkIfNonCyclicConstants :: (Applicative m, MonadError Error m)
-                          => Table ConstSymbol
-                          -> m ()
+checkIfNonCyclicConstants :: (MonadError Error m) => Table ConstSymbol -> m ()
 checkIfNonCyclicConstants = checkIfNonCyclic post (view csLoc) where
     post = mapMaybe f . universe . view csExpr
 
     f (NameExpr (Name ((ident, _) :| []) _) _) = Just ident
     f _                                        = Nothing
 
-checkIfNonCyclicFeatures :: (Applicative m, MonadError Error m)
-                         => Table LFeature
-                         -> m ()
+checkIfNonCyclicFeatures :: (MonadError Error m) => Table LFeature -> m ()
 checkIfNonCyclicFeatures = checkIfNonCyclic post featAnnot where
     post f = case featDecomp f of
         Just (Decomposition _ refs _) -> map (instIdent . frInstance) refs
         Nothing                       -> []
 
-checkIfNonCyclic :: (Applicative m, MonadError Error m)
+checkIfNonCyclic :: (MonadError Error m)
                  => (a -> [Ident])
                  -> (a -> SrcLoc)
                  -> Map Ident a

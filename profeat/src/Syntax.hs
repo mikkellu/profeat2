@@ -117,7 +117,6 @@ module Syntax
   , LRange
   ) where
 
-import Control.Applicative hiding ( empty, optional )
 import Control.Lens
 
 import Data.List.NonEmpty

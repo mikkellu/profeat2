@@ -7,7 +7,6 @@ module ProductLine
   ( rootFeatureSymbol
   ) where
 
-import Control.Applicative
 import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.State
@@ -26,9 +25,7 @@ import Template
 import Typechecker
 import Types.Util
 
-rootFeatureSymbol :: (Applicative m, MonadError Error m)
-                  => SymbolTable
-                  -> m FeatureSymbol
+rootFeatureSymbol :: (MonadError Error m) => SymbolTable -> m FeatureSymbol
 rootFeatureSymbol symTbl = flip runReaderT (Env Global symTbl) $
     case rootFeatures symTbl of
         [root]    -> (! 0) <$> toFeatureSymbol' True (featIdent root)
@@ -79,8 +76,7 @@ unreferencedFeatures symTbl =
                            .to instIdent
     in feats \\ refFeats
 
-toFeatureSymbol' :: ( Applicative m
-                    , MonadReader r m
+toFeatureSymbol' :: ( MonadReader r m
                     , MonadError Error m
                     , HasSymbolTable r
                     , HasScope r
@@ -93,8 +89,7 @@ toFeatureSymbol' mandatory ident =
         ref  = FeatureRef False inst Nothing Nothing
     in toFeatureSymbols mandatory ref
 
-toFeatureSymbols :: ( Applicative m
-                    , MonadReader r m
+toFeatureSymbols :: ( MonadReader r m
                     , MonadError Error m
                     , HasSymbolTable r
                     , HasScope r
@@ -158,8 +153,7 @@ toFeatureSymbols mandatory ref@(FeatureRef isOptional inst _ cntExpr) = do
 
     return $ listArray (0, cnt - 1) fss
 
-instantiateModules :: ( Applicative m
-                      , MonadReader r m
+instantiateModules :: ( MonadReader r m
                       , MonadError Error m
                       , HasSymbolTable r
                       , HasScope r
@@ -174,8 +168,7 @@ instantiateModules idx insts = flip runStateT Map.empty $
 
         return (ident, body)
 
-instantiateModule :: ( Applicative m
-                     , MonadReader r m
+instantiateModule :: ( MonadReader r m
                      , MonadError Error m
                      , HasSymbolTable r
                      , HasScope r
@@ -215,8 +208,7 @@ checkDecomposition (Decomposition _ refs l) =
         ((ident:_):_) -> throw l $ AmbiguousDecomposition ident
         _             -> return ()
 
-evalFeatureCardinality :: ( Applicative m
-                          , MonadReader r m
+evalFeatureCardinality :: ( MonadReader r m
                           , MonadError Error m
                           , HasSymbolTable r
                           , HasScope r
@@ -233,8 +225,7 @@ evalFeatureCardinality cntExpr = case cntExpr of
         return v
 
 -- | Returns the group cardinality for the given decomposition operator.
-groupCardinality :: ( Applicative m
-                    , MonadReader r m
+groupCardinality :: ( MonadReader r m
                     , MonadError Error m
                     , HasSymbolTable r
                     , HasScope r

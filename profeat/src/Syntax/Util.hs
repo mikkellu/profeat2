@@ -25,7 +25,6 @@ module Syntax.Util
   , sortVarDeclsByLoc
   ) where
 
-import Control.Applicative
 import Control.Lens
 
 import Data.List          ( foldl', sortBy )

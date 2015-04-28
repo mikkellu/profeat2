@@ -8,7 +8,6 @@ module SrcLoc
   , noLoc
   ) where
 
-import Data.Monoid    ( mappend )
 import Data.Text.Lazy ( Text )
 
 import Text.PrettyPrint.Leijen.Text

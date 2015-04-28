@@ -20,7 +20,6 @@ module Template
   , substitute
   ) where
 
-import Control.Applicative
 import Control.Lens
 import Control.Monad.Reader
 
@@ -37,8 +36,7 @@ import Typechecker
 class Template n where
     parameters :: n a -> [Ident]
 
-prepModuleBody :: ( Applicative m
-                  , MonadReader r m
+prepModuleBody :: ( MonadReader r m
                   , MonadError Error m
                   , HasSymbolTable r
                   , HasScope r
@@ -50,12 +48,7 @@ prepModuleBody (ModuleBody decls stmts a) =
                <*> prepRepeatable prepStmt stmts
                <*> pure a
 
-prepStmt :: ( Applicative m
-            , MonadReader r m
-            , MonadError Error m
-            , HasSymbolTable r
-            , HasScope r
-            )
+prepStmt :: (MonadReader r m, MonadError Error m, HasSymbolTable r, HasScope r)
          => LStmt
          -> m LStmt
 prepStmt (Stmt action grd upds a) =
@@ -64,8 +57,7 @@ prepStmt (Stmt action grd upds a) =
          <*> prepRepeatable prepUpdate upds
          <*> pure a
 
-prepUpdate :: ( Applicative m
-              , MonadReader r m
+prepUpdate :: ( MonadReader r m
               , MonadError Error m
               , HasSymbolTable r
               , HasScope r
@@ -77,8 +69,7 @@ prepUpdate (Update e asgns a) =
            <*> prepRepeatable prepExprs asgns
            <*> pure a
 
-prepExpr :: ( Applicative m
-            , MonadReader r m
+prepExpr :: ( MonadReader r m
             , MonadError Error m
             , HasSymbolTable r
             , HasScope r
@@ -87,8 +78,7 @@ prepExpr :: ( Applicative m
          -> m LExpr
 prepExpr = prepExprs
 
-prepExprs :: ( Applicative m
-             , MonadReader r m
+prepExprs :: ( MonadReader r m
              , MonadError Error m
              , HasSymbolTable r
              , HasScope r
@@ -100,8 +90,7 @@ prepExprs n = do
     frms <- view formulas
     exprs (expandFormulas frms >=> unrollLoopExprs) n
 
-prepRepeatable :: ( Applicative m
-                  , MonadReader r m
+prepRepeatable :: ( MonadReader r m
                   , MonadError Error m
                   , HasSymbolTable r
                   , HasScope r
@@ -115,8 +104,7 @@ prepRepeatable prep r = do
     fmap Repeatable . for ss $ \(One x) ->
         One <$> prep x
 
-unrollRepeatable :: ( Applicative m
-                    , MonadReader r m
+unrollRepeatable :: ( MonadReader r m
                     , MonadError Error m
                     , HasSymbolTable r
                     , HasScope r
@@ -130,8 +118,7 @@ unrollRepeatable (Repeatable ss) = Repeatable <$> rewriteM f ss where
         Many loop -> Just . (++ ss') <$> unrollRepeatableLoop loop
     f [] = return Nothing
 
-unrollRepeatableLoop :: ( Applicative m
-                        , MonadReader r m
+unrollRepeatableLoop :: ( MonadReader r m
                         , MonadError Error m
                         , HasSymbolTable r
                         , HasScope r
@@ -142,8 +129,7 @@ unrollRepeatableLoop :: ( Applicative m
 unrollRepeatableLoop = unrollLoop f where
     f (Repeatable ss) = return . concatMap (\defs -> map (substitute defs) ss)
 
-unrollLoopExprs :: ( Applicative m
-                   , MonadReader r m
+unrollLoopExprs :: ( MonadReader r m
                    , MonadError Error m
                    , HasSymbolTable r
                    , HasScope r
@@ -154,8 +140,7 @@ unrollLoopExprs = rewriteM' $ \case
     LoopExpr loop _ -> Just <$> unrollExprLoop loop
     _               -> return Nothing
 
-unrollExprLoop :: ( Applicative m
-                  , MonadReader r m
+unrollExprLoop :: ( MonadReader r m
                   , MonadError Error m
                   , HasSymbolTable r
                   , HasScope r
@@ -184,8 +169,7 @@ unrollExpr combinator onEmpty defss e = case defss of
     [] -> onEmpty
     _  -> Just . foldr1 combinator . map (`substitute` e) $ defss
 
-unrollLoop :: ( Applicative m
-              , MonadReader r m
+unrollLoop :: ( MonadReader r m
               , MonadError Error m
               , HasSymbolTable r
               , HasScope r
@@ -197,7 +181,7 @@ unrollLoop f (ForLoop ident range body _) = do
     (lower, upper) <- evalRange =<< both prepExpr range
     f body (map (Map.singleton ident . flip IntegerExpr noLoc) [lower .. upper])
 
-expandFormulas :: (Applicative m, HasExprs n, MonadError Error m)
+expandFormulas :: (HasExprs n, MonadError Error m)
                => Map Ident LFormula
                -> n SrcLoc
                -> m (n SrcLoc)
@@ -252,7 +236,7 @@ substitute = over exprs . go where
 
 -- | Check whether the given expression contains exactly one expression of
 -- the form @e * ...@ (where @*@ is any binary operator) or @f(e, ...)@.
-checkLoopBody :: (Applicative m, MonadError Error m) => LExpr -> m ()
+checkLoopBody :: (MonadError Error m) => LExpr -> m ()
 checkLoopBody e = go e >>= \cnt ->
     when (cnt /= 1) (throw (exprAnnot e) MalformedLoopBody)
   where
@@ -278,10 +262,7 @@ plateBody f e = case e of
 
 -- Rewrite by applying the monadic rule everywhere you can in a top-down
 -- manner. Ensures that the rule cannot be applied anywhere in the result.
-rewriteM' :: (Monad m, Applicative m, Plated a)
-          => (a -> m (Maybe a))
-          -> a
-          -> m a
+rewriteM' :: (Monad m, Plated a) => (a -> m (Maybe a)) -> a -> m a
 rewriteM' = rewriteMOf' plate
 
 rewriteMOf' :: (Monad m) => LensLike' m a a -> (a -> m (Maybe a)) -> a -> m a

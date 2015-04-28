@@ -16,8 +16,6 @@ module Eval
   , eval'
   ) where
 
-import Control.Applicative
-import Control.Lens
 import Control.Monad.Reader
 
 import Data.Map ( (!) )

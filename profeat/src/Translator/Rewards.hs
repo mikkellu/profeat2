@@ -4,14 +4,12 @@ module Translator.Rewards
   ( trnsRewards
   ) where
 
-import Control.Applicative
 import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.State
 
 import Data.Map ( Map )
 import qualified Data.Map as Map
-import Data.Monoid
 import Data.Traversable
 
 import Error
@@ -35,7 +33,7 @@ extractRewards ctx =
     void . for (ctx^.this.fsRewards) $ \(Rewards ident rws _) ->
         for rws $ trnsReward >=> modify . Map.insertWith mappend ident
 
-trnsReward :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
+trnsReward :: (MonadReader TrnsInfo m, MonadError Error m)
            => LReward
            -> m [LReward]
 trnsReward (Reward action grd e a) = maybe ((:[]) <$> trns Nothing)

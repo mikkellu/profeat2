@@ -1,12 +1,12 @@
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeFamilies      #-}
 
 module Translator.Controller
   ( trnsControllerDef
   ) where
 
-import Control.Applicative
 import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.State
@@ -78,7 +78,7 @@ trnsControllerBody (ModuleBody decls stmts l) =
                <*> ones trnsStmt stmts
                <*> pure l
 
-trnsLocalVars :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
+trnsLocalVars :: (MonadReader TrnsInfo m, MonadError Error m)
               => [LVarDecl]
               -> m [LVarDecl]
 trnsLocalVars decls = do
@@ -87,7 +87,7 @@ trnsLocalVars decls = do
         let t = cts^?!_Just.ctsVars.at (declIdent decl)._Just.vsType
         in trnsVarDecl t decl
 
-trnsAttributeVars :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
+trnsAttributeVars :: (MonadReader TrnsInfo m, MonadError Error m)
                   => m [LVarDecl]
 trnsAttributeVars = do
     attribDecls <- fmap concat . forAllContexts $ \ctx ->
@@ -147,8 +147,7 @@ trnsStmt (Stmt action grd (Repeatable ss) l) = do
             Just ReconfDeactivate -> 0
             Nothing -> identExpr (activeIdent childCtx) noLoc
 
-trnsAssign :: ( Applicative m
-              , MonadReader TrnsInfo m
+trnsAssign :: ( MonadReader TrnsInfo m
               , MonadWriter Reconfiguration m
               , MonadError Error m
               )
@@ -187,7 +186,7 @@ genActionLabel action ls = do
 
     return $ labelSetToAction ls'
 
-genActiveVars :: (Functor m, MonadReader TrnsInfo m, MonadError Error m)
+genActiveVars :: (MonadReader TrnsInfo m, MonadError Error m)
               => m [LVarDecl]
 genActiveVars = mapMaybe mkVarDecl . allContexts <$> view rootFeature where
     mkVarDecl ctx
@@ -201,8 +200,7 @@ genActiveVars = mapMaybe mkVarDecl . allContexts <$> view rootFeature where
 reconfsToLabelSet :: [Reconfiguration] -> Set LabelSymbol
 reconfsToLabelSet = Set.fromList . fmap (uncurry LsReconf) . assocs . unions
 
-genActiveFormulas :: (Functor m, MonadReader r m, HasSymbolTable r)
-                  => m [LDefinition]
+genActiveFormulas :: (MonadReader r m, HasSymbolTable r) => m [LDefinition]
 genActiveFormulas = fmap genActiveFormula . allContexts <$> view rootFeature
 
 genActiveFormula :: FeatureContext -> LDefinition
@@ -213,7 +211,7 @@ genActiveFormula ctx = FormulaDef Formula
   , frmAnnot  = noLoc
   }
 
-genInitConfLabel :: (Applicative m, MonadReader TrnsInfo m, MonadError Error m)
+genInitConfLabel :: (MonadReader TrnsInfo m, MonadError Error m)
                  => m [LDefinition]
 genInitConfLabel =
     view initConfLabel >>= \case

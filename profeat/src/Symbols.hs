@@ -105,7 +105,6 @@ import Data.List.NonEmpty ( NonEmpty(..), toList )
 import qualified Data.List.NonEmpty as L
 import Data.Map ( Map, empty )
 import Data.Maybe
-import Data.Monoid ( mappend )
 import Data.Text.Lazy ( append, pack )
 import qualified Data.Text.Lazy as T
 
@@ -378,16 +377,12 @@ allContexts root = go (\_ _ -> rootCtx) rootCtx root
         in self:ctxs'
     rootCtx = rootContext root
 
-forAllContexts_ :: ( Applicative m
-                   , MonadReader r m
-                   , HasSymbolTable r
-                   , HasScope r
-                   )
+forAllContexts_ :: (MonadReader r m, HasSymbolTable r, HasScope r)
                 => (FeatureContext -> m a)
                 -> m ()
 forAllContexts_ = void . forAllContexts
 
-forAllContexts :: (Applicative m, MonadReader r m, HasSymbolTable r, HasScope r)
+forAllContexts :: (MonadReader r m, HasSymbolTable r, HasScope r)
                => (FeatureContext -> m a)
                -> m [a]
 forAllContexts m =

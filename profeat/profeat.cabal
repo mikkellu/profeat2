@@ -1,5 +1,5 @@
 name:                profeat
-version:             0.87.0.2
+version:             0.88.0.0
 synopsis:            A feature modelling framework
 author:              Philipp Chrszon
 maintainer:          Philipp.Chrszon@tu-dresden.de
@@ -39,11 +39,11 @@ library
                        Types.Util
   other-modules:       Data.Strict.Tuple.Lens
   hs-source-dirs:      src
-  build-depends:       base ==4.*,
+  build-depends:       base ==4.8.*,
                        array ==0.5.*,
                        containers ==0.5.*,
                        filepath ==1.4.*,
-                       lens ==4.8.*,
+                       lens ==4.9.*,
                        mtl ==2.2.*,
                        optparse-applicative ==0.11.*,
                        parsec ==3.1.*,
@@ -69,7 +69,7 @@ test-suite profeat-tests
   main-is:             Tests.hs
   -- other-modules:
   hs-source-dirs:      tests
-  build-depends:       base ==4.*,
+  build-depends:       base ==4.8.*,
                        directory ==1.2.*,
                        filepath ==1.4.*,
                        tasty ==0.10.*,

@@ -30,13 +30,12 @@ module Result
   , prettyResultCollections
   ) where
 
+import Prelude hiding ( (<$>) )
 import Control.Lens
 
 import Data.Foldable                ( toList )
-import qualified Data.Foldable as F
 import qualified Data.Map as Map
 import Data.Maybe                   ( mapMaybe)
-import Data.Monoid                  ( mappend )
 import Data.Ord                     ( comparing )
 import Data.Sequence                ( Seq, ViewL(..), viewl )
 import qualified Data.Sequence as Seq
@@ -128,7 +127,7 @@ sortStateResults = rcStateResults %~ Seq.sortBy (comparing (view _2'))
 groupStateVecs :: ResultCollection -> ResultCollection
 groupStateVecs rc =
     let srs    = rc^.rcStateResults
-        groups = F.foldr insert Map.empty (fmap toGroupedStateResult srs)
+        groups = foldr insert Map.empty (fmap toGroupedStateResult srs)
         gsrs   = mapToSeq groups
     in rc & rcStateResults        .~ Seq.empty
           & rcGroupedStateResults .~ gsrs
@@ -182,7 +181,7 @@ findConfVars (viewl -> (sv :!: _) :< srs) =
   where
     go :: Int -> VarRole
     go i = let v = sv ! i
-           in if F.all ((v ==) . (! i) . ST.fst) srs
+           in if all ((v ==) . (! i) . ST.fst) srs
                   then VarNonConf
                   else VarConf
 findConfVars _ = []
