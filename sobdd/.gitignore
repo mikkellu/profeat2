@@ -1,8 +1,0 @@
-.DS_Store
-dist
-*.o
-*.hi
-*.swp
-.cabal-sandbox/
-.ghci
-cabal.sandbox.config

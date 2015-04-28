@@ -17,15 +17,7 @@ Building ProFeat
     be installed to your user package database). Make sure you create the
     sandbox in the directory that contains the `profeat.cabal` file:
 
-        cd profeat/
         cabal sandbox init
-        cabal sandbox add-source ../sobdd
-
-    If you decide not to use a sandbox, you have to install the `sobdd` library
-    manually to your user package database:
-
-        cd sobdd/
-        cabal install
 
 *   To build ProFeat, execute the following command in the project's root
     directory (the directory containing the `profeat.cabal` file):
