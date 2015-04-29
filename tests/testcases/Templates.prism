@@ -10,6 +10,6 @@ rewards "test"
 endrewards
 
 module _sub_sub_impl
-    _sub_s : [0..1+1];
+    _sub_s : [0..2];
 endmodule
 

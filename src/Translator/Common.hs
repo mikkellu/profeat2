@@ -91,7 +91,7 @@ trnsVarDecl t (VarDecl ident vt e l) = do
     let mkIdent = fullyQualifiedIdent sc ident
 
     void $ _Just (checkInitialization t) e
-    vt' <- exprs (trnsExpr $ const True) vt
+    vt' <- exprs (partialEval <=< trnsExpr (const True)) vt
 
     return $ case t of
         CompoundType (ArrayType (Just (lower, upper)) _) ->
