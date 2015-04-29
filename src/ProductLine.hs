@@ -108,7 +108,7 @@ toFeatureSymbols mandatory ref@(FeatureRef isOptional inst _ cntExpr) = do
         attribDecls' <- traverse prepExprs featAttributes
 
         attribVarSyms <- fmap fromList . for attribDecls' $ \decl ->
-            (declIdent decl,) <$> toVarSymbol False True decl
+            (declIdent decl,) <$> toVarSymbol True decl
 
         (groupCard, childFeats) <- case featDecomp of
             Nothing -> return ((0, 0), Map.empty)
@@ -179,11 +179,10 @@ instantiateModule :: ( MonadReader r m
 instantiateModule idx (Instance ident args l) = do
     mod'  <- instantiateWithId idx ident args l =<< lookupModule ident l
     body' <- prepModuleBody $ modBody mod'
-    let public = modPublic mod'
 
     varSyms <- fmap Map.fromList . for (modVars body') $ \decl ->
                    let ident' = declIdent decl
-                   in (ident',) <$> toVarSymbol (ident' `elem` public) False decl
+                   in (ident',) <$> toVarSymbol False decl
 
     return (body', varSyms)
 

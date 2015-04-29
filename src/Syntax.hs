@@ -291,13 +291,12 @@ instance HasExprs Controller where
 data Module a = Module
   { modIdent  :: !Ident
   , modParams :: [Ident]
-  , modPublic :: [Ident]
   , modBody   :: ModuleBody a
   } deriving (Eq, Functor, Show)
 
 instance HasExprs Module where
-    exprs f (Module ident params provides body) =
-        Module ident params provides <$> exprs f body
+    exprs f (Module ident params body) =
+        Module ident params <$> exprs f body
 
 data ModuleBody a = ModuleBody
   { modVars     :: [VarDecl a]
@@ -788,14 +787,9 @@ instance Pretty (Controller a) where
         indent 4 (pretty body) <> line <> "endcontroller"
 
 instance Pretty (Module a) where
-    pretty (Module ident params public body) =
+    pretty (Module ident params body) =
         "module" <+> text ident <> prettyParams params <> line <>
-        indent 4 (publicList <> line <> pretty body) <> line <> "endmodule"
-      where
-        publicList
-          | null public = empty
-          | otherwise   = "public" <+>
-            hang 4 (fillSep . punctuate comma $ fmap text public) <> semi
+        indent 4 (pretty body) <> line <> "endmodule"
 
 instance Pretty (ModuleBody a) where
     pretty (ModuleBody decls stmts _) =

@@ -18,7 +18,6 @@ module Symbols
   , VarSymbol(..)
   , vsLoc
   , vsType
-  , vsPublic
   , vsIsAttrib
   , vsInit
 
@@ -135,7 +134,6 @@ makeLenses ''ConstSymbol
 
 data VarSymbol = VarSymbol
   { _vsLoc      :: !SrcLoc
-  , _vsPublic   :: !Bool
   , _vsIsAttrib :: !Bool
   , _vsType     :: !Type
   , _vsInit     :: Maybe LExpr

@@ -66,10 +66,10 @@ trnsController initExprs =
             then if null decls' && null stmts
                      then [ initDef' ]
                      else [ initDef'
-                          , ModuleDef (Module controllerIdent [] [] (ModuleBody decls' (Repeatable stmts) l))
+                          , ModuleDef (Module controllerIdent [] (ModuleBody decls' (Repeatable stmts) l))
                           ]
             else [ initDef'
-                 , ModuleDef (Module controllerIdent [] [] body')
+                 , ModuleDef (Module controllerIdent [] body')
                  ] ++ confLbl
 
 trnsControllerBody :: LModuleBody -> StateT LabelSets Trans LModuleBody

@@ -109,11 +109,11 @@ reservedNames =
     , "root", "global", "const", "formula", "label", "modules", "all" , "one"
     , "some", "of", "optional", "as", "constraint", "initial", "rewards"
     , "endrewards", "controller", "endcontroller", "module", "endmodule"
-    , "this", "public", "active", "activate", "deactivate", "array", "bool"
-    , "int", "double", "init", "endinit", "invariant", "endinvariant", "for"
-    , "endfor" , "in", "id", "block", "filter", "min", "max", "true", "false"
-    , "P", "Pmin", "Pmax", "R", "Rmin", "Rmax", "S", "E", "A", "U", "W", "R"
-    , "X", "F", "G", "C", "I"
+    , "this", "active", "activate", "deactivate", "array", "bool", "int"
+    , "double", "init", "endinit", "invariant", "endinvariant", "for", "endfor"
+    , "in", "id", "block", "filter", "min", "max", "true", "false", "P", "Pmin"
+    , "Pmax", "R", "Rmin", "Rmax", "S", "E", "A", "U", "W", "R", "X", "F", "G"
+    , "C", "I"
     ]
 reservedOpNames =
     [ "/", "*", "-", "+", "=", "!=", ">", "<", ">=", "<=", "&", "|", "!"
@@ -291,9 +291,7 @@ moduleDef = fmap ModuleDef $ do
     reserved "module"
     ident <- identifier'
     ps    <- params
-    block "module" $ Module ident ps <$> public <*> moduleBody
-  where
-    public = option [] $ reserved "public" *> commaSep1 identifier' <* semi
+    block "module" $ Module ident ps <$> moduleBody
 
 moduleBody :: Parser LModuleBody
 moduleBody = loc (ModuleBody <$> many varDecl <*> repeatable stmt many)

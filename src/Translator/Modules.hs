@@ -32,7 +32,7 @@ trnsModules =
 trnsModule :: Ident -> LModuleBody -> Trans LModule
 trnsModule ident body = do
     Local ctx <- view scope
-    Module (moduleIdent ctx ident) [] [] <$> trnsModuleBody body
+    Module (moduleIdent ctx ident) [] <$> trnsModuleBody body
 
 trnsModuleBody :: Translator LModuleBody
 trnsModuleBody (ModuleBody decls (Repeatable ss) l) = do

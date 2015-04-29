@@ -29,13 +29,12 @@ toVarSymbol :: ( MonadReader r m
                , HasScope r
                )
             => Bool
-            -> Bool
             -> LVarDecl
             -> m VarSymbol
-toVarSymbol public isAttrib (VarDecl _ vt mInit l) = do
+toVarSymbol isAttrib (VarDecl _ vt mInit l) = do
     t      <- fromVarType vt
     mInit' <- checkInit t mInit
-    return $ VarSymbol l public isAttrib t mInit'
+    return $ VarSymbol l isAttrib t mInit'
 
 toParamSymbol :: ( MonadReader r m
                  , MonadError Error m

@@ -53,7 +53,7 @@ extendSymbolTable symTbl defs = flip execStateT symTbl $ do -- TODO: refactor
 
     findInitConfLabel
 
-    forOf_ (traverse._ModuleDef) defs $ \m@(Module ident _ _ _) ->
+    forOf_ (traverse._ModuleDef) defs $ \m@(Module ident _ _) ->
         ifNot containsModule ident (modAnnot $ modBody m) $
             modules.at ident .= Just m
 
@@ -148,7 +148,7 @@ setControllerVarTypes = do
     let cts = symTbl^.controller
     void . flip runReaderT (Env LocalCtrlr symTbl) $
         for (cts^.._Just.ctsBody.to modVars.traverse) $ \decl -> do
-            vs <- toVarSymbol False False decl
+            vs <- toVarSymbol False decl
             controller._Just.ctsVars.at (declIdent decl) .= Just vs
 
 findInitConfLabel :: (MonadState SymbolTable m) => m ()
