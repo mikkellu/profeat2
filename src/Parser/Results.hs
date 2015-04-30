@@ -14,7 +14,7 @@ import Control.Applicative
 import Control.Lens hiding ( noneOf )
 import Control.Monad.State
 
-import Data.Sequence ( Seq, fromList )
+import Data.Sequence ( Seq, fromList, singleton )
 import Data.Strict.Tuple
 import Data.Text ( Text, pack )
 import Data.Traversable
@@ -31,6 +31,7 @@ data Log
   = LogStateResults !(Seq (StateVec :!: Result))
   | LogFinalResult  !Result
   | LogTrace        !(Seq StateVec)
+  | LogDdNodes      !(Int :!: Int)
   | LogBuildingTime !Double
   | LogCheckingTime !Double
   | Log             !Text
@@ -49,6 +50,7 @@ resultCollection vo ls =
         LogStateResults srs -> rcStateResults .= srs
         LogFinalResult  r   -> rcFinalResult  .= r
         LogTrace        svs -> rcTrace        .= svs
+        LogDdNodes      n   -> rcDdNodes      .= singleton n
         LogBuildingTime t   -> rcBuildingTime .= t
         LogCheckingTime t   -> rcCheckingTime .= t
         Log             t   -> rcLog          %= (|> t)
@@ -97,6 +99,7 @@ logs = many . choice $
   [ logStateResults
   , logFinalResult
   , logTrace
+  , logDdNodes
   , logBuildingTime
   , logCheckingTime
   , logAny
@@ -118,6 +121,13 @@ logFinalResult = LogFinalResult <$> (start *> result <* skipLine) where
 logTrace :: Parser Log
 logTrace = LogTrace . fromList <$> (start *> skipLine *> many stateVec) where
     start = trySymbol "Counterexample/witness"
+
+logDdNodes :: Parser Log
+logDdNodes = LogDdNodes <$>
+    ((:!:) <$> (start *> int <* symbol "nodes")
+           <*> (parens (int <* symbol "terminal") <* skipLine))
+  where
+    start = trySymbol "Transition matrix:"
 
 logBuildingTime :: Parser Log
 logBuildingTime = LogBuildingTime <$> (start *> float <* skipLine)

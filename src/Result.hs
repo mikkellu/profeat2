@@ -1,5 +1,6 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE TypeOperators     #-}
 {-# LANGUAGE ViewPatterns      #-}
@@ -15,6 +16,7 @@ module Result
   , rcFinalResult
   , rcTrace
   , rcLog
+  , rcDdNodes
   , rcBuildingTime
   , rcCheckingTime
   , emptyResultCollection
@@ -82,6 +84,7 @@ data ResultCollection = ResultCollection
   , _rcFinalResult         :: !Result
   , _rcTrace               :: !(Seq StateVec)
   , _rcLog                 :: !(Seq Text)
+  , _rcDdNodes             :: !(Seq (Int :!: Int))
   , _rcBuildingTime        :: !Double
   , _rcCheckingTime        :: !Double
   } deriving (Show)
@@ -96,6 +99,7 @@ emptyResultCollection vo = ResultCollection
   , _rcFinalResult         = ResultBool False
   , _rcTrace               = Seq.empty
   , _rcLog                 = Seq.empty
+  , _rcDdNodes             = Seq.empty
   , _rcBuildingTime        = 0.0
   , _rcCheckingTime        = 0.0
   }
@@ -103,8 +107,8 @@ emptyResultCollection vo = ResultCollection
 appendResultCollection :: ResultCollection
                        -> ResultCollection
                        -> ResultCollection
-appendResultCollection (ResultCollection xVo xSrs xGrs xR xTr xL xBt xCt)
-                       (ResultCollection _   ySrs yGrs yR _   yL yBt yCt) =
+appendResultCollection (ResultCollection xVo xSrs xGrs xR xTr xL xNs xBt xCt)
+                       (ResultCollection _   ySrs yGrs yR _   yL yNs yBt yCt) =
     let r = case (xR, yR) of
                 (ResultBool x, ResultBool y) -> ResultBool (x && y)
                 (ResultDouble x, ResultDouble y)
@@ -119,7 +123,7 @@ appendResultCollection (ResultCollection xVo xSrs xGrs xR xTr xL xBt xCt)
                     ResultRange (min xl yl) (max xu yu)
                 _ -> error "Result.appendResultCollection: incompatible collections"
     in ResultCollection xVo (mappend xSrs ySrs) (mappend xGrs yGrs) r xTr
-           (mappend xL yL) (xBt + yBt) (xCt + yCt)
+           (mappend xL yL) (mappend xNs yNs) (xBt + yBt) (xCt + yCt)
 
 sortStateResults :: ResultCollection -> ResultCollection
 sortStateResults = rcStateResults %~ Seq.sortBy (comparing (view _2'))
@@ -198,32 +202,47 @@ prettyResultCollections includeLog (Specification defs) rcs =
     separator = line <> line <> text (L.replicate 80 "-") <> line
 
 prettyResultCollection :: Bool -> ResultCollection -> Doc
-prettyResultCollection includeLog (ResultCollection vo srs gsrs r tr ls bt ct) =
-    (if includeLog then prettyLog ls <> line <> line else empty) <>
-    "Final result:" <+> pretty r <$>
+prettyResultCollection includeLog ResultCollection{..} =
+    (if includeLog then prettyLog _rcLog <> line <> line else empty) <>
+    "Final result:" <+> pretty _rcFinalResult <$>
     stateResults <$>
     groupedStateResults <$>
-    prettyTrace vo tr <$>
-    "Time for model construction:" <+> pretty bt <$>
-    "Time for model checking:" <+> pretty ct
+    prettyTrace <$>
+    line <>
+    prettyTrnsNodes <$>
+    "Time for model construction:" <+> pretty _rcBuildingTime <$>
+    "Time for model checking:" <+> pretty _rcCheckingTime
   where
-    stateResults | Seq.null srs = empty
-                 | otherwise    = "Results for initial configurations:" <$>
-                                  prettyStateResults prettyVal vo srs
+    stateResults
+      | Seq.null _rcStateResults = empty
+      | otherwise =
+        "Results for initial configurations:" <$>
+        indent 4 (prettyStateResults prettyVal _rcVarOrdering _rcStateResults)
     groupedStateResults
-      | Seq.null gsrs = empty
-      | otherwise     = "Results for initial configurations" <+>
-                        "(grouped by result)" <$>
-                        prettyStateResults prettyValGroup vo gsrs
+      | Seq.null _rcGroupedStateResults = empty
+      | otherwise =
+        "Results for initial configurations" <+>
+        "(grouped by result)" <$>
+        indent 4 (prettyStateResults prettyValGroup
+                                     _rcVarOrdering
+                                     _rcGroupedStateResults)
+    prettyTrace
+      | Seq.null _rcTrace = empty
+      | otherwise =
+        "Counterexample/witness:" <$>
+        indent 4 (prettyStateVecs prettyVal _rcVarOrdering _rcTrace)
+
+    prettyTrnsNodes = case viewl _rcDdNodes of
+        EmptyL -> empty
+        n :< (viewl -> EmptyL) -> "Transition matrix:" <+> prettyNumDdNodes n
+        ns -> "Transition matrices:" <+>
+              int (sum (fmap ST.fst ns)) <+> "(sum)" <$>
+              (indent 4 . hsep . punctuate comma . fmap (int . ST.fst) $ toList ns)
+    prettyNumDdNodes (n :!: nt) =
+        int n <+> "nodes" <+> parens (int nt <+> "terminal")
 
 prettyLog :: Seq Text -> Doc
 prettyLog = vsep . fmap (text . L.fromStrict) . toList
-
-prettyTrace :: VarOrdering -> Seq StateVec -> Doc
-prettyTrace vo svs
-  | Seq.null svs  = empty
-  | otherwise     = "Counterexample/witness:" <$>
-                    prettyStateVecs prettyVal vo svs
 
 prettyStateResults :: Vector v a
                    => ValPrinter a
