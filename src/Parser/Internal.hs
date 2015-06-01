@@ -105,15 +105,15 @@ toSyntaxError = SyntaxError . pack .
 
 reservedNames, reservedOpNames :: [String]
 reservedNames =
-    [ "mdp", "dtmc", "ctmc", "family", "endfamily", "feature", "endfeature"
-    , "root", "global", "const", "formula", "label", "modules", "all" , "one"
-    , "some", "of", "optional", "as", "constraint", "initial", "rewards"
-    , "endrewards", "controller", "endcontroller", "module", "endmodule"
-    , "this", "active", "activate", "deactivate", "array", "bool", "int"
-    , "double", "init", "endinit", "invariant", "endinvariant", "for", "endfor"
-    , "in", "id", "block", "filter", "min", "max", "true", "false", "P", "Pmin"
-    , "Pmax", "R", "Rmin", "Rmax", "S", "E", "A", "U", "W", "R", "X", "F", "G"
-    , "C", "I"
+    [ "mdp", "dtmc", "ctmc", "family", "endfamily", "features", "feature"
+    , "endfeature", "root", "global", "const", "formula", "label", "modules"
+    , "all", "one", "some", "of", "optional", "as", "constraint", "initial"
+    , "rewards", "endrewards", "controller", "endcontroller", "module"
+    , "endmodule", "this", "active", "activate", "deactivate", "array", "bool"
+    , "int", "double", "init", "endinit", "invariant", "endinvariant", "for"
+    , "endfor", "in", "id", "block", "filter", "min", "max", "true", "false"
+    , "P", "Pmin", "Pmax", "R", "Rmin", "Rmax", "S", "E", "A", "U", "W", "R"
+    , "X", "F", "G", "C", "I"
     ]
 reservedOpNames =
     [ "/", "*", "-", "+", "=", "!=", ">", "<", ">=", "<=", "&", "|", "!"
@@ -217,9 +217,10 @@ familyDef = FamilyDef <$> family' <?> "family declaration"
 
 family' :: Parser LFamily
 family' = loc $ reserved "family" *> block "family"
-    (Family <$> many varDecl <*> many constr)
+    (Family <$> many varDecl <*> many constr <*> features)
   where
     constr = reserved "initial" *> reserved "constraint" *> expr <* semi
+    features = option [] (reserved "features" *> commaSep1 name <* semi)
 
 featureDef :: Parser LDefinition
 featureDef = FeatureDef <$> feature <?> "feature"

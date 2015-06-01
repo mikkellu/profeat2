@@ -160,7 +160,7 @@ data Value
     = BoolVal !Bool
     | IntVal !Integer
     | DblVal !Double
-    deriving (Eq, Show)
+    deriving (Eq, Ord, Show)
 
 instance Pretty Value where
     pretty v = case v of

@@ -37,6 +37,27 @@ declaration can be applied to parametrize the structure of a model.
 Note: if family-based translation is enabled (which is the default), a parameter
 used as a constant always has its upper bound as its value on translation.
 
+If a family-block is present and the `--one-by-one` option is used, the
+generated instances are solely defined by the parameters in the family-block.
+This means that the set of initial states (of each instance) is the set of
+valid configurations of the product line. However, features can also be used as
+family parameters by referencing them in the family-block:
+
+    family
+        n : [1..2];
+        features my_feat;
+    endfamily
+
+    root feature
+        [0..1] of my_feat;
+    endfeature
+
+    feature my_feat
+    endfeature
+
+Here, the feature `my_feat` is used as a family parameter. Thus, the family
+shown above has 4 members.
+
 ### Features
 
 In general, a feature is declared as follows:

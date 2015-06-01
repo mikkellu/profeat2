@@ -28,6 +28,7 @@ module Symbols
   , FamilySymbol(..)
   , famsParameters
   , famsConstraints
+  , famsFeatures
 
   , FeatureSymbol(..)
   , fsIdent
@@ -158,6 +159,7 @@ makeLenses ''ParamSymbol
 data FamilySymbol = FamilySymbol
   { _famsParameters  :: Table ParamSymbol
   , _famsConstraints :: [LExpr]
+  , _famsFeatures    :: [LName]
   } deriving (Show)
 
 makeLenses ''FamilySymbol

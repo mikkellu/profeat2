@@ -75,7 +75,8 @@ getFamily symTbl defs = flip runReaderT (Env Global symTbl) $
             paramTbl <- execStateT (for famParameters addParamSymbol) Map.empty
             constrs  <- local (globals .~ paramSymsToGlobalSyms paramTbl) $
                 for famConstraints checkConstraint
-            return . Just $ FamilySymbol paramTbl constrs
+            feats <- traverse prepExprs famFeatures
+            return . Just $ FamilySymbol paramTbl constrs feats
         [] -> return Nothing
   where
     addParamSymbol decl@(VarDecl ident _ _ l) = do

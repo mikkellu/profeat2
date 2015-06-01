@@ -13,6 +13,19 @@ endfamily</code></pre>
 <p>This family-block introduces two parameters <code>n</code> and <code>b</code> as well as an initial constraint to define the set of possible parameter valuations.</p>
 <p>Parameters are constant for any given model instance and can thus be used everywhere a constant may appear. Most importantly, this includes array sizes, number of multi-features and bounds of for-loops. This means a family declaration can be applied to parametrize the structure of a model.</p>
 <p>Note: if family-based translation is enabled (which is the default), a parameter used as a constant always has its upper bound as its value on translation.</p>
+<p>If a family-block is present and the <code>--one-by-one</code> option is used, the generated instances are solely defined by the parameters in the family-block. This means that the set of initial states (of each instance) is the set of valid configurations of the product line. However, features can also be used as family parameters by referencing them in the family-block:</p>
+<pre><code>family
+    n : [1..2];
+    features my_feat;
+endfamily
+
+root feature
+    [0..1] of my_feat;
+endfeature
+
+feature my_feat
+endfeature</code></pre>
+<p>Here, the feature <code>my_feat</code> is used as a family parameter. Thus, the family shown above has 4 members.</p>
 <h3 id="features">Features</h3>
 <p>In general, a feature is declared as follows:</p>
 <pre><code>feature &lt;identifier&gt;[(&lt;parameter1&gt;, &lt;parameter2&gt;, ...)]

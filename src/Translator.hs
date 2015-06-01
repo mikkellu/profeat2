@@ -18,6 +18,7 @@ import Data.List ( genericLength, sortBy )
 import Data.List.NonEmpty ( fromList )
 import Data.Map ( Map, union, unions )
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import Data.Maybe
 import Data.Monoid
 import Data.Ord ( comparing )
@@ -49,7 +50,7 @@ translateModel (Model modelT defs) = do
 
     mFams <- getFamily symTbl defs
     let (defs', symTbl') = case mFams of
-            Just (FamilySymbol params constrs) ->
+            Just (FamilySymbol params constrs _) ->
                 let gs  = paramSymsToGlobalSyms params
                     i   = genInitDef constrs
                     val = paramValuation params
@@ -87,32 +88,57 @@ translateModelInstances (Model modelT defs) = do
         Just fams -> do
             vals <- paramValuations (symTbl^.constValues) fams
 
-            results <- for vals $ \val -> do
+            results <- fmap concat . for vals $ \val -> do
                 let constTbl = valuationToConstSymbols (fams^.famsParameters) val
                     symTbl' = symTbl & constants   %~ union constTbl
                                      & constValues %~ union val
                 symTbl'' <- updateSymbolTable symTbl' defs
+                (InitExprs initExprs, invs) <- extractInitsAndInvariants symTbl''
+                initVals <- getInitialValuations symTbl''
 
-                (initExprs, invs) <- extractInitsAndInvariants symTbl''
-                model' <- translateModel' symTbl'' initExprs invs
-                return (model', symTbl'')
+                featVals <- projectFeatures initVals <$>
+                                familyFeatureContexts symTbl'' fams
+
+                for featVals $ \featVal -> do
+                    let initExprs' = InitExprs initExprs <> valInitExprs featVal
+                    model' <- translateModel' symTbl'' initExprs' invs
+                    return (model', symTbl'')
 
             let (models', symTbls') = unzip results
             return (models', if null results then symTbl else last symTbls')
         Nothing -> do
             symTbl' <- updateSymbolTable symTbl defs
             (InitExprs initExprs, invs) <- extractInitsAndInvariants symTbl'
-            (constrs, initConstrs) <-
-                flip runReaderT (trnsInfo symTbl' (Invariants [])) $
-                    (,) <$> extractConstraints False <*> extractConstraints True
+            vals <- getInitialValuations symTbl'
 
-            let e = (constrs ++ initConstrs)^.conjunction
-                e' = substitute (activeDefs $ symTbl'^.rootFeature) e -- substitute active formulas
-
-            vals <- runReaderT (initialValuations e') symTbl'
             fmap (, symTbl') . for vals $ \val ->
                 let initExprs' = InitExprs initExprs <> valInitExprs val
                 in translateModel' symTbl' initExprs' invs
+  where
+    familyFeatureContexts symTbl fams = runReaderT
+        (traverse getFeature (fams^.famsFeatures)) (Env Global symTbl)
+
+    getInitialValuations symTbl = do
+        (constrs, initConstrs) <-
+            flip runReaderT (trnsInfo symTbl (Invariants [])) $
+                (,) <$> extractConstraints False <*> extractConstraints True
+
+        let e = (constrs ++ initConstrs)^.conjunction
+            e' = substitute (activeDefs $ symTbl^.rootFeature) e -- substitute active formulas
+
+        runReaderT (initialValuations e') symTbl
+    projectFeatures vals ctxs = case mkVals (filter nonMandatory ctxs) of
+        [] -> [Map.empty]
+        vs -> vs
+      where
+        nonMandatory ctx =
+            let ident = activeIdent ctx
+            in Set.size (Set.fromList (mapMaybe (Map.lookup (ident, 0)) vals)) == 2
+
+        mkVals = fmap Map.fromList . sequence . fmap mkVal
+
+        mkVal ctx = let ident = activeIdent ctx
+                    in zip (repeat (ident, 0)) [IntVal 0, IntVal 1]
 
 translateModel' :: SymbolTable -> InitExprs -> Invariants -> Either Error LModel
 translateModel' symTbl initExprs invs =
@@ -153,7 +179,7 @@ translateSpec symTbl (Specification defs) = do
         return . Specification $ concat [constDefs, labelDefs, propDefs]
 
 paramValuations :: Valuation -> FamilySymbol -> Either Error [Valuation]
-paramValuations constVal (FamilySymbol params constrs) = do
+paramValuations constVal (FamilySymbol params constrs _) = do
     let vals = allParamValuations params -- TODO: evaluate initial values
     flip filterM vals $ \val -> fmap and . for constrs $ \c -> do
         let val' = val `union` constVal
