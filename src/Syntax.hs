@@ -740,11 +740,11 @@ instance Pretty (Feature a) where
         modList
           | null featModules = empty
           | otherwise        = "modules" <+>
-            hang 4 (fillSep . punctuate comma $ fmap pretty featModules) <> semi
+            hang 4 (hsep . punctuate comma $ fmap pretty featModules) <> semi
 
 instance Pretty (Decomposition a) where
     pretty (Decomposition decompOp cs _) = pretty decompOp <+> "of" <+>
-        hang 4 (fillSep . punctuate comma $ fmap pretty cs) <> semi
+        hang 4 (hsep . punctuate comma $ fmap pretty cs) <> semi
 
 instance Pretty (DecompOp a) where
     pretty decomp = case decomp of
@@ -845,8 +845,8 @@ instance Pretty (Property a) where
     pretty (Property Nothing e _) = pretty e <> semi
 
 instance Pretty (Stmt a) where
-    pretty (Stmt action grd upds _) = hang 4 $
-        brackets (pretty action) <+> pretty grd <+> "->" </>
+    pretty (Stmt action grd upds _) =
+        brackets (pretty action) <+> pretty grd <+> "->" <+>
         prettyRepeatable True (\l r -> l <+> "+" <+> r) "true" upds <> semi
 
 instance Pretty (ActionLabel a) where
@@ -858,7 +858,7 @@ instance Pretty (ActionLabel a) where
 
 instance Pretty (Update a) where
     pretty (Update e asgns _) = prob e <>
-        align (prettyRepeatable True (\l r -> l <+> "&" <+> r) "true" asgns)
+        prettyRepeatable True (\l r -> l <+> "&" <+> r) "true" asgns
       where
         prob = maybe empty ((<> colon) . pretty)
 
@@ -875,16 +875,13 @@ prettyExpr :: Int -> Expr a -> Doc
 prettyExpr prec e = case e of
     BinaryExpr binOp lhs rhs _ ->
         let prec' = binOpPrec binOp
-            delim = case binOp of
-                        LogicBinOp _ -> (</>)
-                        _            -> (<+>)
         in  parens' (prec >= prec') $
                 prettyExpr prec' lhs <+>
-                pretty binOp `delim`
+                pretty binOp <+>
                 prettyExpr prec' rhs
     CondExpr cond te ee _ -> parens' (prec > 0) $
-        prettyExpr 1 cond <+> char '?' </>
-        prettyExpr 1 te <+> colon </> prettyExpr 1 ee
+        prettyExpr 1 cond <+> char '?' <+>
+        prettyExpr 1 te <+> colon <+> prettyExpr 1 ee
     UnaryExpr (ProbUnOp (ProbOp bound)) e' _ ->
         "P" <> pretty bound <+> brackets (pretty e')
     UnaryExpr (ProbUnOp (SteadyOp bound)) e' _ ->
@@ -900,14 +897,13 @@ prettyExpr prec e = case e of
     LoopExpr loop _       -> prettyLoop pretty True loop
     CallExpr e' args _    ->
         prettyExpr callPrec e' <>
-        parens (align . cat . punctuate comma $ fmap pretty args)
+        parens (hcat . punctuate comma $ fmap pretty args)
     NameExpr n _          -> pretty n
     FuncExpr func _       -> pretty func
-    FilterExpr fOp p s _  -> "filter" <> parens (pretty fOp <> comma </>
-                                                 pretty p <> comma </>
+    FilterExpr fOp p s _  -> "filter" <> parens (pretty fOp <> comma <+>
+                                                 pretty p <> comma <+>
                                                  pretty s)
-    ArrayExpr es _ -> braces . align . cat . punctuate comma .
-                          fmap pretty $ toList es
+    ArrayExpr es _ -> braces . hcat . punctuate comma . fmap pretty $ toList es
     RewardExpr struct bound prop _ ->
         "R" <> maybe empty (braces . pretty) struct <> pretty bound <+>
         brackets (pretty prop)
@@ -969,7 +965,7 @@ instance Pretty (Name a) where
 
 prettyArgs :: (Pretty a) => [a] -> Doc
 prettyArgs [] = empty
-prettyArgs xs = parens (align . cat . punctuate comma $ fmap pretty xs)
+prettyArgs xs = parens (hcat . punctuate comma $ fmap pretty xs)
 
 prettyParams :: (Pretty a) => [a] -> Doc
 prettyParams = prettyArgs
