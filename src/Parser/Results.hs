@@ -146,7 +146,7 @@ result :: Parser Result
 result = choice
   [ ResultBool True  <$ symbol "true"
   , ResultBool False <$ symbol "false"
-  , brackets (ResultRange <$> (float <* comma) <*> float)
+  , brackets (ResultRange <$> (float' <* comma) <*> float')
   , ResultDouble <$> float'
   ]
 
