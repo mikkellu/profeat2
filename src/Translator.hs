@@ -195,12 +195,12 @@ valuationToConstSymbols paramTbl val = Map.mapWithKey mkConstSymbol paramTbl
             let ct = toConstType st
                 es = fmap (\i -> valueExpr (val Map.! (ident, i))) [lower..upper]
                 e  = ArrayExpr (fromList es) noLoc
-            in ConstSymbol noLoc (ps^.psType) ct e
+            in ConstSymbol noLoc (ps^.psType) ct (Just e)
         CompoundType (ArrayType _ _) -> error "Translator.valuationToConsts: unevaluated bounds"
         SimpleType st ->
             let ct = toConstType st
                 e  = valueExpr (val Map.! (ident, 0))
-            in ConstSymbol noLoc (ps^.psType) ct e
+            in ConstSymbol noLoc (ps^.psType) ct (Just e)
 
 allParamValuations :: Table ParamSymbol -> [Valuation]
 allParamValuations paramTbl =
@@ -308,12 +308,14 @@ trnsConsts =
     fmap concat . traverse (uncurry trnsConst) =<< view (constants.to Map.assocs)
 
 trnsConst :: Ident -> ConstSymbol -> Trans [LDefinition]
-trnsConst ident (ConstSymbol l t ct e) = case e of
-    ArrayExpr es _ -> fmap concat . for (zip (toList es) [0..]) $ \(e', i) ->
-        trnsConst (indexedIdent ident i) (ConstSymbol l t ct e')
-    _ -> do
+trnsConst ident (ConstSymbol l t ct me) = case me of
+    Just (ArrayExpr es _) ->
+        fmap concat . for (zip (toList es) [0..]) $ \(e', i) ->
+            trnsConst (indexedIdent ident i) (ConstSymbol l t ct (Just e'))
+    Just e -> do
         e' <- trnsExpr (const True) e
-        return [ConstDef $ Constant ct ident e' l]
+        return [ConstDef $ Constant ct ident (Just e') l]
+    Nothing -> return [ConstDef $ Constant ct ident Nothing l]
 
 trnsGlobals :: Trans [LDefinition]
 trnsGlobals = do

@@ -327,8 +327,9 @@ constantDef :: Parser LDefinition
 constantDef = ConstDef <$>
     loc (Constant <$> (reserved "const" *>
                        option IntConstType constantType)
-                  <*> (identifier' <* reservedOp "=")
-                  <*> (expr <* semi)) <?> "constant definition"
+                  <*> identifier'
+                  <*> optionMaybe (reservedOp "=" *> expr) <* semi)
+  <?> "constant definition"
 
 constantType :: Parser ConstType
 constantType =  BoolConstType   <$ reserved "bool"

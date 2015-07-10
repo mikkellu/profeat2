@@ -355,12 +355,12 @@ instance HasExprs SimpleVarType where
 data Constant a = Constant
   { constType  :: !ConstType
   , constIdent :: !Ident
-  , constValue :: Expr a
+  , constValue :: Maybe (Expr a)
   , constAnnot :: !a
   } deriving (Eq, Functor, Show)
 
 instance HasExprs Constant where
-    exprs f (Constant ct name e a) = Constant ct name <$> f e <*> pure a
+    exprs f (Constant ct name e a) = Constant ct name <$> traverse f e <*> pure a
 
 data ConstType
   = BoolConstType
@@ -854,7 +854,8 @@ instance Pretty (SimpleVarType a) where
 
 instance Pretty (Constant a) where
     pretty (Constant ct ident e _) =
-        "const" <+> pretty ct <+> text ident <+> equals <+> pretty e <> semi
+        "const" <+> pretty ct <+> text ident <+>
+        maybe empty ((equals <+>) . pretty) e <> semi
 
 instance Pretty ConstType where
     pretty ct = case ct of

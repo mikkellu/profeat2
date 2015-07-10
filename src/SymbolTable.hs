@@ -62,7 +62,7 @@ extendSymbolTable symTbl defs = flip execStateT symTbl $ do -- TODO: refactor
 
     checkIfNonCyclicFeatures =<< use features
 
-    expandExprsOf $ constants.traverse.csExpr
+    expandExprsOf $ constants.traverse.csExpr.traverse
     checkIfNonCyclicConstants =<< use constants
     evalConstValues
 
@@ -182,25 +182,25 @@ evalConstValue ident = do
         symTbl <- ask
         case symTbl^.constants.at ident of
             Nothing -> return () -- there is no constant with the given identifier; ignore it, as undefined variables will be catched by the type checker
-            Just cs -> do
-                let e = cs^.csExpr
+            Just cs -> case cs^.csExpr of
+                Nothing -> return () -- constant is not initialized, skip it
+                Just e -> do
+                    forOf_ (traverse.identifiers) (universe e) evalConstValue -- make sure all referenced constants are evaluated
+                    val' <- use constValues -- load new valuation
 
-                forOf_ (traverse.identifiers) (universe e) evalConstValue -- make sure all referenced constants are evaluated
-                val' <- use constValues -- load new valuation
+                    local (constValues .~ val') $ do
+                        e' <- unrollLoopExprs e
+                        checkInitialization (cs^.csType) e'
 
-                local (constValues .~ val') $ do
-                    e' <- unrollLoopExprs e
-                    checkInitialization (cs^.csType) e'
+                        let e's = case e' of
+                                      ArrayExpr es _ -> toList es
+                                      _              -> [e']
 
-                    let e's = case e' of
-                                  ArrayExpr es _ -> toList es
-                                  _              -> [e']
+                        for_ (zip e's [0..]) $ \(e'', i) -> do
+                            v <- eval' val' e''
 
-                    for_ (zip e's [0..]) $ \(e'', i) -> do
-                        v <- eval' val' e''
-
-                        constValues.at (ident, i)       .= Just v
-                        constants.at ident._Just.csExpr .= e'
+                            constValues.at (ident, i)       .= Just v
+                            constants.at ident._Just.csExpr .= Just e'
 
 checkIfNonCyclicFormulas :: (MonadError Error m) => Table LFormula -> m ()
 checkIfNonCyclicFormulas = checkIfNonCyclic post frmAnnot where
@@ -208,7 +208,9 @@ checkIfNonCyclicFormulas = checkIfNonCyclic post frmAnnot where
 
 checkIfNonCyclicConstants :: (MonadError Error m) => Table ConstSymbol -> m ()
 checkIfNonCyclicConstants = checkIfNonCyclic post (view csLoc) where
-    post = mapMaybe f . universe . view csExpr
+    post cs = case cs^.csExpr of
+        Just e  -> mapMaybe f (universe e)
+        Nothing -> []
 
     f (NameExpr (Name ((ident, _) :| []) _) _) = Just ident
     f _                                        = Nothing

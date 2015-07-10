@@ -106,14 +106,14 @@ fromVarType' vt = case vt of
         IntVarType _ -> intSimpleType
 
 -- | Converts a 'ConstType' to a 'Type'.
-fromConstType :: ConstType -> Expr a -> Type
+fromConstType :: ConstType -> Maybe (Expr a) -> Type
 fromConstType ct e =
     let st = case ct of
                  BoolConstType   -> BoolType
                  IntConstType    -> IntType Nothing
                  DoubleConstType -> DoubleType
     in case e of
-        ArrayExpr (_ :| es) _ ->
+        Just (ArrayExpr (_ :| es) _) ->
             CompoundType $ ArrayType (Just (0, genericLength es)) st
         _ -> SimpleType st
 

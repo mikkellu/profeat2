@@ -128,7 +128,7 @@ data ConstSymbol = ConstSymbol
   { _csLoc       :: !SrcLoc
   , _csType      :: !Type
   , _csConstType :: !ConstType
-  , _csExpr      :: LExpr
+  , _csExpr      :: Maybe LExpr
   } deriving (Show)
 
 makeLenses ''ConstSymbol
