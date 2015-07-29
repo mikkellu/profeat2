@@ -368,14 +368,11 @@ childContexts ctx =
     in fmap (`extendContext` ctx) childFeats
 
 allContexts :: FeatureSymbol -> [FeatureContext]
-allContexts root = go (\_ _ -> rootCtx) rootCtx root
-  where
-    go mkContext ctx fs =
-        let self  = mkContext fs ctx
-            ctxs' = concatMap (go extendContext self) $
-                              fs^..fsChildren.traverse.traverse
-        in self:ctxs'
-    rootCtx = rootContext root
+allContexts =
+    concat .
+    takeWhile (not . null) .
+    iterate (concatMap childContexts) .
+    (:[]) . rootContext
 
 forAllContexts_ :: (MonadReader r m, HasSymbolTable r, HasScope r)
                 => (FeatureContext -> m a)
