@@ -37,6 +37,7 @@ import qualified Data.Text.IO as SIO
 import qualified Data.Text.Lazy as L
 import qualified Data.Text.Lazy.IO as LIO
 import Data.Traversable
+import Data.Version ( showVersion )
 
 import Options.Applicative
 
@@ -58,6 +59,12 @@ import SymbolTable
 import Syntax
 import Translator
 import Types
+
+import Paths_profeat ( version )
+
+proFeatVersion :: String
+proFeatVersion = showVersion version
+
 
 -- ProFeat CLI
 --
@@ -103,7 +110,11 @@ proFeatMain :: IO ()
 proFeatMain = handling _IOException ioeHandler $
     execParser options >>= runApp proFeat
   where
-    options      = info (helper <*> proFeatOptions) mempty
+    options      = info (helper <*> versionOpt <*> proFeatOptions) mempty
+    versionOpt   = infoOption proFeatVersion
+                       ( long "version"
+                      <> hidden
+                      <> help "Display version information")
     ioeHandler e = do
         let file = fromMaybe "<unknown source>" $ e^.fileName
         hPutStrLn stderr $ e^.description ++ ": " ++ file

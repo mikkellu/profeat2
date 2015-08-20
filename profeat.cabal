@@ -37,7 +37,8 @@ library
                        Typechecker,
                        Types,
                        Types.Util
-  other-modules:       Data.Strict.Tuple.Lens
+  other-modules:       Data.Strict.Tuple.Lens,
+                       Paths_profeat
   hs-source-dirs:      src
   build-depends:       base ==4.8.*,
                        array ==0.5.*,
