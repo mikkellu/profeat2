@@ -6,6 +6,7 @@ dist
 *.hi
 *.swp
 .cabal-sandbox/
+.stack-work/
 .ghci
 cabal.sandbox.config
 temp/

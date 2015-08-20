@@ -4,25 +4,27 @@ Building ProFeat from source
 Prerequisites
 -------------
 
-To build ProFeat from source you need the Glasgow Haskell Compiler (ghc) and
-the cabal-install tool. These tools may be provided by the package repository
-of your OS, alternatively see [www.haskell.org/downloads][haskell.org/downloads]
-for downloads and instructions.
+Download and install the `stack` tool from [Stackage](www.stackage.org).
+
+If you do not have a recent version of GHC on your system (at least version
+7.10), run
+
+    stack setup
+
+in the project directory (containing the `stack.yaml` file) to install the
+compiler.
 
 Building ProFeat
 ----------------
 
-*   It is recommended to build the package in an isolated environment by
-    creating a cabal sandbox (otherwise profeat and all its dependencies will
-    be installed to your user package database). Make sure you create the
-    sandbox in the directory that contains the `profeat.cabal` file:
+To build ProFeat, run the following command in the project's root directory
+(containing the `stack.yaml` file):
 
-        cabal sandbox init
+    stack build
 
-*   To build ProFeat, execute the following command in the project's root
-    directory (the directory containing the `profeat.cabal` file):
+Optionally, you may run
 
-        cabal install
+    stack install
 
-    The executable will be written to `profeat/.cabal-sandbox/bin/profeat`.
+to copy the `profeat` binary to ~/.local/bin.
 
