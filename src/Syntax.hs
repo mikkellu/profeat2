@@ -888,12 +888,10 @@ prettyExpr prec e = case e of
         "S" <> pretty bound <+> brackets (pretty e')
     UnaryExpr (TempUnOp Exists) e' _ -> "E" <+> brackets (pretty e')
     UnaryExpr (TempUnOp Forall) e' _ -> "A" <+> brackets (pretty e')
+    UnaryExpr (TempUnOp o)      e' _ -> pretty o <+> parens (pretty e')
     UnaryExpr unOpT e' _ ->
         let prec' = unOpPrec unOpT
-            sep'  = case unOpT of
-                        TempUnOp _   -> (<+>)
-                        _            -> (<>)
-        in parens' (prec >= prec') $ pretty unOpT `sep'` prettyExpr prec' e'
+        in parens' (prec >= prec') $ pretty unOpT <> prettyExpr prec' e'
     LoopExpr loop _       -> prettyLoop pretty True loop
     CallExpr e' args _    ->
         prettyExpr callPrec e' <>
