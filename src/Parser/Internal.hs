@@ -554,6 +554,12 @@ function = choice
   where
     s --> func = func <$ reserved s
 
+stepBound :: Parser (Maybe StepBound)
+stepBound = optionMaybe $ choice
+  [ StepBound <$> boundOp <*> decimal'
+  , brackets (BoundInterval <$> decimal' <*> (comma *> decimal'))
+  ]
+
 bound :: Parser Bound
 bound = choice
   [ Bound <$> boundOp <*> decimal'
@@ -561,12 +567,15 @@ bound = choice
   , Query QueryMaxValue <$ reserved "max" <* reservedOp "=?"
   , Query QueryValue    <$ reservedOp "=?"
   ]
+
+boundOp :: Parser BoundOp
+boundOp = choice [ ">"  --> BGt
+                 , "<"  --> BLt
+                 , ">=" --> BGte
+                 , "<=" --> BLte
+                 , "="  --> BEq
+                 ]
   where
-    boundOp = choice [ ">"  --> BGt
-                     , "<"  --> BLt
-                     , ">=" --> BGte
-                     , "<=" --> BLte
-                     ]
     s --> bOp = bOp <$ reservedOp s
 
 name :: Parser LName
@@ -621,17 +630,21 @@ exprOpTable = -- operators listed in descending precedence, operators in same gr
 pctlOpTable :: OperatorTable Text UserState Identity LExpr
 pctlOpTable =
     [ [ Prefix tempUnOps ]
-    , [ "U" --> TempBinOp Until
-      , "W" --> TempBinOp WeakUntil
-      , "R" --> TempBinOp Release
+    , [ "U" --> Until
+      , "W" --> WeakUntil
+      , "R" --> Release
       ]
     ]
   where
     tempUnOps = appEndo . foldMap (Endo . unaryExpr) <$> many1 tempUnOp -- Note [unary temporal operators] (see below)
-    tempUnOp  = TempUnOp <$> (Next     <$ reserved "X"
-                          <|> Finally  <$ reserved "F"
-                          <|> Globally <$ reserved "G")
-    (-->) s = binary AssocNone $ reserved s
+    tempUnOp = TempUnOp <$> choice
+        [ Next <$ reserved "X"
+        , reserved "F" *> (Finally  <$> stepBound)
+        , reserved "G" *> (Globally <$> stepBound)
+        ]
+    s --> binOp = Infix
+        (reserved s *> (binaryExpr . TempBinOp . binOp <$> stepBound))
+        AssocNone
 
 {- Note [unary temporal operators]
 - Prefix operators of the same precedence (like X, F and G) can only occur once

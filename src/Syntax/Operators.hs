@@ -14,6 +14,7 @@ module Syntax.Operators
   , LogicUnOp(..)
   , TempUnOp(..)
   , ProbUnOp(..)
+  , StepBound(..)
   , Bound(..)
   , BoundOp(..)
   , QueryType(..)
@@ -63,10 +64,10 @@ data LogicBinOp
   deriving (Bounded, Enum, Eq, Ord, Show)
 
 data TempBinOp
-  = Until
-  | WeakUntil
-  | Release
-  deriving (Bounded, Enum, Eq, Show)
+  = Until (Maybe StepBound)
+  | WeakUntil (Maybe StepBound)
+  | Release (Maybe StepBound)
+  deriving (Eq, Show)
 
 -- | Returns the precedence level of a function call.
 callPrec :: Int
@@ -106,15 +107,20 @@ data LogicUnOp
 
 data TempUnOp
   = Next
-  | Finally
-  | Globally
+  | Finally (Maybe StepBound)
+  | Globally (Maybe StepBound)
   | Exists
   | Forall
-  deriving (Bounded, Enum, Eq, Show)
+  deriving (Eq, Show)
 
 data ProbUnOp
   = ProbOp Bound
   | SteadyOp Bound
+  deriving (Eq, Show)
+
+data StepBound
+  = StepBound !BoundOp !Text
+  | BoundInterval !Text !Text
   deriving (Eq, Show)
 
 data Bound
@@ -127,6 +133,7 @@ data BoundOp
   | BLt
   | BGte
   | BLte
+  | BEq
   deriving (Bounded, Enum, Eq, Show)
 
 data QueryType
@@ -141,12 +148,12 @@ unOpPrec unOpT = case unOpT of
     ArithUnOp _  -> 11
     LogicUnOp _  -> 7
     TempUnOp unOp -> case unOp of
-        Next     -> 3
-        Finally  -> 3
-        Globally -> 3
-        Exists   -> 2
-        Forall   -> 2
-    ProbUnOp _   -> 2
+        Next       -> 3
+        Finally _  -> 3
+        Globally _ -> 3
+        Exists     -> 2
+        Forall     -> 2
+    ProbUnOp _     -> 2
 
 data FilterOp
  = FilterMin
@@ -201,9 +208,9 @@ instance Pretty LogicBinOp where
 
 instance Pretty TempBinOp where
     pretty binOp = case binOp of
-        Until     -> "U"
-        WeakUntil -> "W"
-        Release   -> "R"
+        Until     bound -> "U" <> pretty bound
+        WeakUntil bound -> "W" <> pretty bound
+        Release   bound -> "R" <> pretty bound
 
 instance Pretty UnOp where
     pretty unOpT = case unOpT of
@@ -222,16 +229,21 @@ instance Pretty LogicUnOp where
 
 instance Pretty TempUnOp where
     pretty unOp = case unOp of
-        Next     -> "X"
-        Finally  -> "F"
-        Globally -> "G"
-        Exists   -> "E"
-        Forall   -> "A"
+        Next           -> "X"
+        Finally bound  -> "F" <> pretty bound
+        Globally bound -> "G" <> pretty bound
+        Exists         -> "E"
+        Forall         -> "A"
 
 instance Pretty ProbUnOp where
     pretty unOp = case unOp of
         ProbOp _     -> "P"
         SteadyOp _   -> "S"
+
+instance Pretty StepBound where
+    pretty (StepBound boundOp bound)   = pretty boundOp <> text bound
+    pretty (BoundInterval lower upper) =
+        brackets (text lower <> comma <> text upper)
 
 instance Pretty Bound where
     pretty (Bound boundOp prob) = pretty boundOp <> text prob
@@ -243,6 +255,7 @@ instance Pretty BoundOp where
         BLt  -> "<"
         BGte -> ">="
         BLte -> "<="
+        BEq  -> "="
 
 instance Pretty QueryType where
     pretty qt = case qt of
