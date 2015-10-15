@@ -26,6 +26,6 @@ genFilterProperty (Property ident e l) = do
                          then initConfLabelIdent
                          else "init"
         labelExpr  = LabelExpr li noLoc
-        filterExpr = FilterExpr FilterPrint e' (Just labelExpr) noLoc
+        filterExpr = FilterExpr FilterPrintall e' (Just labelExpr) noLoc
     return $ Property ident filterExpr l
 
