@@ -468,6 +468,9 @@ findContext :: ( MonadReader r m
 findContext (unpack -> "this") Nothing l = view scope >>= \case
     Local ctx -> return ctx
     _         -> throw l NonLocalThis
+findContext (unpack -> "parent") Nothing l = view scope >>= \case
+    Local ctx -> maybe (throw l NoParent) return (parentContext ctx)
+    _         -> throw l NonLocalParent
 findContext ident idx l = do
     root <- view rootFeature
     let ctxs = filter (match . thisFeature) $ allContexts root

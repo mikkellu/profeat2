@@ -58,6 +58,8 @@ data ErrorDesc
   | NotAMember !Ident !Ident
   | NotAFeature !Ident
   | NonLocalThis
+  | NonLocalParent
+  | NoParent
   | IllegalConstAssignment
   | IllegalWriteAccess
   | IllegalMandatoryReconf
@@ -141,6 +143,10 @@ instance Pretty ErrorDesc where
             text ident <+> "is not a feature"
         NonLocalThis ->
             "the 'this' keyword is not defined in this context"
+        NonLocalParent ->
+            "the 'parent' keyword is not defined in this context"
+        NoParent ->
+            "the root feature has no parent feature"
         IllegalConstAssignment ->
             "illegal assignment to constant"
         IllegalWriteAccess ->
