@@ -273,6 +273,10 @@ typeOf (RewardExpr _ bound prop _) = do
         Query _ -> return doubleType
         _       -> return boolType
 
+typeOf (ConditionalExpr prop cond _) = do
+    _ <- typeOf prop
+    typeOf cond
+
 typeOf (LabelExpr ident l) = lookupLabel ident l >> return boolType
 typeOf (NameExpr name _)   = getSymbolInfo name >>= siType
 typeOf (FuncExpr f l)      = throw l $ StandaloneFuntion f

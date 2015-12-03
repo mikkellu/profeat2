@@ -454,6 +454,7 @@ data Expr a
   | ProbExpr !Bound (Expr a) !a
   | SteadyExpr !Bound (Expr a) !a
   | RewardExpr (Maybe (Expr a)) !Bound (RewardProp a) !a
+  | ConditionalExpr (Expr a) (Expr a) !a
   | LabelExpr !Ident !a
   | ArrayExpr (NonEmpty (Expr a)) !a
   | DecimalExpr !Double !a
@@ -514,6 +515,8 @@ instance Plated (Expr a) where
         SteadyExpr bound e' a -> SteadyExpr bound <$> f e' <*> pure a
         RewardExpr struct bound prop a ->
             RewardExpr struct bound <$> exprs f prop <*> pure a
+        ConditionalExpr prop cond a ->
+            ConditionalExpr <$> f prop <*> f cond <*> pure a
         LabelExpr _ _   -> pure e -- list leaf nodes to get a warning if some
         DecimalExpr _ _ -> pure e -- (newly added) constructor is missing
         IntegerExpr _ _ -> pure e
@@ -596,23 +599,24 @@ defAnnot = \case
 
 exprAnnot :: Expr a -> a
 exprAnnot e = case e of
-    BinaryExpr _ _ _ a -> a
-    UnaryExpr _ _ a    -> a
-    CondExpr _ _ _ a   -> a
-    LoopExpr _ a       -> a
-    CallExpr _ _ a     -> a
-    NameExpr _ a       -> a
-    FuncExpr _ a       -> a
-    FilterExpr _ _ _ a -> a
-    ProbExpr _ _ a     -> a
-    SteadyExpr _ _ a   -> a
-    RewardExpr _ _ _ a -> a
-    LabelExpr _ a      -> a
-    ArrayExpr _ a      -> a
-    DecimalExpr _ a    -> a
-    IntegerExpr _ a    -> a
-    BoolExpr _ a       -> a
-    MissingExpr a      -> a
+    BinaryExpr _ _ _ a    -> a
+    UnaryExpr _ _ a       -> a
+    CondExpr _ _ _ a      -> a
+    LoopExpr _ a          -> a
+    CallExpr _ _ a        -> a
+    NameExpr _ a          -> a
+    FuncExpr _ a          -> a
+    FilterExpr _ _ _ a    -> a
+    ProbExpr _ _ a        -> a
+    SteadyExpr _ _ a      -> a
+    RewardExpr _ _ _ a    -> a
+    ConditionalExpr _ _ a -> a
+    LabelExpr _ a         -> a
+    ArrayExpr _ a         -> a
+    DecimalExpr _ a       -> a
+    IntegerExpr _ a       -> a
+    BoolExpr _ a          -> a
+    MissingExpr a         -> a
 
 -- | Smart constructor for 'BinaryExpr' which attaches the annotation of
 -- the left inner expression @l@ to the newly created expression.
@@ -911,6 +915,7 @@ prettyExpr prec e = case e of
     RewardExpr struct bound prop _ ->
         "R" <> maybe empty (braces . pretty) struct <> pretty bound <+>
         brackets (pretty prop)
+    ConditionalExpr prop cond _ -> pretty prop <> brackets (pretty cond)
     LabelExpr ident _ -> dquotes $ text ident
     DecimalExpr d _   -> double d
     IntegerExpr i _   -> integer i

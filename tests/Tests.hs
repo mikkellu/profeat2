@@ -48,6 +48,7 @@ translatorTestCases = testGroup "Translator" $ map translatorTestCase
   , "InitConfUserDef"
   , "PropertyFilter"
   , "PropertyRewards"
+  , "PropertyConditional"
   , "ConstArrays"
   , "Init"
   , "Invariant"

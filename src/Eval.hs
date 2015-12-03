@@ -156,18 +156,19 @@ evalImpl (NameExpr (viewSimpleName -> Just (ident, idx, _)) _) = case idx of
         IntVal i <- evalImpl e
         (! (ident, i)) <$> ask
     Nothing -> (! (ident, 0)) <$> ask
-evalImpl NameExpr {}       = error "Eval.eval: illegal name"
-evalImpl (FuncExpr _ _)    = typeError
-evalImpl FilterExpr {}     = error "Eval.eval: FilterExpr"
-evalImpl ProbExpr {}       = error "Eval.eval: ProbExpr"
-evalImpl SteadyExpr {}     = error "Eval.eval: SteadyExpr"
-evalImpl RewardExpr {}     = error "Eval.eval: RewardExpr"
-evalImpl LabelExpr {}      = error "Eval.eval: LabelExpr"
-evalImpl ArrayExpr {}      = typeError
-evalImpl (DecimalExpr d _) = return $ DblVal d
-evalImpl (IntegerExpr i _) = return $ IntVal i
-evalImpl (BoolExpr b _)    = return $ BoolVal b
-evalImpl (MissingExpr _)   = typeError
+evalImpl NameExpr {}        = error "Eval.eval: illegal name"
+evalImpl (FuncExpr _ _)     = typeError
+evalImpl FilterExpr {}      = error "Eval.eval: FilterExpr"
+evalImpl ProbExpr {}        = error "Eval.eval: ProbExpr"
+evalImpl SteadyExpr {}      = error "Eval.eval: SteadyExpr"
+evalImpl RewardExpr {}      = error "Eval.eval: RewardExpr"
+evalImpl ConditionalExpr {} = error "Eval.eval: ConditionalExpr"
+evalImpl LabelExpr {}       = error "Eval.eval: LabelExpr"
+evalImpl ArrayExpr {}       = typeError
+evalImpl (DecimalExpr d _)  = return $ DblVal d
+evalImpl (IntegerExpr i _)  = return $ IntVal i
+evalImpl (BoolExpr b _)     = return $ BoolVal b
+evalImpl (MissingExpr _)    = typeError
 
 typeError :: a
 typeError = error "Eval.eval': type error"

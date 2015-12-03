@@ -454,14 +454,18 @@ atom allowPctl
     idExpr l = NameExpr (_Ident # ("id", l)) l
     pctlExpr
       | allowPctl = [ UnaryExpr <$> stateOp <*> brackets (expr' allowPctl)
-                    , probExpr
-                    , rewardExpr
+                    , conditionalExpr
                     ]
       | otherwise = []
     stateOp = choice
         [ TempUnOp Exists <$ reserved "E"
         , TempUnOp Forall <$ reserved "A"
         ]
+
+conditionalExpr :: Parser (SrcLoc -> LExpr)
+conditionalExpr = do
+    prop <- loc (probExpr <|> rewardExpr <|> steadyExpr)
+    option (const prop) (ConditionalExpr prop <$> brackets property)
 
 probExpr :: Parser (SrcLoc -> LExpr)
 probExpr = symbol "P" *> (ProbExpr <$> bound <*> brackets property)
@@ -481,6 +485,9 @@ rewardProp = choice
   , Instant      <$> (reserved "I" *> reservedOp "="  *> decimal')
   , Steady       <$   reserved "S"
   ]
+
+steadyExpr :: Parser (SrcLoc -> LExpr)
+steadyExpr = symbol "S" *> (SteadyExpr <$> bound <*> brackets property)
 
 bound :: Parser Bound
 bound = choice

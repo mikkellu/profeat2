@@ -1,0 +1,26 @@
+dtmc
+
+init
+    _s = start
+endinit
+
+formula _active = true;
+
+const int MAX_N = 3;
+
+const double p = 0.5;
+
+global n : [1 .. 3];
+
+const int start = 0;
+
+const int goal = -1;
+
+module _test
+    _s : [-1 .. 4];
+    
+    [] _active & (0 <= n & _s = 0) -> p:(_s' = 0 + 1) + 1 - p:(_s' = 0 - 1);
+    [] _active & (1 <= n & _s = 1) -> p:(_s' = 1 + 1) + 1 - p:(_s' = 1 - 1);
+    [] _active & (2 <= n & _s = 2) -> p:(_s' = 2 + 1) + 1 - p:(_s' = 2 - 1);
+    [] _active & (3 <= n & _s = 3) -> p:(_s' = 3 + 1) + 1 - p:(_s' = 3 - 1);
+endmodule
