@@ -451,6 +451,8 @@ data Expr a
   | NameExpr (Name a) !a
   | FuncExpr !Function !a
   | FilterExpr !FilterOp (Expr a) (Maybe (Expr a)) !a
+  | ProbExpr !Bound (Expr a) !a
+  | SteadyExpr !Bound (Expr a) !a
   | RewardExpr (Maybe (Expr a)) !Bound (RewardProp a) !a
   | LabelExpr !Ident !a
   | ArrayExpr (NonEmpty (Expr a)) !a
@@ -508,6 +510,8 @@ instance Plated (Expr a) where
             FilterExpr fOp <$> f prop <*> traverse f grd <*> pure a
         ArrayExpr es a             ->
             ArrayExpr <$> traverse f es <*> pure a
+        ProbExpr bound e' a -> ProbExpr bound <$> f e' <*> pure a
+        SteadyExpr bound e' a -> SteadyExpr bound <$> f e' <*> pure a
         RewardExpr struct bound prop a ->
             RewardExpr struct bound <$> exprs f prop <*> pure a
         LabelExpr _ _   -> pure e -- list leaf nodes to get a warning if some
@@ -600,6 +604,8 @@ exprAnnot e = case e of
     NameExpr _ a       -> a
     FuncExpr _ a       -> a
     FilterExpr _ _ _ a -> a
+    ProbExpr _ _ a     -> a
+    SteadyExpr _ _ a   -> a
     RewardExpr _ _ _ a -> a
     LabelExpr _ a      -> a
     ArrayExpr _ a      -> a
@@ -882,10 +888,6 @@ prettyExpr prec e = case e of
     CondExpr cond te ee _ -> parens' (prec > 0) $
         prettyExpr 1 cond <+> char '?' <+>
         prettyExpr 1 te <+> colon <+> prettyExpr 1 ee
-    UnaryExpr (ProbUnOp (ProbOp bound)) e' _ ->
-        "P" <> pretty bound <+> brackets (pretty e')
-    UnaryExpr (ProbUnOp (SteadyOp bound)) e' _ ->
-        "S" <> pretty bound <+> brackets (pretty e')
     UnaryExpr (TempUnOp Exists) e' _ -> "E" <+> brackets (pretty e')
     UnaryExpr (TempUnOp Forall) e' _ -> "A" <+> brackets (pretty e')
     UnaryExpr (TempUnOp o)      e' _ -> pretty o <+> parens (pretty e')
@@ -902,6 +904,10 @@ prettyExpr prec e = case e of
                                                  pretty p <> comma <+>
                                                  pretty s)
     ArrayExpr es _ -> braces . hcat . punctuate comma . fmap pretty $ toList es
+    ProbExpr bound e' _ ->
+        "P" <> pretty bound <+> brackets (pretty e')
+    SteadyExpr bound e' _ ->
+        "S" <> pretty bound <+> brackets (pretty e')
     RewardExpr struct bound prop _ ->
         "R" <> maybe empty (braces . pretty) struct <> pretty bound <+>
         brackets (pretty prop)

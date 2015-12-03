@@ -112,8 +112,7 @@ reservedNames =
     , "endmodule", "this", "active", "activate", "deactivate", "array", "bool"
     , "int", "double", "init", "endinit", "invariant", "endinvariant", "for"
     , "endfor", "in", "id", "block", "filter", "min", "max", "true", "false"
-    , "P", "Pmin", "Pmax", "R", "Rmin", "Rmax", "S", "E", "A", "U", "W", "R"
-    , "X", "F", "G", "C", "I"
+    , "P", "R", "S", "E", "A", "U", "W", "R", "X", "F", "G", "C", "I"
     ]
 reservedOpNames =
     [ "/", "*", "-", "+", "=", "!=", ">", "<", ">=", "<=", "&", "|", "!"
@@ -455,29 +454,23 @@ atom allowPctl
     idExpr l = NameExpr (_Ident # ("id", l)) l
     pctlExpr
       | allowPctl = [ UnaryExpr <$> stateOp <*> brackets (expr' allowPctl)
+                    , probExpr
                     , rewardExpr
                     ]
       | otherwise = []
-    stateOp -- one of Prob, Steady, Exists, Forall
-        =  ProbUnOp . ProbOp .   Query <$> (QueryMinValue <$ reserved "Pmin"
-                                        <|> QueryMaxValue <$ reserved "Pmax")
-                                       <*  reservedOp "=?"
-       <|> ProbUnOp . SteadyOp . Query <$> (QueryMinValue <$ reserved "Smin"
-                                        <|> QueryMaxValue <$ reserved "Smax")
-                                       <*  reservedOp "=?"
-       <|> ProbUnOp <$> ((ProbOp   <$ reserved "P"
-                      <|> SteadyOp <$ reserved "S") <*> bound)
-       <|> TempUnOp Exists <$ reserved "E"
-       <|> TempUnOp Forall <$ reserved "A"
+    stateOp = choice
+        [ TempUnOp Exists <$ reserved "E"
+        , TempUnOp Forall <$ reserved "A"
+        ]
+
+probExpr :: Parser (SrcLoc -> LExpr)
+probExpr = symbol "P" *> (ProbExpr <$> bound <*> brackets property)
 
 rewardExpr :: Parser (SrcLoc -> LExpr)
-rewardExpr =
-      RewardExpr Nothing . Query <$> (QueryMinValue <$ reserved "Rmin"
-                                  <|> QueryMaxValue <$ reserved "Rmax")
-                                 <* reservedOp "=?" <*> brackets rewardProp
-  <|> RewardExpr <$> (reserved "R" *> optionMaybe (braces struct))
-                 <*> bound
-                 <*> brackets rewardProp
+rewardExpr = RewardExpr
+    <$> (symbol "R" *> optionMaybe (braces struct))
+    <*> bound
+    <*> brackets rewardProp
   where
     struct = loc (labelExpr True) <|> expr
 
@@ -488,6 +481,16 @@ rewardProp = choice
   , Instant      <$> (reserved "I" *> reservedOp "="  *> decimal')
   , Steady       <$   reserved "S"
   ]
+
+bound :: Parser Bound
+bound = choice
+    [ Query <$> choice
+        [ QueryMinValue <$ try (symbol "min")
+        , QueryMaxValue <$ try (symbol "max")] <*
+      reservedOp "=?"
+    , Query QueryValue <$ reservedOp "=?"
+    , Bound <$> boundOp <*> decimal'
+    ]
 
 repeatable :: Parser (b SrcLoc)
            -> (Parser (Some b SrcLoc) -> Parser [Some b SrcLoc])
@@ -558,14 +561,6 @@ stepBound :: Parser (Maybe StepBound)
 stepBound = optionMaybe $ choice
   [ StepBound <$> boundOp <*> decimal'
   , brackets (BoundInterval <$> decimal' <*> (comma *> decimal'))
-  ]
-
-bound :: Parser Bound
-bound = choice
-  [ Bound <$> boundOp <*> decimal'
-  , Query QueryMinValue <$ reserved "min" <* reservedOp "=?"
-  , Query QueryMaxValue <$ reserved "max" <* reservedOp "=?"
-  , Query QueryValue    <$ reservedOp "=?"
   ]
 
 boundOp :: Parser BoundOp

@@ -13,7 +13,6 @@ module Syntax.Operators
   , ArithUnOp(..)
   , LogicUnOp(..)
   , TempUnOp(..)
-  , ProbUnOp(..)
   , StepBound(..)
   , Bound(..)
   , BoundOp(..)
@@ -94,7 +93,6 @@ data UnOp
   = ArithUnOp !ArithUnOp
   | LogicUnOp !LogicUnOp
   | TempUnOp !TempUnOp
-  | ProbUnOp !ProbUnOp
   deriving (Eq, Show)
 
 data ArithUnOp
@@ -111,11 +109,6 @@ data TempUnOp
   | Globally (Maybe StepBound)
   | Exists
   | Forall
-  deriving (Eq, Show)
-
-data ProbUnOp
-  = ProbOp Bound
-  | SteadyOp Bound
   deriving (Eq, Show)
 
 data StepBound
@@ -153,7 +146,6 @@ unOpPrec unOpT = case unOpT of
         Globally _ -> 3
         Exists     -> 2
         Forall     -> 2
-    ProbUnOp _     -> 2
 
 data FilterOp
  = FilterMin
@@ -217,7 +209,6 @@ instance Pretty UnOp where
         ArithUnOp unOp     -> pretty unOp
         LogicUnOp unOp     -> pretty unOp
         TempUnOp  unOp     -> pretty unOp
-        _                  -> error $ "Ast.hs: unmatched operator" ++ show unOpT -- Prob and Steady are handled in Pretty instance for Expr
 
 instance Pretty ArithUnOp where
     pretty unOp = case unOp of
@@ -234,11 +225,6 @@ instance Pretty TempUnOp where
         Globally bound -> "G" <> pretty bound
         Exists         -> "E"
         Forall         -> "A"
-
-instance Pretty ProbUnOp where
-    pretty unOp = case unOp of
-        ProbOp _     -> "P"
-        SteadyOp _   -> "S"
 
 instance Pretty StepBound where
     pretty (StepBound boundOp bound)   = pretty boundOp <> text bound
