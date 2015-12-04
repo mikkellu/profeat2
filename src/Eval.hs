@@ -163,6 +163,7 @@ evalImpl ProbExpr {}        = error "Eval.eval: ProbExpr"
 evalImpl SteadyExpr {}      = error "Eval.eval: SteadyExpr"
 evalImpl RewardExpr {}      = error "Eval.eval: RewardExpr"
 evalImpl ConditionalExpr {} = error "Eval.eval: ConditionalExpr"
+evalImpl QuantileExpr {}    = error "Eval.eval: QuantileExpr"
 evalImpl LabelExpr {}       = error "Eval.eval: LabelExpr"
 evalImpl ArrayExpr {}       = typeError
 evalImpl (DecimalExpr d _)  = return $ DblVal d

@@ -1,7 +1,10 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase      #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Syntax.Util
-  ( identExpr
+  ( isQuery
+
+  , identExpr
   , valueExpr
 
   , neutralElement
@@ -33,6 +36,9 @@ import Data.Ord           ( comparing )
 
 import Syntax
 import Types
+
+isQuery :: Bound a -> Bool
+isQuery Bound{..} = null boundExprs
 
 -- | Generates a 'NameExpr' with the given identifier.
 identExpr :: Ident -> SrcLoc -> LExpr

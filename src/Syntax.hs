@@ -59,6 +59,8 @@ module Syntax
   , Assign(..)
   , Expr(..)
   , RewardProp(..)
+  , Bound(..)
+  , MinMax(..)
   , Repeatable(..)
   , Some(..)
   , ForLoop(..)
@@ -110,6 +112,7 @@ module Syntax
   , LAssign
   , LExpr
   , LRewardProp
+  , LBound
   , LRepeatable
   , LSome
   , LForLoop
@@ -451,10 +454,11 @@ data Expr a
   | NameExpr (Name a) !a
   | FuncExpr !Function !a
   | FilterExpr !FilterOp (Expr a) (Maybe (Expr a)) !a
-  | ProbExpr !Bound (Expr a) !a
-  | SteadyExpr !Bound (Expr a) !a
-  | RewardExpr (Maybe (Expr a)) !Bound (RewardProp a) !a
+  | ProbExpr (Bound a) (Expr a) !a
+  | SteadyExpr (Bound a) (Expr a) !a
+  | RewardExpr (Maybe (Expr a)) (Bound a) (RewardProp a) !a
   | ConditionalExpr (Expr a) (Expr a) !a
+  | QuantileExpr !MinMax !Ident (Expr a) !a
   | LabelExpr !Ident !a
   | ArrayExpr (NonEmpty (Expr a)) !a
   | DecimalExpr !Double !a
@@ -511,12 +515,14 @@ instance Plated (Expr a) where
             FilterExpr fOp <$> f prop <*> traverse f grd <*> pure a
         ArrayExpr es a             ->
             ArrayExpr <$> traverse f es <*> pure a
-        ProbExpr bound e' a -> ProbExpr bound <$> f e' <*> pure a
-        SteadyExpr bound e' a -> SteadyExpr bound <$> f e' <*> pure a
+        ProbExpr bound e' a -> ProbExpr <$> exprs f bound <*> f e' <*> pure a
+        SteadyExpr bound e' a ->
+            SteadyExpr <$> exprs f bound <*> f e' <*> pure a
         RewardExpr struct bound prop a ->
-            RewardExpr struct bound <$> exprs f prop <*> pure a
+            RewardExpr struct <$> exprs f bound <*> exprs f prop <*> pure a
         ConditionalExpr prop cond a ->
             ConditionalExpr <$> f prop <*> f cond <*> pure a
+        QuantileExpr minMax v e' a -> QuantileExpr minMax v <$> f e' <*> pure a
         LabelExpr _ _   -> pure e -- list leaf nodes to get a warning if some
         DecimalExpr _ _ -> pure e -- (newly added) constructor is missing
         IntegerExpr _ _ -> pure e
@@ -537,6 +543,20 @@ instance HasExprs RewardProp where
     exprs f prop = case prop of
         Reachability prop' -> Reachability <$> f prop'
         _                  -> pure prop
+
+data Bound a = Bound
+  { boundMinMax :: Maybe MinMax
+  , boundOp     :: !BoundOp
+  , boundExprs  :: [Expr a]
+  } deriving (Eq, Functor, Show)
+
+instance HasExprs Bound where
+    exprs f Bound{..} = Bound boundMinMax boundOp <$> traverse f boundExprs
+
+data MinMax
+  = Min
+  | Max
+  deriving (Eq, Show)
 
 newtype Repeatable b a = Repeatable [Some b a] deriving (Eq, Functor, Show)
 
@@ -611,6 +631,7 @@ exprAnnot e = case e of
     SteadyExpr _ _ a      -> a
     RewardExpr _ _ _ a    -> a
     ConditionalExpr _ _ a -> a
+    QuantileExpr _ _ _ a  -> a
     LabelExpr _ a         -> a
     ArrayExpr _ a         -> a
     DecimalExpr _ a       -> a
@@ -683,6 +704,7 @@ type LAssign          = Assign SrcLoc
 type LProperty        = Property SrcLoc
 type LExpr            = Expr SrcLoc
 type LRewardProp      = RewardProp SrcLoc
+type LBound           = Bound SrcLoc
 type LRepeatable b    = Repeatable b SrcLoc
 type LSome b          = Some b SrcLoc
 type LForLoop b       = ForLoop b SrcLoc
@@ -916,6 +938,8 @@ prettyExpr prec e = case e of
         "R" <> maybe empty (braces . pretty) struct <> pretty bound <+>
         brackets (pretty prop)
     ConditionalExpr prop cond _ -> pretty prop <> brackets (pretty cond)
+    QuantileExpr minMax v e' _ -> "quantile" <>
+        parens (pretty minMax <+> text v <> comma <+> pretty e')
     LabelExpr ident _ -> dquotes $ text ident
     DecimalExpr d _   -> double d
     IntegerExpr i _   -> integer i
@@ -932,6 +956,20 @@ instance Pretty (RewardProp a) where
         Cumulative t      -> "C<=" <> text t
         Instant t         -> "I=" <> text t
         Steady            -> "S"
+
+instance Pretty (Bound a) where
+    pretty Bound{..} =
+        pretty boundMinMax <> pretty boundOp <> prettyBounds boundExprs
+      where
+        prettyBounds = \case
+            []  -> "?"
+            [e] -> pretty e
+            es  -> braces (hcat . punctuate comma $ fmap pretty es)
+
+instance Pretty MinMax where
+    pretty = \case
+        Min -> "min"
+        Max -> "max"
 
 prettyRepeatable :: (Pretty (b a))
                  => Bool

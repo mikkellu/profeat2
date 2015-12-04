@@ -255,27 +255,25 @@ typeOf (FilterExpr fOp prop grd _) = do
 
 typeOf (ProbExpr bound e _) = do
     checkIfType_ isBoolType e
-    case bound of
-        Query _ -> return doubleType
-        _       -> return boolType
+    return (boundReturnType bound)
 
 typeOf (SteadyExpr bound e _) = do
     checkIfType_ isBoolType e
-    case bound of
-        Query _ -> return doubleType
-        _       -> return boolType
+    return (boundReturnType bound)
 
 typeOf (RewardExpr _ bound prop _) = do
     case prop of
         Reachability e -> checkIfType_ isBoolType e
         _              -> return ()
-    case bound of
-        Query _ -> return doubleType
-        _       -> return boolType
+    return (boundReturnType bound)
 
 typeOf (ConditionalExpr prop cond _) = do
     _ <- typeOf prop
     typeOf cond
+
+typeOf (QuantileExpr _ _ e _) = do
+    checkIfType_ (isBoolType) e
+    return doubleType
 
 typeOf (LabelExpr ident l) = lookupLabel ident l >> return boolType
 typeOf (NameExpr name _)   = getSymbolInfo name >>= siType
@@ -294,6 +292,11 @@ typeOf (DecimalExpr _ _)   = return doubleType
 typeOf (IntegerExpr _ _)   = return intType
 typeOf (BoolExpr _ _)      = return boolType
 typeOf (MissingExpr l)     = throw l StandaloneMissingExpr
+
+boundReturnType :: Bound a -> Type
+boundReturnType bound
+  | isQuery bound = doubleType
+  | otherwise     = boolType
 
 checkIfFeature :: ( Applicative m
                   , MonadReader r m

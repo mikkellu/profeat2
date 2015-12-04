@@ -14,9 +14,7 @@ module Syntax.Operators
   , LogicUnOp(..)
   , TempUnOp(..)
   , StepBound(..)
-  , Bound(..)
   , BoundOp(..)
-  , QueryType(..)
   , unOpPrec
 
   , FilterOp(..)
@@ -116,23 +114,12 @@ data StepBound
   | BoundInterval !Text !Text
   deriving (Eq, Show)
 
-data Bound
-  = Bound !BoundOp !Text
-  | Query !QueryType
-  deriving (Eq, Show)
-
 data BoundOp
   = BGt
   | BLt
   | BGte
   | BLte
   | BEq
-  deriving (Bounded, Enum, Eq, Show)
-
-data QueryType
-  = QueryValue
-  | QueryMinValue
-  | QueryMaxValue
   deriving (Bounded, Enum, Eq, Show)
 
 -- | Returns the precedence level of the given operator.
@@ -231,10 +218,6 @@ instance Pretty StepBound where
     pretty (BoundInterval lower upper) =
         brackets (text lower <> comma <> text upper)
 
-instance Pretty Bound where
-    pretty (Bound boundOp prob) = pretty boundOp <> text prob
-    pretty (Query query)        = pretty query
-
 instance Pretty BoundOp where
     pretty boundOp = case boundOp of
         BGt  -> ">"
@@ -242,12 +225,6 @@ instance Pretty BoundOp where
         BGte -> ">="
         BLte -> "<="
         BEq  -> "="
-
-instance Pretty QueryType where
-    pretty qt = case qt of
-        QueryValue    -> "=?"
-        QueryMinValue -> "min=?"
-        QueryMaxValue -> "max=?"
 
 instance Pretty FilterOp where
     pretty fOp = case fOp of

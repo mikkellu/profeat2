@@ -111,12 +111,12 @@ reservedNames =
     , "rewards", "endrewards", "controller", "endcontroller", "module"
     , "endmodule", "this", "active", "activate", "deactivate", "array", "bool"
     , "int", "double", "init", "endinit", "invariant", "endinvariant", "for"
-    , "endfor", "in", "id", "block", "filter", "min", "max", "true", "false"
-    , "P", "R", "S", "E", "A", "U", "W", "R", "X", "F", "G", "C", "I"
+    , "endfor", "in", "id", "block", "filter", "min", "max", "quantile", "true"
+    , "false", "P", "R", "S", "E", "A", "U", "W", "R", "X", "F", "G", "C", "I"
     ]
 reservedOpNames =
     [ "/", "*", "-", "+", "=", "!=", ">", "<", ">=", "<=", "&", "|", "!"
-    , "=>", "<=>", "->", "..", "...", "?", ".", "=?"
+    , "=>", "<=>", "->", "..", "...", "?", "."
     ]
 
 languageDef :: T.GenLanguageDef Text UserState Identity
@@ -454,6 +454,7 @@ atom allowPctl
     idExpr l = NameExpr (_Ident # ("id", l)) l
     pctlExpr
       | allowPctl = [ UnaryExpr <$> stateOp <*> brackets (expr' allowPctl)
+                    , quantileExpr
                     , conditionalExpr
                     ]
       | otherwise = []
@@ -489,15 +490,38 @@ rewardProp = choice
 steadyExpr :: Parser (SrcLoc -> LExpr)
 steadyExpr = symbol "S" *> (SteadyExpr <$> bound <*> brackets property)
 
-bound :: Parser Bound
-bound = choice
-    [ Query <$> choice
-        [ QueryMinValue <$ try (symbol "min")
-        , QueryMaxValue <$ try (symbol "max")] <*
-      reservedOp "=?"
-    , Query QueryValue <$ reservedOp "=?"
-    , Bound <$> boundOp <*> decimal'
+quantileExpr :: Parser (SrcLoc -> LExpr)
+quantileExpr = reserved "quantile" *>
+    parens (QuantileExpr <$> minMax <*> identifier' <*> (comma *> property))
+
+bound :: Parser LBound
+bound = Bound <$> optionMaybe minMax <*> boundOp' <*> choice
+    [ [] <$ reservedOp "?"
+    , braces (commaSep1 expr)
+    , (:[]) <$> expr
     ]
+
+-- bound = do
+--     optionMaybe minMax >>= \case
+--         Just m -> choice
+--             [ toQuery m <$ reservedOp "=?"
+--             , MultiBound m <$> boundOp
+--   where
+--     toQuery Min = QueryMinValue
+--     toQuery Max = QueryMaxValue
+
+
+-- bound = choice
+--     [ Query <$> choice
+--         [ QueryMinValue <$ try (symbol "min")
+--         , QueryMaxValue <$ try (symbol "max")] <*
+--       reservedOp "=?"
+--     , Query QueryValue <$ reservedOp "=?"
+--     , Bound <$> boundOp <*> decimal'
+--     ]
+
+minMax :: Parser MinMax
+minMax = choice [Min <$ reserved "min", Max <$ reserved "max"]
 
 repeatable :: Parser (b SrcLoc)
            -> (Parser (Some b SrcLoc) -> Parser [Some b SrcLoc])
@@ -566,19 +590,20 @@ function = choice
 
 stepBound :: Parser (Maybe StepBound)
 stepBound = optionMaybe $ choice
-  [ StepBound <$> boundOp <*> decimal'
+  [ StepBound <$> boundOp' <*> decimal'
   , brackets (BoundInterval <$> decimal' <*> (comma *> decimal'))
   ]
 
-boundOp :: Parser BoundOp
-boundOp = choice [ ">"  --> BGt
-                 , "<"  --> BLt
-                 , ">=" --> BGte
-                 , "<=" --> BLte
-                 , "="  --> BEq
-                 ]
+boundOp' :: Parser BoundOp
+boundOp' = choice
+    [ ">=" --> BGte
+    , "<=" --> BLte
+    , ">"  --> BGt
+    , "<"  --> BLt
+    , "="  --> BEq
+    ]
   where
-    s --> bOp = bOp <$ reservedOp s
+    s --> bOp = bOp <$ try (symbol s)
 
 name :: Parser LName
 name =  loc (toName <$> (this <|> qualifier)
