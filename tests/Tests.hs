@@ -49,6 +49,7 @@ translatorTestCases = testGroup "Translator" $ map translatorTestCase
   , "PropertyFilter"
   , "PropertyRewards"
   , "PropertyConditional"
+  , "PropertyQuantile"
   , "ConstArrays"
   , "Init"
   , "Invariant"

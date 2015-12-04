@@ -111,8 +111,9 @@ reservedNames =
     , "rewards", "endrewards", "controller", "endcontroller", "module"
     , "endmodule", "this", "active", "activate", "deactivate", "array", "bool"
     , "int", "double", "init", "endinit", "invariant", "endinvariant", "for"
-    , "endfor", "in", "id", "block", "filter", "min", "max", "quantile", "true"
-    , "false", "P", "R", "S", "E", "A", "U", "W", "R", "X", "F", "G", "C", "I"
+    , "endfor", "in", "id", "block", "filter", "min", "max", "quantile"
+    , "reward", "true", "false", "P", "R", "S", "E", "A", "U", "W", "R", "X"
+    , "F", "G", "C", "I"
     ]
 reservedOpNames =
     [ "/", "*", "-", "+", "=", "!=", ">", "<", ">=", "<=", "&", "|", "!"
@@ -592,6 +593,10 @@ stepBound :: Parser (Maybe StepBound)
 stepBound = optionMaybe $ choice
   [ StepBound <$> boundOp' <*> decimal'
   , brackets (BoundInterval <$> decimal' <*> (comma *> decimal'))
+  , braces (RewardBound
+        <$> (reserved "reward" *> braces (doubleQuotes identifier'))
+        <*> boundOp'
+        <*> (identifier' <|> decimal'))
   ]
 
 boundOp' :: Parser BoundOp

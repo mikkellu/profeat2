@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Syntax.Operators
@@ -25,6 +26,8 @@ module Syntax.Operators
 import Data.Text.Lazy ( Text )
 
 import Text.PrettyPrint.Leijen.Text
+
+import Types ( Ident )
 
 data BinOp
   = ArithBinOp !ArithBinOp
@@ -112,6 +115,7 @@ data TempUnOp
 data StepBound
   = StepBound !BoundOp !Text
   | BoundInterval !Text !Text
+  | RewardBound !Ident !BoundOp !Ident
   deriving (Eq, Show)
 
 data BoundOp
@@ -214,9 +218,13 @@ instance Pretty TempUnOp where
         Forall         -> "A"
 
 instance Pretty StepBound where
-    pretty (StepBound boundOp bound)   = pretty boundOp <> text bound
-    pretty (BoundInterval lower upper) =
-        brackets (text lower <> comma <> text upper)
+    pretty = \case
+        StepBound bOp bound -> pretty bOp <> text bound
+        BoundInterval lower upper ->
+            brackets (text lower <> comma <> text upper)
+        RewardBound struct bOp v ->
+            braces ("reward" <> braces (dquotes (text struct)) <>
+                    pretty bOp <> text v)
 
 instance Pretty BoundOp where
     pretty boundOp = case boundOp of
