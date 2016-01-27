@@ -33,7 +33,7 @@ module Result
   ) where
 
 import Prelude hiding ( (<$>) )
-import Control.Lens
+import Control.Lens hiding ( (:<) )
 
 import Data.Foldable                ( toList )
 import qualified Data.Map as Map
