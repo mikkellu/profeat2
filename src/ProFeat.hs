@@ -230,8 +230,10 @@ proFeat = withProFeatModel $ \model -> withProFeatProps $ \proFeatProps ->
             prismProps <- _Just translateProps proFeatProps
             vPutStrLn "done"
 
-            with prismModelPath $ \p -> renderToFiles p prismModels
-            with prismPropsPath $ void . for prismProps . renderToFile
+            withDefault "out.prism" prismModelPath $ \p ->
+                renderToFiles p prismModels
+            withDefault "out.props" prismPropsPath $
+                void . for prismProps . renderToFile
 
             when' (asks translateOnly) $ liftIO exitSuccess
 
@@ -427,11 +429,14 @@ onVerbosity v = when' (return . (v ==) =<< asks verbosity)
 when' :: Monad m => m Bool -> m () -> m ()
 when' mb m = mb >>= \b -> when b m
 
--- | Applies an action to an option, but only when the option has been set.
-with :: (ProFeatOptions -> Maybe a) -> (a -> ProFeat ()) -> ProFeat ()
-with opt m = asks opt >>= \case
+withDefault
+    :: FilePath
+    -> (ProFeatOptions -> Maybe FilePath)
+    -> (FilePath -> ProFeat ())
+    -> ProFeat ()
+withDefault def opt m = asks opt >>= \case
     Just o  -> m o
-    Nothing -> return ()
+    Nothing -> when' (asks translateOnly) $ m def
 
 pathToMaybe :: FilePath -> Maybe FilePath
 pathToMaybe path = case path of
