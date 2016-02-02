@@ -1,3 +1,13 @@
+root feature {
+    modules root_impl;
+
+    rewards "test" {
+        for i in [1..n] {
+            [act[i]] true : 1;
+        }
+    }
+}
+
 const int n = 3;
 
 formula add(x, y) = x + y;

@@ -15,6 +15,7 @@ import Data.Traversable
 import Error
 import Symbols
 import Syntax
+import Syntax.Util
 import Types
 
 import Translator.Common
@@ -26,12 +27,14 @@ trnsRewards =
     mkRewardDefs <$> execStateT (forAllContexts_ extractRewards) Map.empty
   where
     mkRewardDefs           = fmap (RewardsDef . mkRewards) . Map.assocs
-    mkRewards (ident, rws) = Rewards ident rws noLoc
+    mkRewards (ident, rws) = Rewards ident (Repeatable (fmap One rws)) noLoc
 
 extractRewards :: FeatureContext -> StateT RewardStructs Trans ()
 extractRewards ctx =
     void . for (ctx^.this.fsRewards) $ \(Rewards ident rws _) ->
-        for rws $ trnsReward >=> modify . Map.insertWith mappend ident
+        forOf_ ones rws $ \rw -> do
+            modify . Map.insertWith mappend ident =<< trnsReward rw
+            return rw
 
 trnsReward :: (MonadReader TrnsInfo m, MonadError Error m)
            => LReward

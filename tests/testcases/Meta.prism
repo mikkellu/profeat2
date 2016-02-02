@@ -5,7 +5,13 @@ init
     _s = 1
 endinit
 
-formula _active    = true;
+formula _active = true;
+
+rewards "test"
+    [act_3] true : 1;
+    [act_2] true : 1;
+    [act_1] true : 1;
+endrewards
 
 const int n = 3;
 const int x = 1;

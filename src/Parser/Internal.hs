@@ -275,7 +275,7 @@ rewardsDef = RewardsDef <$> rewards
 
 rewards :: Parser LRewards
 rewards = loc (Rewards <$> (reserved "rewards" *> doubleQuotes identifier')
-                       <*> block "rewards" (many reward)) <?> "rewards"
+                       <*> block "rewards" (repeatable reward many)) <?> "rewards"
 
 reward :: Parser LReward
 reward = loc (Reward <$> optionMaybe (brackets actionLabel)
@@ -501,25 +501,6 @@ bound = Bound <$> optionMaybe minMax <*> boundOp' <*> choice
     , braces (commaSep1 expr)
     , (:[]) <$> expr
     ]
-
--- bound = do
---     optionMaybe minMax >>= \case
---         Just m -> choice
---             [ toQuery m <$ reservedOp "=?"
---             , MultiBound m <$> boundOp
---   where
---     toQuery Min = QueryMinValue
---     toQuery Max = QueryMaxValue
-
-
--- bound = choice
---     [ Query <$> choice
---         [ QueryMinValue <$ try (symbol "min")
---         , QueryMaxValue <$ try (symbol "max")] <*
---       reservedOp "=?"
---     , Query QueryValue <$ reservedOp "=?"
---     , Bound <$> boundOp <*> decimal'
---     ]
 
 minMax :: Parser MinMax
 minMax = choice [Min <$ reserved "min", Max <$ reserved "max"]

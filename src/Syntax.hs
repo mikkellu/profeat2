@@ -253,13 +253,13 @@ instance HasExprs Instance where
 
 data Rewards a = Rewards
   { rwsIdent   :: !Ident
-  , rwsRewards :: [Reward a]
+  , rwsRewards :: Repeatable Reward a
   , rwsAnnot   :: !a
   } deriving (Eq, Functor, Show)
 
 instance HasExprs Rewards where
     exprs f (Rewards ident rws a) =
-        Rewards ident <$> traverse (exprs f) rws <*> pure a
+        Rewards ident <$> exprs f rws <*> pure a
 
 data Reward a = Reward
   { rwAction :: Maybe (ActionLabel a)
@@ -802,7 +802,7 @@ instance Pretty (Instance a) where
 instance Pretty (Rewards a) where
     pretty (Rewards ident rws _) =
         "rewards" <+> dquotes (text ident) <> line <>
-        indent 4 (vsep $ fmap pretty rws) <> line <>
+        indent 4 (prettyRepeatable NoInline (PP.<$>) empty rws) <> line <>
         "endrewards"
 
 instance Pretty (Reward a) where
@@ -831,7 +831,7 @@ instance Pretty (Module a) where
 instance Pretty (ModuleBody a) where
     pretty (ModuleBody decls stmts _) =
         vsep (fmap pretty decls) <> line <> line <>
-        prettyRepeatable False (PP.<$>) empty stmts
+        prettyRepeatable NoInline (PP.<$>) empty stmts
 
 instance Pretty (VarDecl a) where
     pretty (VarDecl ident vt e _) =
@@ -879,7 +879,7 @@ instance Pretty (Property a) where
 instance Pretty (Stmt a) where
     pretty (Stmt action grd upds _) =
         brackets (pretty action) <+> pretty grd <+> "->" <+>
-        prettyRepeatable True (\l r -> l <+> "+" <+> r) "true" upds <> semi
+        prettyRepeatable Inline (\l r -> l <+> "+" <+> r) "true" upds <> semi
 
 instance Pretty (ActionLabel a) where
     pretty action = case action of
@@ -890,7 +890,7 @@ instance Pretty (ActionLabel a) where
 
 instance Pretty (Update a) where
     pretty (Update e asgns _) = prob e <>
-        prettyRepeatable True (\l r -> l <+> "&" <+> r) "true" asgns
+        prettyRepeatable Inline (\l r -> l <+> "&" <+> r) "true" asgns
       where
         prob = maybe empty ((<> colon) . pretty)
 
@@ -920,7 +920,7 @@ prettyExpr prec e = case e of
     UnaryExpr unOpT e' _ ->
         let prec' = unOpPrec unOpT
         in parens' (prec >= prec') $ pretty unOpT <> prettyExpr prec' e'
-    LoopExpr loop _       -> prettyLoop pretty True loop
+    LoopExpr loop _       -> prettyLoop pretty Inline loop
     CallExpr e' args _    ->
         prettyExpr callPrec e' <>
         parens (hcat . punctuate comma $ fmap pretty args)
@@ -971,8 +971,10 @@ instance Pretty MinMax where
         Min -> "min"
         Max -> "max"
 
+data LoopInline = Inline | NoInline
+
 prettyRepeatable :: (Pretty (b a))
-                 => Bool
+                 => LoopInline
                  -> (Doc -> Doc -> Doc)
                  -> Doc
                  -> Repeatable b a
@@ -985,13 +987,13 @@ prettyRepeatable inline sep' empty' (Repeatable xs) = case xs of
     ppSome (Many loop) =
         prettyLoop (prettyRepeatable inline sep' empty') inline loop
 
-prettyLoop :: (b a -> Doc) -> Bool -> ForLoop b a -> Doc
+prettyLoop :: (b a -> Doc) -> LoopInline -> ForLoop b a -> Doc
 prettyLoop pp inline (ForLoop v range body _) =
     let opening = "for" <+> text v <+> "in" <+> prettyRange range
         closing = "endfor"
-    in if inline
-          then opening <+> pp body <+> closing
-          else opening <> line <> nest 4 (pp body) <> line <> closing
+    in case inline of
+        Inline   -> opening <+> pp body <+> closing
+        NoInline -> opening <> line <> nest 4 (pp body) <> line <> closing
 
 instance Pretty Function where
     pretty func = case func of

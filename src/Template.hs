@@ -6,6 +6,7 @@
 module Template
   ( Template(..)
 
+  , prepRewards
   , prepModuleBody
   , prepExprs
   , prepExpr
@@ -35,6 +36,16 @@ import Typechecker
 
 class Template n where
     parameters :: n a -> [Ident]
+
+prepRewards :: ( MonadReader r m
+               , MonadError Error m
+               , HasSymbolTable r
+               , HasScope r
+               )
+            => LRewards
+            -> m LRewards
+prepRewards (Rewards ident rws a) =
+    Rewards ident <$> prepRepeatable prepExprs rws <*> pure a
 
 prepModuleBody :: ( MonadReader r m
                   , MonadError Error m

@@ -130,7 +130,7 @@ toFeatureSymbols mandatory ref@(FeatureRef isOptional inst _ cntExpr) = do
         (mods, varSyms) <- instantiateModules idx featModules
 
         constraints' <- traverse prepExprs featConstraints
-        rewards'     <- traverse prepExprs featRewards
+        rewards'     <- traverse prepRewards featRewards
         blocking' <- for featBlocking $ \n -> do
             LabelInfo{..} <- getLabelInfo =<< prepExprs n
             return (liIdent, liIndex)
