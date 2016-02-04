@@ -27,7 +27,6 @@ import Data.Traversable
 import Analysis.InitialState
 import Error
 import Eval
-import Functions
 import SymbolTable
 import Syntax
 import Syntax.Util
@@ -310,19 +309,19 @@ trnsConsts =
 
 trnsConst :: Ident -> ConstSymbol -> Trans [LDefinition]
 trnsConst ident (ConstSymbol l t ct e) = case e of
-    ArrayExpr es _ -> trnsConstArray es
-    CallExpr (FuncExpr FuncBinom _) [ep, en] _ -> do
+    ArrayExpr es _ -> fmap concat . for (zip (toList es) [0..]) $ \(e', i) ->
+        trnsConst (indexedIdent ident i) (ConstSymbol l t ct e')
+    CallExpr (FuncExpr FuncBinom _) _ _ -> do
         val <- view constValues
-        DblVal p <- eval' val ep
-        IntVal n <- eval' val en
-        trnsConstArray . fmap (flip DecimalExpr noLoc) $ binomialDist p n
+        return . takeWhileJust . flip fmap [0..] $ \i ->
+             mkConstDef (indexedIdent ident i) . valueExpr <$>
+                Map.lookup (ident, i) val
     _ -> do
         e' <- trnsExpr (const True) e
-        return [ConstDef $ Constant ct ident e' l]
+        return [mkConstDef ident e']
   where
-    trnsConstArray es = fmap concat . for (zip (toList es) [0..]) $ \(e', i) ->
-        trnsConst (indexedIdent ident i) (ConstSymbol l t ct e')
-
+    mkConstDef ident' e' = ConstDef (Constant ct ident' e' l)
+    takeWhileJust = catMaybes . takeWhile isJust
 
 trnsGlobals :: Trans [LDefinition]
 trnsGlobals = do
