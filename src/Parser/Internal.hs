@@ -566,6 +566,7 @@ function = choice
     , "mod"    --> FuncMod
     , "log"    --> FuncLog
     , "active" --> FuncActive
+    , "binom"  --> FuncBinom
     ] <?> "function call"
   where
     s --> func = func <$ reserved s

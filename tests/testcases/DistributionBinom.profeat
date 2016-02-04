@@ -1,0 +1,2 @@
+const double dist = binom(0.5, 4);
+
