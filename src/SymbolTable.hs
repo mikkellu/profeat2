@@ -195,6 +195,7 @@ evalConstValue ident = do
                     t <- case cs^.csType of
                         CompoundType (ArrayType Nothing _) -> typeOf e'
                         t -> return t
+                    constants.at ident._Just.csType .= t
 
                     checkInitialization t e'
 
