@@ -28,7 +28,6 @@ import Data.Traversable
 
 import Error
 import Eval
-import Functions
 import ProductLine
 import Symbols
 import Syntax
@@ -191,22 +190,11 @@ evalConstValue ident = do
 
                 local (constValues .~ val') $ do
                     e' <- unrollLoopExprs e
+                    checkInitialization (cs^.csType) e'
 
-                    t <- case cs^.csType of
-                        CompoundType (ArrayType Nothing _) -> typeOf e'
-                        t -> return t
-                    constants.at ident._Just.csType .= t
-
-                    checkInitialization t e'
-
-                    e's <- case e' of
-                        ArrayExpr es _ -> return (toList es)
-                        CallExpr (FuncExpr FuncBinom _) [ep, en] _ -> do
-                            DblVal p <- eval' val' ep
-                            IntVal n <- eval' val' en
-                            return . fmap (flip DecimalExpr noLoc) $
-                                binomialDist p n
-                        _ -> return [e']
+                    let e's = case e' of
+                                  ArrayExpr es _ -> toList es
+                                  _              -> [e']
 
                     for_ (zip e's [0..]) $ \(e'', i) -> do
                         v <- eval' val' e''

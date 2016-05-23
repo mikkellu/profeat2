@@ -311,17 +311,9 @@ trnsConst :: Ident -> ConstSymbol -> Trans [LDefinition]
 trnsConst ident (ConstSymbol l t ct e) = case e of
     ArrayExpr es _ -> fmap concat . for (zip (toList es) [0..]) $ \(e', i) ->
         trnsConst (indexedIdent ident i) (ConstSymbol l t ct e')
-    CallExpr (FuncExpr FuncBinom _) _ _ -> do
-        val <- view constValues
-        return . takeWhileJust . flip fmap [0..] $ \i ->
-             mkConstDef (indexedIdent ident i) . valueExpr <$>
-                Map.lookup (ident, i) val
     _ -> do
         e' <- trnsExpr (const True) e
-        return [mkConstDef ident e']
-  where
-    mkConstDef ident' e' = ConstDef (Constant ct ident' e' l)
-    takeWhileJust = catMaybes . takeWhile isJust
+        return [ConstDef $ Constant ct ident e' l]
 
 trnsGlobals :: Trans [LDefinition]
 trnsGlobals = do

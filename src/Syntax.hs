@@ -592,7 +592,6 @@ data Function
   | FuncMod
   | FuncLog
   | FuncActive
-  | FuncBinom
   deriving (Eq, Show)
 
 data Name a = Name (NonEmpty (Ident, Maybe (Expr a))) !a
@@ -1006,7 +1005,6 @@ instance Pretty Function where
         FuncMod    -> "mod"
         FuncLog    -> "log"
         FuncActive -> "active"
-        FuncBinom  -> "binom"
 
 instance Pretty (Name a) where
     pretty (Name name _) = hcat . punctuate dot . fmap qualifier . toList $ name

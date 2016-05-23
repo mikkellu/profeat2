@@ -231,12 +231,6 @@ typeOf (CallExpr (FuncExpr function _) args l) = case function of
         checkArgCount 1
         void $ traverse checkIfFeature args
         return boolType
-    FuncBinom  -> do
-        checkArgCount 2
-        let [p, n] = args
-        checkIfType_ isNumericType p >> checkIfConst p
-        size <- evalInteger n
-        return $ CompoundType (ArrayType (Just (0, size)) DoubleType)
   where
     funcMinMax ts
       | doubleType `elem` ts = return doubleType

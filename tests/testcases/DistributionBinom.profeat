@@ -1,4 +1,0 @@
-const double dist = binom(0.5, 4);
-
-const double x = dist[2];
-
