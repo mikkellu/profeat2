@@ -853,9 +853,11 @@ instance Pretty (SimpleVarType a) where
         IntVarType range -> prettyRange range
 
 instance Pretty (Constant a) where
-    pretty (Constant ct ident e _) =
-        "const" <+> pretty ct <+> text ident <+>
-        maybe empty ((equals <+>) . pretty) e <> semi
+    pretty (Constant ct ident me _) =
+        "const" <+> pretty ct <+> text ident <>
+        case me of
+            Just e  -> space <> equals <+> pretty e <> semi
+            Nothing -> semi
 
 instance Pretty ConstType where
     pretty ct = case ct of
