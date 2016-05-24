@@ -104,7 +104,7 @@ instance Pretty ErrorDesc where
             "expansion operator '...' used outside of for loop"
         UnknownValues e names ->
             "the expression" <+> pretty e <+> "cannot be evaluated as the" <+>
-            "values of the following variables is not known:" <> line <>
+            "value of the following variables is not known:" <> line <>
             sep (punctuate comma $ map pretty names)
         NonConstExpr e ->
             "the expression" <+> pretty e <+> "is not constant"
