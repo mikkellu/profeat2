@@ -1,4 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiWayIf #-}
 
 module Data.Mtbdd
   ( Id
@@ -11,11 +12,13 @@ module Data.Mtbdd
   , isInnerNode
   , variable
   , value
+
+  , eval
   ) where
 
 import Data.Function (on)
-import Data.Ord (comparing)
 import Data.Hashable (Hashable)
+import Data.Ord (comparing)
 
 -- | A variable in a binary decision diagram.
 newtype Var = Var Int deriving (Eq, Ord, Show, Hashable)
@@ -34,29 +37,44 @@ data Node t
   = Terminal !t
   | Node !Var (Mtbdd t) (Mtbdd t)
 
-instance Eq a => Eq (Mtbdd a) where
+instance Eq t => Eq (Mtbdd t) where
     (==) = (==) `on` nodeId
 
-instance Ord a => Ord (Mtbdd a) where
+instance Ord t => Ord (Mtbdd t) where
     compare = comparing nodeId
 
 
-isTerminal :: Mtbdd a -> Bool
+isTerminal :: Mtbdd t -> Bool
 isTerminal (Mtbdd _ (Terminal _)) = True
 isTerminal _                      = False
 
 
-isInnerNode :: Mtbdd a -> Bool
+isInnerNode :: Mtbdd t -> Bool
 isInnerNode (Mtbdd _ Node {}) = True
 isInnerNode _                 = False
 
 
-variable :: Mtbdd a -> Var
-variable (Mtbdd _ n) = case n of
+variable :: Mtbdd t -> Var
+variable (Mtbdd _ node) = case node of
     Terminal _   -> Var maxBound
     Node var _ _ -> var
 
 
-value :: Mtbdd a -> Maybe a
+value :: Mtbdd t -> Maybe t
 value (Mtbdd _ (Terminal v)) = Just v
 value _                      = Nothing
+
+
+eval :: Mtbdd t -> [Bool] -> t
+eval = go 0 where
+    go i mtbdd@(Mtbdd _ node) decisions = case node of
+        Terminal v -> v
+        Node var one zero ->
+            let (d, decisions') = next decisions
+            in if | Var i < var -> go (i + 1) mtbdd decisions'
+                  | d           -> go (i + 1) one decisions'
+                  | otherwise   -> go (i + 1) zero decisions'
+
+    next (d:ds) = (d, ds)
+    next []     = (False, [])
+

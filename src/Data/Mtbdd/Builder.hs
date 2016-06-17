@@ -3,7 +3,19 @@
 {-# LANGUAGE RankNTypes #-}
 
 module Data.Mtbdd.Builder
-  (
+  ( BuilderT
+  , runBuilderT
+
+  , Builder
+  , runBuilder
+
+  , Ref
+  , deref
+  , returnDeref
+
+  , constant
+  , projection
+  , apply
   ) where
 
 import Control.Monad.Identity
@@ -14,6 +26,9 @@ import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as Map
 
 import Data.Mtbdd
+
+
+type BinOp t = t -> t -> t
 
 
 type UniqueTable t = HashMap (Var, Id, Id) (Mtbdd t)
@@ -77,6 +92,9 @@ newtype Ref a s = Ref (Mtbdd a)
 deref :: Ref t s -> Mtbdd t
 deref (Ref x) = x
 
+returnDeref :: Monad m => Ref t s -> BuilderT t s m (Mtbdd t)
+returnDeref = return . deref
+
 
 findOrAddTerminal :: (Eq t, Hashable t, Monad m) => t -> BuilderT t s m (Mtbdd t)
 findOrAddTerminal v = BuilderT $ do
@@ -93,6 +111,9 @@ findOrAddNode var one zero = BuilderT $ do
         Nothing   -> createNode var one zero
 
 
+constant :: (Eq t, Hashable t, Monad m) => t -> BuilderT t s m (Ref t s)
+constant v = Ref <$> findOrAddTerminal v
+
 projection
     :: (Eq t, Hashable t, Monad m) => Var -> t -> t -> BuilderT t s m (Ref t s)
 projection var one zero = do
@@ -101,7 +122,10 @@ projection var one zero = do
     Ref <$> findOrAddNode var one' zero'
 
 
-type BinOp t = t -> t -> t
+apply
+    :: (Eq t, Hashable t, Monad m)
+    => BinOp t -> Ref t s -> Ref t s -> BuilderT t s m (Ref t s)
+apply op (Ref l) (Ref r) = Ref <$> apply' op l r
 
 apply'
     :: (Eq t, Hashable t, Monad m)
@@ -120,9 +144,8 @@ apply' op = go where
                 then return one
                 else findOrAddNode var one zero
 
-    child this@(Mtbdd _ n) var b = case n of
+    child this@(Mtbdd _ node) var b = case node of
         Terminal _ -> this
         Node nodeVar one zero
           | var < nodeVar -> this
           | otherwise     -> if b then one else zero
-
