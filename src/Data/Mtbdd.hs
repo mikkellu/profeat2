@@ -13,12 +13,16 @@ module Data.Mtbdd
   , variable
   , value
 
+  , allNodes
   , eval
   ) where
 
 import Data.Function (on)
-import Data.Hashable (Hashable)
+import Data.Hashable
 import Data.Ord (comparing)
+import Data.HashSet (HashSet)
+import qualified Data.HashSet as Set
+
 
 -- | A variable in a binary decision diagram.
 newtype Var = Var Int deriving (Eq, Ord, Show, Hashable)
@@ -29,6 +33,10 @@ type Id = Int
 
 -- | A multi-terminal binary decision diagram
 data Mtbdd t = Mtbdd !Id !(Node t)
+
+instance Hashable (Mtbdd t) where
+    hashWithSalt salt = hashWithSalt salt . nodeId
+    hash              = hash . nodeId
 
 nodeId :: Mtbdd t -> Id
 nodeId (Mtbdd nid _) = nid
@@ -63,6 +71,15 @@ variable (Mtbdd _ node) = case node of
 value :: Mtbdd t -> Maybe t
 value (Mtbdd _ (Terminal v)) = Just v
 value _                      = Nothing
+
+
+allNodes :: Eq t => Mtbdd t -> [Mtbdd t]
+allNodes = Set.toList . go Set.empty where
+    go ms m@(Mtbdd _ node) =
+        let ms' = Set.insert m ms
+        in case node of
+               Terminal _      -> ms'
+               Node _ one zero -> go (go ms' one) zero
 
 
 eval :: Mtbdd t -> [Bool] -> t
