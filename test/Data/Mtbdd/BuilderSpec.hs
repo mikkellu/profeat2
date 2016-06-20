@@ -48,28 +48,21 @@ spec = do
     describe "apply" $ do
         it "works for multiplication" $ do
             let f = runBuilder $ do
-                        x <- projection (Var 0) 2 (1 :: Int)
-                        y <- constant 5
-                        result <- apply (*) x y
+                        result <- 5 * projection (Var 0) 2 (1 :: Int)
                         returnDeref result
             eval f [True]  `shouldBe` 10
             eval f [False] `shouldBe` 5
 
         it "works for subtraction" $ do
             let f = runBuilder $ do
-                        x <- projection (Var 0) 3 (1 :: Int)
-                        y <- constant 1
-                        result <- apply (-) x y
+                        result <- projection (Var 0) 3 (1 :: Int) - 1
                         returnDeref result
             eval f [True]  `shouldBe` 2
             eval f [False] `shouldBe` 0
 
+
 binaryEncoding :: Monad m => Int -> BuilderT Int s m (Ref Int s)
-binaryEncoding numBits = do
-    c <- constant 0
-    foldM powAdd c [0 .. numBits - 1]
+binaryEncoding numBits = sum (fmap ithVar [0 .. numBits - 1])
   where
-    powAdd x i = do
-        y <- projection (Var (numBits - 1 - i)) (2 ^ i) 0
-        apply (+) x y
+    ithVar i = projection (Var (numBits - 1 - i)) (2 ^ i) 0
 

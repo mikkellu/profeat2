@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RankNTypes #-}
 
@@ -33,7 +34,28 @@ import qualified Data.HashMap.Strict as Map
 import Data.Mtbdd
 
 
-type BinOp t = t -> t -> t
+instance (Monad m, Eq t, Hashable t, Num t) =>
+         Num (BuilderT t s m (Ref t s)) where
+    x + y       = applyB (+) x y
+    x - y       = applyB (-) x y
+    x * y       = applyB (*) x y
+    abs         = mapB abs
+    signum      = mapB signum
+    fromInteger = constant . fromInteger
+    negate      = mapB negate
+
+
+newtype BuilderT t s m a = BuilderT (StateT (BuilderState t) m a)
+                           deriving (Functor, Applicative, Monad, MonadTrans)
+
+runBuilderT :: Monad m => (forall s. BuilderT t s m a) -> m a
+runBuilderT (BuilderT m) = evalStateT m initialState
+
+
+type Builder t s a = BuilderT t s Identity a
+
+runBuilder :: (forall s. Builder t s a) -> a
+runBuilder m = runIdentity (runBuilderT m)
 
 
 type UniqueTable t = HashMap (Var, Id, Id) (Mtbdd t)
@@ -77,19 +99,6 @@ createNode var one zero = do
     modify $ \s ->
         s { unique = Map.insert (var, nodeId one, nodeId zero) node (unique s) }
     return node
-
-
-newtype BuilderT t s m a = BuilderT (StateT (BuilderState t) m a)
-                           deriving (Functor, Applicative, Monad, MonadTrans)
-
-runBuilderT :: Monad m => (forall s. BuilderT t s m a) -> m a
-runBuilderT (BuilderT m) = evalStateT m initialState
-
-
-type Builder t s a = BuilderT t s Identity a
-
-runBuilder :: (forall s. Builder t s a) -> a
-runBuilder m = runIdentity (runBuilderT m)
 
 
 newtype Ref a s = Ref (Mtbdd a)
@@ -140,7 +149,7 @@ map' f = go where
 
 applyB
     :: (Eq t, Hashable t, Monad m)
-    => BinOp t
+    => (t -> t -> t)
     -> BuilderT t s m (Ref t s)
     -> BuilderT t s m (Ref t s)
     -> BuilderT t s m (Ref t s)
@@ -148,12 +157,12 @@ applyB op = bindAp2 (apply op)
 
 apply
     :: (Eq t, Hashable t, Monad m)
-    => BinOp t -> Ref t s -> Ref t s -> BuilderT t s m (Ref t s)
+    => (t -> t -> t) -> Ref t s -> Ref t s -> BuilderT t s m (Ref t s)
 apply op (Ref l) (Ref r) = Ref <$> apply' op l r
 
 apply'
     :: (Eq t, Hashable t, Monad m)
-    => BinOp t -> Mtbdd t -> Mtbdd t -> BuilderT t s m (Mtbdd t)
+    => (t -> t -> t) -> Mtbdd t -> Mtbdd t -> BuilderT t s m (Mtbdd t)
 apply' op = go where
     go l r = case (l, r) of
         (Mtbdd _ (Terminal vl), Mtbdd _ (Terminal vr)) ->
