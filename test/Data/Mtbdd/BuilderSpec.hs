@@ -28,6 +28,23 @@ spec = do
             eval f [False, True, True] `shouldBe` (3 :: Int)
             eval f [True, True, False] `shouldBe` 6
 
+    describe "map" $ do
+        it "works for incrementation" $ do
+            let f = runBuilder $ do
+                        bin <- binaryEncoding 3
+                        result <- Data.Mtbdd.Builder.map (+1) bin
+                        returnDeref result
+            eval f [False, True, False] `shouldBe` (3 :: Int)
+            eval f [True, True, True] `shouldBe` 8
+
+        it "works for signum" $ do
+            let f = runBuilder $ do
+                        bin <- binaryEncoding 3
+                        result <- Data.Mtbdd.Builder.map signum bin
+                        returnDeref result
+            eval f [False, False, False] `shouldBe` (0 :: Int)
+            eval f [True, False, True] `shouldBe` 1
+
     describe "apply" $ do
         it "works for multiplication" $ do
             let f = runBuilder $ do

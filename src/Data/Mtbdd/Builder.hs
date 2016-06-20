@@ -15,8 +15,13 @@ module Data.Mtbdd.Builder
 
   , constant
   , projection
+  , mapB
+  , map
+  , applyB
   , apply
   ) where
+
+import Prelude hiding (map)
 
 import Control.Monad.Identity
 import Control.Monad.State.Strict
@@ -96,23 +101,9 @@ returnDeref :: Monad m => Ref t s -> BuilderT t s m (Mtbdd t)
 returnDeref = return . deref
 
 
-findOrAddTerminal :: (Eq t, Hashable t, Monad m) => t -> BuilderT t s m (Mtbdd t)
-findOrAddTerminal v = BuilderT $ do
-    ts <- gets terminals
-    case Map.lookup v ts of
-        Just term -> return term
-        Nothing   -> createTerminal v
-
-findOrAddNode :: Monad m => Var -> Mtbdd t -> Mtbdd t -> BuilderT t s m (Mtbdd t)
-findOrAddNode var one zero = BuilderT $ do
-    ut <- gets unique
-    case Map.lookup (var, nodeId one, nodeId zero) ut of
-        Just node -> return node
-        Nothing   -> createNode var one zero
-
-
 constant :: (Eq t, Hashable t, Monad m) => t -> BuilderT t s m (Ref t s)
 constant v = Ref <$> findOrAddTerminal v
+
 
 projection
     :: (Eq t, Hashable t, Monad m) => Var -> t -> t -> BuilderT t s m (Ref t s)
@@ -121,6 +112,39 @@ projection var one zero = do
     zero' <- findOrAddTerminal zero
     Ref <$> findOrAddNode var one' zero'
 
+
+mapB
+    :: (Eq t, Hashable t, Monad m)
+    => (t -> t) -> BuilderT t s m (Ref t s) -> BuilderT t s m (Ref t s)
+mapB f = (map f =<<)
+
+map
+    :: (Eq t, Hashable t, Monad m)
+    => (t -> t) -> Ref t s -> BuilderT t s m (Ref t s)
+map f (Ref m) = Ref <$> map' f m
+
+map'
+    :: (Eq t, Hashable t, Monad m)
+    => (t -> t) -> Mtbdd t -> BuilderT t s m (Mtbdd t)
+map' f = go where
+    go (Mtbdd _ node) = case node of
+        Terminal v        -> findOrAddTerminal (f v)
+        Node var one zero -> do
+            zero' <- go zero
+            one'  <- go one
+
+            if zero' == one'
+                then return one'
+                else findOrAddNode var one' zero'
+
+
+applyB
+    :: (Eq t, Hashable t, Monad m)
+    => BinOp t
+    -> BuilderT t s m (Ref t s)
+    -> BuilderT t s m (Ref t s)
+    -> BuilderT t s m (Ref t s)
+applyB op = bindAp2 (apply op)
 
 apply
     :: (Eq t, Hashable t, Monad m)
@@ -149,3 +173,25 @@ apply' op = go where
         Node nodeVar one zero
           | var < nodeVar -> this
           | otherwise     -> if b then one else zero
+
+
+findOrAddTerminal :: (Eq t, Hashable t, Monad m) => t -> BuilderT t s m (Mtbdd t)
+findOrAddTerminal v = BuilderT $ do
+    ts <- gets terminals
+    case Map.lookup v ts of
+        Just term -> return term
+        Nothing   -> createTerminal v
+
+findOrAddNode :: Monad m => Var -> Mtbdd t -> Mtbdd t -> BuilderT t s m (Mtbdd t)
+findOrAddNode var one zero = BuilderT $ do
+    ut <- gets unique
+    case Map.lookup (var, nodeId one, nodeId zero) ut of
+        Just node -> return node
+        Nothing   -> createNode var one zero
+
+
+bindAp2 :: Monad m => (a -> b -> m c) -> m a -> m b -> m c
+bindAp2 f mx my = do
+    x <- mx
+    y <- my
+    f x y
