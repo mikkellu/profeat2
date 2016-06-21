@@ -1,7 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Data.Mtbdd.Graphviz
-  ( renderMtbddsToFile
+  ( EdgePred
+  , allEdges
+
+  , renderMtbddsToFile
   , renderMtbddToFile
 
   , renderMtbdds
@@ -25,44 +28,57 @@ import Text.PrettyPrint.Leijen.Text
 import Data.Mtbdd
 
 
-renderMtbddsToFile :: (Eq t, Pretty t) => Text -> FilePath -> [Mtbdd t] -> IO ()
-renderMtbddsToFile name fileName ms =
-    LIO.writeFile fileName (renderMtbdds name ms)
-
-renderMtbddToFile :: (Eq t, Pretty t) => Text -> FilePath -> Mtbdd t -> IO ()
-renderMtbddToFile name fileName m = renderMtbddsToFile name fileName [m]
+type EdgePred t = Mtbdd t -> Bool
 
 
-renderMtbdds :: (Eq t, Pretty t) => Text -> [Mtbdd t] -> Text
-renderMtbdds name = displayT . renderPretty 0.4 80 . prettyMtbdds name
-
-renderMtbdd :: (Eq t, Pretty t) => Text -> Mtbdd t -> Text
-renderMtbdd name m = renderMtbdds name [m]
+allEdges :: EdgePred t
+allEdges = const True
 
 
-prettyMtbdds :: (Eq t, Pretty t) => Text -> [Mtbdd t] -> Doc
-prettyMtbdds name ms = "digraph" <+> text name <+> lbrace <> line <>
-    indent 4 (mtbdds (concatMap allNodes ms)) <> line <> rbrace
+renderMtbddsToFile
+    :: (Eq t, Pretty t) => EdgePred t -> Text -> FilePath -> [Mtbdd t] -> IO ()
+renderMtbddsToFile p name fileName ms =
+    LIO.writeFile fileName (renderMtbdds p name ms)
 
-prettyMtbdd :: (Eq t, Pretty t) => Text -> Mtbdd t -> Doc
-prettyMtbdd name m = prettyMtbdds name [m]
-
-
-mtbdds :: Pretty t => [Mtbdd t] -> Doc
-mtbdds ms = vsep (evalState (traverse mtbdd ms) Set.empty)
+renderMtbddToFile
+    :: (Eq t, Pretty t) => EdgePred t -> Text -> FilePath -> Mtbdd t -> IO ()
+renderMtbddToFile p name fileName m = renderMtbddsToFile p name fileName [m]
 
 
-mtbdd :: Pretty t => Mtbdd t -> State (HashSet Id) Doc
-mtbdd (Mtbdd nid n) = once nid $ case n of
+renderMtbdds :: (Eq t, Pretty t) => EdgePred t -> Text -> [Mtbdd t] -> Text
+renderMtbdds p name = displayT . renderPretty 0.4 80 . prettyMtbdds p name
+
+renderMtbdd :: (Eq t, Pretty t) => EdgePred t -> Text -> Mtbdd t -> Text
+renderMtbdd p name m = renderMtbdds p name [m]
+
+
+prettyMtbdds :: (Eq t, Pretty t) => EdgePred t -> Text -> [Mtbdd t] -> Doc
+prettyMtbdds p name ms = "digraph" <+> text name <+> lbrace <> line <>
+    indent 4 (mtbdds p (concatMap allNodes ms)) <> line <> rbrace
+
+prettyMtbdd :: (Eq t, Pretty t) => EdgePred t -> Text -> Mtbdd t -> Doc
+prettyMtbdd p name m = prettyMtbdds p name [m]
+
+
+mtbdds :: Pretty t => EdgePred t -> [Mtbdd t] -> Doc
+mtbdds p ms = vsep (evalState (traverse (mtbdd p) ms) Set.empty)
+
+
+mtbdd :: Pretty t => EdgePred t -> Mtbdd t -> State (HashSet Id) Doc
+mtbdd p (Mtbdd nid n) = once nid $ case n of
     Terminal v        -> terminal v
-    Node var one zero -> node var (nodeId one) (nodeId zero)
+    Node var one zero -> node p var one zero
 
 
-node :: Var -> Id -> Id -> Id -> Doc
-node (Var var) oneId zeroId nid =
-    i <+> brackets ("label=" <> dquotes label) <> line <>
-    i <+> edge <+> int oneId <> semi <> line <>
-    i <+> edge <+> int zeroId <+> brackets "style=dashed" <> semi
+node :: EdgePred t -> Var -> Mtbdd t -> Mtbdd t -> Id -> Doc
+node p (Var var) one zero nid = vsep
+    [ i <+> brackets ("label=" <> dquotes label) <> semi
+    , if p one then i <+> edge <+> int (nodeId one) <> semi else empty
+    , if p zero
+          then i <+> edge <+> int (nodeId zero) <+>
+               brackets "style=dashed" <> semi
+          else empty
+    ]
   where
     i = int nid
     label = int var
