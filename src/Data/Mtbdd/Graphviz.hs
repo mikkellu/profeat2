@@ -1,8 +1,17 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Data.Mtbdd.Graphviz
-  ( EdgePred
+  ( RenderOpts(..)
+  , defaultOpts
+
+  , EdgePred
   , allEdges
+
+  , TerminalLabeling
+  , defaultTerminalLabeling
+
+  , NodeLabeling
+  , defaultNodeLabeling
 
   , renderMtbddsToFile
   , renderMtbddToFile
@@ -28,50 +37,75 @@ import Text.PrettyPrint.Leijen.Text
 import Data.Mtbdd
 
 
-type EdgePred t = Mtbdd t -> Bool
+data RenderOpts t = RenderOpts
+  { edgePred         :: EdgePred t
+  , terminalLabeling :: TerminalLabeling t
+  , nodeLabeling     :: NodeLabeling t
+  }
 
+defaultOpts :: Pretty t => RenderOpts t
+defaultOpts = RenderOpts
+  { edgePred         = allEdges
+  , terminalLabeling = defaultTerminalLabeling
+  , nodeLabeling     = defaultNodeLabeling
+  }
+
+
+type EdgePred t = Mtbdd t -> Bool
 
 allEdges :: EdgePred t
 allEdges = const True
 
 
+type TerminalLabeling t = Id -> t -> Doc
+
+defaultTerminalLabeling :: Pretty t => TerminalLabeling t
+defaultTerminalLabeling _ = pretty
+
+type NodeLabeling t = Id -> Var -> Mtbdd t -> Mtbdd t -> Doc
+
+defaultNodeLabeling :: NodeLabeling t
+defaultNodeLabeling _ (Var var) _ _ = int var
+
+
 renderMtbddsToFile
-    :: (Eq t, Pretty t) => EdgePred t -> Text -> FilePath -> [Mtbdd t] -> IO ()
-renderMtbddsToFile p name fileName ms =
-    LIO.writeFile fileName (renderMtbdds p name ms)
+    :: (Eq t, Pretty t) => RenderOpts t -> Text -> FilePath -> [Mtbdd t] -> IO ()
+renderMtbddsToFile opts name fileName ms =
+    LIO.writeFile fileName (renderMtbdds opts name ms)
 
 renderMtbddToFile
-    :: (Eq t, Pretty t) => EdgePred t -> Text -> FilePath -> Mtbdd t -> IO ()
-renderMtbddToFile p name fileName m = renderMtbddsToFile p name fileName [m]
+    :: (Eq t, Pretty t) => RenderOpts t -> Text -> FilePath -> Mtbdd t -> IO ()
+renderMtbddToFile opts name fileName m =
+    renderMtbddsToFile opts name fileName [m]
 
 
-renderMtbdds :: (Eq t, Pretty t) => EdgePred t -> Text -> [Mtbdd t] -> Text
-renderMtbdds p name = displayT . renderPretty 0.4 80 . prettyMtbdds p name
+renderMtbdds :: (Eq t, Pretty t) => RenderOpts t -> Text -> [Mtbdd t] -> Text
+renderMtbdds opts name = displayT . renderPretty 0.4 80 . prettyMtbdds opts name
 
-renderMtbdd :: (Eq t, Pretty t) => EdgePred t -> Text -> Mtbdd t -> Text
-renderMtbdd p name m = renderMtbdds p name [m]
-
-
-prettyMtbdds :: (Eq t, Pretty t) => EdgePred t -> Text -> [Mtbdd t] -> Doc
-prettyMtbdds p name ms = "digraph" <+> text name <+> lbrace <> line <>
-    indent 4 (mtbdds p (concatMap allNodes ms)) <> line <> rbrace
-
-prettyMtbdd :: (Eq t, Pretty t) => EdgePred t -> Text -> Mtbdd t -> Doc
-prettyMtbdd p name m = prettyMtbdds p name [m]
+renderMtbdd :: (Eq t, Pretty t) => RenderOpts t -> Text -> Mtbdd t -> Text
+renderMtbdd opts name m = renderMtbdds opts name [m]
 
 
-mtbdds :: Pretty t => EdgePred t -> [Mtbdd t] -> Doc
-mtbdds p ms = vsep (evalState (traverse (mtbdd p) ms) Set.empty)
+prettyMtbdds :: (Eq t, Pretty t) => RenderOpts t -> Text -> [Mtbdd t] -> Doc
+prettyMtbdds opts name ms = "digraph" <+> text name <+> lbrace <> line <>
+    indent 4 (mtbdds opts (concatMap allNodes ms)) <> line <> rbrace
+
+prettyMtbdd :: (Eq t, Pretty t) => RenderOpts t -> Text -> Mtbdd t -> Doc
+prettyMtbdd opts name m = prettyMtbdds opts name [m]
 
 
-mtbdd :: Pretty t => EdgePred t -> Mtbdd t -> State (HashSet Id) Doc
-mtbdd p (Mtbdd nid n) = once nid $ case n of
-    Terminal v        -> terminal v
-    Node var one zero -> node p var one zero
+mtbdds :: Pretty t => RenderOpts t -> [Mtbdd t] -> Doc
+mtbdds opts ms = vsep (evalState (traverse (mtbdd opts) ms) Set.empty)
 
 
-node :: EdgePred t -> Var -> Mtbdd t -> Mtbdd t -> Id -> Doc
-node p (Var var) one zero nid = vsep
+mtbdd :: Pretty t => RenderOpts t -> Mtbdd t -> State (HashSet Id) Doc
+mtbdd opts (Mtbdd nid n) = once nid $ case n of
+    Terminal v        -> terminal opts v
+    Node var one zero -> node opts var one zero
+
+
+node :: RenderOpts t -> Var -> Mtbdd t -> Mtbdd t -> Id -> Doc
+node opts var one zero nid = vsep
     [ i <+> brackets ("label=" <> dquotes label) <> semi
     , if p one then i <+> edge <+> int (nodeId one) <> semi else empty
     , if p zero
@@ -81,12 +115,15 @@ node p (Var var) one zero nid = vsep
     ]
   where
     i = int nid
-    label = int var
+    p = edgePred opts
+    label = nodeLabeling opts nid var one zero
 
 
-terminal :: Pretty t => t -> Id -> Doc
-terminal v nid = int nid <+>
-    brackets ("shape=box" <> comma <> "label=" <> dquotes (pretty v)) <> semi
+terminal :: RenderOpts t -> t -> Id -> Doc
+terminal opts v nid = int nid <+>
+    brackets ("shape=box" <> comma <> "label=" <> dquotes label) <> semi
+  where
+    label = terminalLabeling opts nid v
 
 
 edge :: Doc
