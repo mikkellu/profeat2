@@ -16,9 +16,9 @@ module Data.Mtbdd.Builder
 
   , constant
   , projection
-  , mapB
+  , bindMap
   , map
-  , applyB
+  , bindApply
   , apply
   ) where
 
@@ -36,13 +36,13 @@ import Data.Mtbdd
 
 instance (Monad m, Eq t, Hashable t, Num t) =>
          Num (BuilderT t s m (Ref t s)) where
-    x + y       = applyB (+) x y
-    x - y       = applyB (-) x y
-    x * y       = applyB (*) x y
-    abs         = mapB abs
-    signum      = mapB signum
+    x + y       = bindApply (+) x y
+    x - y       = bindApply (-) x y
+    x * y       = bindApply (*) x y
+    abs         = bindMap abs
+    signum      = bindMap signum
     fromInteger = constant . fromInteger
-    negate      = mapB negate
+    negate      = bindMap negate
 
 
 newtype BuilderT t s m a = BuilderT (StateT (BuilderState t) m a)
@@ -122,10 +122,10 @@ projection var one zero = do
     Ref <$> findOrAddNode var one' zero'
 
 
-mapB
+bindMap
     :: (Eq t, Hashable t, Monad m)
     => (t -> t) -> BuilderT t s m (Ref t s) -> BuilderT t s m (Ref t s)
-mapB f = (map f =<<)
+bindMap f = (map f =<<)
 
 map
     :: (Eq t, Hashable t, Monad m)
@@ -147,13 +147,13 @@ map' f = go where
                 else findOrAddNode var one' zero'
 
 
-applyB
+bindApply
     :: (Eq t, Hashable t, Monad m)
     => (t -> t -> t)
     -> BuilderT t s m (Ref t s)
     -> BuilderT t s m (Ref t s)
     -> BuilderT t s m (Ref t s)
-applyB op = bindAp2 (apply op)
+bindApply op = bindAp2 (apply op)
 
 apply
     :: (Eq t, Hashable t, Monad m)
