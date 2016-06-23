@@ -126,9 +126,10 @@ node opts var one zero nid = vsep
 
 terminal :: RenderOpts t -> t -> Id -> Doc
 terminal opts v nid = int nid <+>
-    brackets ("shape=box" <> comma <> "label=" <> dquotes label) <> semi
+    brackets (style <> comma <> "label=" <> dquotes label) <> semi
   where
     label = terminalLabeling opts nid v
+    style = "style=filled, shape=box"
 
 
 edge :: Doc
