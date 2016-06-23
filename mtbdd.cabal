@@ -1,5 +1,5 @@
 name:          mtbdd
-version:       0.11.0
+version:       0.12.0
 synopsis:      Multi-terminal binary decision diagrams
 description:   Please see README.md
 license:       BSD3
@@ -22,8 +22,10 @@ library
   exposed-modules:
     Data.Mtbdd
     Data.Mtbdd.Builder
+    Data.Mtbdd.Builder.Internal
     Data.Mtbdd.Graphviz
   hs-source-dirs: src
+  ghc-options: -Wall
   default-language: Haskell2010
 
 test-suite mtbdd-test

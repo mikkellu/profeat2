@@ -20,7 +20,6 @@ module Data.Mtbdd
 import Data.Function (on)
 import Data.Hashable
 import Data.Ord (comparing)
-import Data.HashSet (HashSet)
 import qualified Data.HashSet as Set
 
 
