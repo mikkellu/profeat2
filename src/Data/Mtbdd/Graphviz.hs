@@ -4,8 +4,8 @@ module Data.Mtbdd.Graphviz
   ( RenderOpts(..)
   , defaultOpts
 
+  , NodePred
   , EdgePred
-  , allEdges
 
   , TerminalLabeling
   , defaultTerminalLabeling
@@ -24,6 +24,8 @@ module Data.Mtbdd.Graphviz
   ) where
 
 
+import Control.Applicative (liftA2)
+
 import Control.Monad.State
 
 import Data.HashSet (HashSet)
@@ -38,23 +40,24 @@ import Data.Mtbdd
 
 
 data RenderOpts t = RenderOpts
-  { edgePred         :: EdgePred t
+  { nodePred         :: NodePred t
+  , edgePred         :: EdgePred t
   , terminalLabeling :: TerminalLabeling t
   , nodeLabeling     :: NodeLabeling t
   }
 
 defaultOpts :: Pretty t => RenderOpts t
 defaultOpts = RenderOpts
-  { edgePred         = allEdges
+  { nodePred         = const True
+  , edgePred         = const True
   , terminalLabeling = defaultTerminalLabeling
   , nodeLabeling     = defaultNodeLabeling
   }
 
 
-type EdgePred t = Mtbdd t -> Bool
+type NodePred t = Mtbdd t -> Bool
 
-allEdges :: EdgePred t
-allEdges = const True
+type EdgePred t = Mtbdd t -> Bool
 
 
 type TerminalLabeling t = Id -> t -> Doc
@@ -99,9 +102,11 @@ mtbdds opts ms = vsep (evalState (traverse (mtbdd opts) ms) Set.empty)
 
 
 mtbdd :: Pretty t => RenderOpts t -> Mtbdd t -> State (HashSet Id) Doc
-mtbdd opts (Mtbdd nid n) = once nid $ case n of
-    Terminal v        -> terminal opts v
-    Node var one zero -> node opts var one zero
+mtbdd opts m@(Mtbdd nid n)
+  | nodePred opts m = once nid $ case n of
+        Terminal v        -> terminal opts v
+        Node var one zero -> node opts var one zero
+  | otherwise = return empty
 
 
 node :: RenderOpts t -> Var -> Mtbdd t -> Mtbdd t -> Id -> Doc
@@ -115,7 +120,7 @@ node opts var one zero nid = vsep
     ]
   where
     i = int nid
-    p = edgePred opts
+    p = liftA2 (&&) (edgePred opts) (nodePred opts)
     label = nodeLabeling opts nid var one zero
 
 
