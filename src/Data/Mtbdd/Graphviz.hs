@@ -26,10 +26,10 @@ module Data.Mtbdd.Graphviz
 
 import Control.Applicative (liftA2)
 
-import Control.Monad.State
-
-import Data.HashSet (HashSet)
+import qualified Data.HashMap.Strict as Map
 import qualified Data.HashSet as Set
+
+import Data.List (sortOn)
 
 import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy.IO as LIO
@@ -40,7 +40,8 @@ import Data.Mtbdd
 
 
 data RenderOpts t = RenderOpts
-  { nodePred         :: NodePred t
+  { compact          :: !Bool
+  , nodePred         :: NodePred t
   , edgePred         :: EdgePred t
   , terminalLabeling :: TerminalLabeling t
   , nodeLabeling     :: NodeLabeling t
@@ -48,7 +49,8 @@ data RenderOpts t = RenderOpts
 
 defaultOpts :: Pretty t => RenderOpts t
 defaultOpts = RenderOpts
-  { nodePred         = const True
+  { compact          = False
+  , nodePred         = const True
   , edgePred         = const True
   , terminalLabeling = defaultTerminalLabeling
   , nodeLabeling     = defaultNodeLabeling
@@ -89,58 +91,57 @@ renderMtbdd :: (Eq t, Pretty t) => RenderOpts t -> Text -> Mtbdd t -> Text
 renderMtbdd opts name m = renderMtbdds opts name [m]
 
 
-prettyMtbdds :: (Eq t, Pretty t) => RenderOpts t -> Text -> [Mtbdd t] -> Doc
+prettyMtbdds :: Eq t => RenderOpts t -> Text -> [Mtbdd t] -> Doc
 prettyMtbdds opts name ms = "digraph" <+> text name <+> lbrace <> line <>
-    indent 4 (mtbdds opts (concatMap allNodes ms)) <> line <> rbrace
+    indent 4 body <> line <> rbrace
+  where
+    body = vsep [mtbddNodes opts lvls, mtbddEdges opts lvls]
+    lvls = fmap (fmap (filter (nodePred opts))) (levels ms)
+
 
 prettyMtbdd :: (Eq t, Pretty t) => RenderOpts t -> Text -> Mtbdd t -> Doc
 prettyMtbdd opts name m = prettyMtbdds opts name [m]
 
 
-mtbdds :: Pretty t => RenderOpts t -> [Mtbdd t] -> Doc
-mtbdds opts ms = vsep (evalState (traverse (mtbdd opts) ms) Set.empty)
+mtbddNodes :: RenderOpts t -> [(Var, [Mtbdd t])] -> Doc
+mtbddNodes opts = vsep . fmap subgraph where
+    subgraph (Var var, ms) = "subgraph" <+> name <+> lbrace <> line <>
+        indent 4 body <> line <> rbrace
+      where
+        name | var < maxBound = int var
+             | otherwise      = "terminals"
+        body = (if compact opts then empty else "rank=same" <> semi <> line) <>
+               vsep (fmap (mtbddNode opts) ms) <> line
 
 
-mtbdd :: Pretty t => RenderOpts t -> Mtbdd t -> State (HashSet Id) Doc
-mtbdd opts m@(Mtbdd nid n)
-  | nodePred opts m = once nid $ case n of
-        Terminal v        -> terminal opts v
-        Node var one zero -> node opts var one zero
-  | otherwise = return empty
+mtbddNode :: RenderOpts t -> Mtbdd t -> Doc
+mtbddNode opts (Mtbdd nid n) = case n of
+    Terminal v -> int nid <+>
+        brackets ("style=filled, shape=box" <> comma <>
+        "label=" <> dquotes (terminalLabeling opts nid v)) <> semi
+    Node var one zero -> int nid <+>
+        brackets ("label=" <> dquotes (nodeLabeling opts nid var one zero)) <>
+        semi
 
 
-node :: RenderOpts t -> Var -> Mtbdd t -> Mtbdd t -> Id -> Doc
-node opts var one zero nid = vsep
-    [ i <+> brackets ("label=" <> dquotes label) <> semi
-    , if p one then i <+> edge <+> int (nodeId one) <> semi else empty
-    , if p zero
-          then i <+> edge <+> int (nodeId zero) <+>
-               brackets "style=dashed" <> semi
-          else empty
-    ]
+mtbddEdges :: RenderOpts t -> [(Var, [Mtbdd t])] -> Doc
+mtbddEdges opts = vsep . fmap edges . concatMap snd where
+    edges (Mtbdd nid n) = case n of
+        Terminal _      -> empty
+        Node _ one zero -> vsep
+          [ if p one then i <+> "->" <+> int (nodeId one) <> semi else empty
+          , if p zero
+                then i <+> "->" <+> int (nodeId zero) <+>
+                     brackets "style=dashed" <> semi
+                else empty
+          ]
+      where
+        i = int nid
+        p = liftA2 (&&) (edgePred opts) (nodePred opts)
+
+
+levels :: Eq t => [Mtbdd t] -> [(Var, [Mtbdd t])]
+levels = sortOn fst . toLists . foldr insert Map.empty . concatMap allNodes
   where
-    i = int nid
-    p = liftA2 (&&) (edgePred opts) (nodePred opts)
-    label = nodeLabeling opts nid var one zero
-
-
-terminal :: RenderOpts t -> t -> Id -> Doc
-terminal opts v nid = int nid <+>
-    brackets (style <> comma <> "label=" <> dquotes label) <> semi
-  where
-    label = terminalLabeling opts nid v
-    style = "style=filled, shape=box"
-
-
-edge :: Doc
-edge = "->"
-
-
-once :: Id -> (Id -> Doc) -> State (HashSet Id) Doc
-once nid f = do
-    nids <- get
-    if Set.member nid nids
-    then return empty
-    else do
-        modify (Set.insert nid)
-        return (f nid)
+    insert m = Map.insertWith Set.union (variable m) (Set.singleton m)
+    toLists = Map.toList . Map.map Set.toList
