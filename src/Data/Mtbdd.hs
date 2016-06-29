@@ -22,13 +22,21 @@ module Data.Mtbdd
 
   , allNodes
   , eval
+  , sat
   ) where
+
+
+import qualified Data.HashSet as HashSet
 
 import Data.Maybe (fromMaybe)
 
-import qualified Data.HashSet as Set
+import Data.Monoid ((<>))
 
-import Data.Vector (Vector, (!?))
+import Data.Set (Set)
+import qualified Data.Set as Set
+
+import Data.Vector (Vector, (!?), (//))
+import qualified Data.Vector as V
 
 import Data.Mtbdd.Internal
 import Data.VarOrder
@@ -57,9 +65,9 @@ value _                     = Nothing
 
 
 allNodes :: Eq t => Mtbdd t -> [Node t]
-allNodes = Set.toList . go Set.empty . rootNode where
+allNodes = HashSet.toList . go HashSet.empty . rootNode where
     go ms m@(Node _ ty) =
-        let ms' = Set.insert m ms
+        let ms' = HashSet.insert m ms
         in case ty of
                Terminal _          -> ms'
                Decision _ one zero -> go (go ms' one) zero
@@ -75,3 +83,20 @@ eval m decisions = go (rootNode m) where
     lookupDecision lvl = fromMaybe False (decisions !? var)
       where
         Var var = lookupVar (varOrder m) lvl
+
+
+sat :: (t -> Bool) -> Int -> Mtbdd t -> Set (Vector Bool)
+sat p varCount (Mtbdd vo root) = go (V.replicate varCount False) 0 root where
+    go ds i node@(Node _ ty) = case ty of
+        Terminal v
+          | p v -> if i >= varCount
+                       then Set.singleton ds
+                       else step node node
+          | otherwise -> Set.empty
+        Decision (Level lvl) one zero
+          | i < lvl   -> step node node
+          | otherwise -> step one zero
+      where
+        step one zero = go (ds // [(var, True)]) (i + 1) one <>
+                        go (ds // [(var, False)]) (i + 1) zero
+        Var var = lookupVar vo (Level i)
