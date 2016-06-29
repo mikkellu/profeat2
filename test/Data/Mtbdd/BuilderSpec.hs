@@ -59,6 +59,18 @@ spec = do
             eval f [True]  `shouldBe` 2
             eval f [False] `shouldBe` 0
 
+    describe "runBuilderWith" $
+        it "preserves structure" $ do
+            let f = runBuilder $ do
+                        x <- projection (Var 0) True False
+                        y <- projection (Var 1) True False
+                        result <- apply (&&) x y
+                        deref result
+            let f' = runBuilderWith f deref
+            allNodes f == allNodes f' `shouldBe` True
+            eval f [True, True]  `shouldBe` True
+            eval f [True, False] `shouldBe` False
+
 
 binaryEncoding :: Monad m => Int -> BuilderT Int s m (Ref Int s)
 binaryEncoding numBits = sum (fmap ithVar ([0 .. numBits - 1] :: [Int]))
