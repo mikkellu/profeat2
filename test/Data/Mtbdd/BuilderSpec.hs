@@ -1,16 +1,27 @@
 {-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Data.Mtbdd.BuilderSpec (main, spec) where
 
 
-import Test.Hspec
+import Data.Vector (fromList)
 
-import Data.Mtbdd
+import Test.Hspec
+import Test.QuickCheck
+
+import Data.Mtbdd as M
 import Data.Mtbdd.Builder
+
+import Data.Proposition hiding (eval)
+import qualified Data.Proposition as P
 
 
 spec :: Spec
 spec = do
+    describe "Mtbdd" $
+        it "is equivalent to represented function" $
+            property $ \f (fromList -> ds) -> eval (toBdd f) ds == P.eval f ds
+
     describe "projection" $
         it "evaluates to the given values" $ do
             let f = runBuilder $ do
@@ -60,16 +71,9 @@ spec = do
             eval f [False] `shouldBe` 0
 
     describe "runBuilderWith" $
-        it "preserves structure" $ do
-            let f = runBuilder $ do
-                        x <- projection (Var 0) True False
-                        y <- projection (Var 1) True False
-                        result <- apply (&&) x y
-                        deref result
-            let f' = runBuilderWith f deref
-            allNodes f == allNodes f' `shouldBe` True
-            eval f [True, True]  `shouldBe` True
-            eval f [True, False] `shouldBe` False
+        it "preserves structure" $
+            property $ \(toBdd -> f) ->
+                allNodes f == allNodes (runBuilderWith f deref)
 
 
 binaryEncoding :: Monad m => Int -> BuilderT Int s m (Ref Int s)
