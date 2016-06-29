@@ -1,15 +1,22 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiWayIf #-}
-
 module Data.Mtbdd
   ( Id
   , Var(..)
+  , Level(..)
 
-  , Mtbdd(..)
+  , VarOrder
+  , lookupVar
+  , lookupLevel
+
+  , Mtbdd
+  , varOrder
+  , rootNode
+
   , Node(..)
+  , NodeType(..)
   , nodeId
   , isTerminal
   , isInnerNode
+  , level
   , variable
   , value
 
@@ -17,80 +24,54 @@ module Data.Mtbdd
   , eval
   ) where
 
-import Data.Function (on)
-import Data.Hashable
-import Data.Ord (comparing)
+import Data.Maybe (fromMaybe)
+
 import qualified Data.HashSet as Set
 
+import Data.Vector (Vector, (!?))
 
--- | A variable in a binary decision diagram.
-newtype Var = Var Int deriving (Eq, Ord, Show, Hashable)
-
-
-type Id = Int
+import Data.Mtbdd.Internal
+import Data.VarOrder
 
 
--- | A multi-terminal binary decision diagram
-data Mtbdd t = Mtbdd !Id !(Node t)
-
-instance Hashable (Mtbdd t) where
-    hashWithSalt salt = hashWithSalt salt . nodeId
-    hash              = hash . nodeId
-
-nodeId :: Mtbdd t -> Id
-nodeId (Mtbdd nid _) = nid
-
-data Node t
-  = Terminal !t
-  | Node !Var (Mtbdd t) (Mtbdd t)
-
-instance Eq t => Eq (Mtbdd t) where
-    (==) = (==) `on` nodeId
-
-instance Ord t => Ord (Mtbdd t) where
-    compare = comparing nodeId
+isTerminal :: Node t -> Bool
+isTerminal (Node _ (Terminal _)) = True
+isTerminal _                     = False
 
 
-isTerminal :: Mtbdd t -> Bool
-isTerminal (Mtbdd _ (Terminal _)) = True
-isTerminal _                      = False
+isInnerNode :: Node t -> Bool
+isInnerNode (Node _ Decision {}) = True
+isInnerNode _                    = False
 
 
-isInnerNode :: Mtbdd t -> Bool
-isInnerNode (Mtbdd _ Node {}) = True
-isInnerNode _                 = False
+
+variable :: VarOrder -> Node t -> Var
+variable vo (Node _ ty) = case ty of
+    Terminal _       -> Var maxBound
+    Decision lvl _ _ -> lookupVar vo lvl
 
 
-variable :: Mtbdd t -> Var
-variable (Mtbdd _ node) = case node of
-    Terminal _   -> Var maxBound
-    Node var _ _ -> var
+value :: Node t -> Maybe t
+value (Node _ (Terminal v)) = Just v
+value _                     = Nothing
 
 
-value :: Mtbdd t -> Maybe t
-value (Mtbdd _ (Terminal v)) = Just v
-value _                      = Nothing
-
-
-allNodes :: Eq t => Mtbdd t -> [Mtbdd t]
-allNodes = Set.toList . go Set.empty where
-    go ms m@(Mtbdd _ node) =
+allNodes :: Eq t => Mtbdd t -> [Node t]
+allNodes = Set.toList . go Set.empty . rootNode where
+    go ms m@(Node _ ty) =
         let ms' = Set.insert m ms
-        in case node of
-               Terminal _      -> ms'
-               Node _ one zero -> go (go ms' one) zero
+        in case ty of
+               Terminal _          -> ms'
+               Decision _ one zero -> go (go ms' one) zero
 
 
-eval :: Mtbdd t -> [Bool] -> t
-eval = go 0 where
-    go i mtbdd@(Mtbdd _ node) decisions = case node of
+eval :: Mtbdd t -> Vector Bool -> t
+eval m decisions = go (rootNode m) where
+    go (Node _ ty) = case ty of
         Terminal v -> v
-        Node var one zero ->
-            let (d, decisions') = next decisions
-            in if | Var i < var -> go (i + 1) mtbdd decisions'
-                  | d           -> go (i + 1) one decisions'
-                  | otherwise   -> go (i + 1) zero decisions'
-
-    next (d:ds) = (d, ds)
-    next []     = (False, [])
-
+        Decision lvl one zero
+          | lookupDecision lvl -> go one
+          | otherwise          -> go zero
+    lookupDecision lvl = fromMaybe False (decisions !? var)
+      where
+        Var var = lookupVar (varOrder m) lvl

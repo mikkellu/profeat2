@@ -6,7 +6,6 @@
 module Data.Mtbdd.Builder
   ( Ref
   , deref
-  , returnDeref
 
   , BuilderT
   , runBuilderT
@@ -26,8 +25,9 @@ import Prelude hiding (map)
 
 import Data.Hashable
 
-import Data.Mtbdd
+import Data.Mtbdd.Internal
 import Data.Mtbdd.Builder.Internal
+import Data.VarOrder
 
 
 instance (Monad m, Eq t, Hashable t, Num t) =>
@@ -41,11 +41,10 @@ instance (Monad m, Eq t, Hashable t, Num t) =>
     negate      = bindMap negate
 
 
-deref :: Ref t s -> Mtbdd t
-deref (Ref x) = x
-
-returnDeref :: Monad m => Ref t s -> BuilderT t s m (Mtbdd t)
-returnDeref = return . deref
+deref :: Monad m => Ref t s -> BuilderT t s m (Mtbdd t)
+deref (Ref node) = do
+    vo <- getVarOrder
+    return (Mtbdd vo node)
 
 
 constant :: (Eq t, Hashable t, Monad m) => t -> BuilderT t s m (Ref t s)
@@ -55,9 +54,12 @@ constant v = Ref <$> findOrAddTerminal v
 projection
     :: (Eq t, Hashable t, Monad m) => Var -> t -> t -> BuilderT t s m (Ref t s)
 projection var one zero = do
+    vo <- getVarOrder
+
     one'  <- findOrAddTerminal one
     zero' <- findOrAddTerminal zero
-    Ref <$> findOrAddNode var one' zero'
+
+    Ref <$> findOrAddNode (lookupLevel vo var) one' zero'
 
 
 bindMap
@@ -72,17 +74,17 @@ map f (Ref m) = Ref <$> map' f m
 
 map'
     :: (Eq t, Hashable t, Monad m)
-    => (t -> t) -> Mtbdd t -> BuilderT t s m (Mtbdd t)
+    => (t -> t) -> Node t -> BuilderT t s m (Node t)
 map' f = go where
-    go (Mtbdd _ node) = case node of
-        Terminal v        -> findOrAddTerminal (f v)
-        Node var one zero -> do
+    go (Node _ ty) = case ty of
+        Terminal v            -> findOrAddTerminal (f v)
+        Decision lvl one zero -> do
             zero' <- go zero
             one'  <- go one
 
             if zero' == one'
                 then return one'
-                else findOrAddNode var one' zero'
+                else findOrAddNode lvl one' zero'
 
 
 bindApply
@@ -100,25 +102,25 @@ apply op (Ref l) (Ref r) = Ref <$> apply' op l r
 
 apply'
     :: (Eq t, Hashable t, Monad m)
-    => (t -> t -> t) -> Mtbdd t -> Mtbdd t -> BuilderT t s m (Mtbdd t)
+    => (t -> t -> t) -> Node t -> Node t -> BuilderT t s m (Node t)
 apply' op = go where
     go l r = case (l, r) of
-        (Mtbdd _ (Terminal vl), Mtbdd _ (Terminal vr)) ->
+        (Node _ (Terminal vl), Node _ (Terminal vr)) ->
             findOrAddTerminal (vl `op` vr)
         _ -> do
-            let var = min (variable l) (variable r)
+            let lvl = min (level l) (level r)
 
-            zero <- go (child l var False) (child r var False)
-            one  <- go (child l var True)  (child r var True)
+            zero <- go (child l lvl False) (child r lvl False)
+            one  <- go (child l lvl True)  (child r lvl True)
 
             if zero == one
                 then return one
-                else findOrAddNode var one zero
+                else findOrAddNode lvl one zero
 
-    child this@(Mtbdd _ node) var b = case node of
-        Terminal _ -> this
-        Node nodeVar one zero
-          | var < nodeVar -> this
+    child node@(Node _ ty) lvl b = case ty of
+        Terminal _ -> node
+        Decision nodeLvl one zero
+          | lvl < nodeLvl -> node
           | otherwise     -> if b then one else zero
 
 

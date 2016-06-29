@@ -13,13 +13,8 @@ module Data.Mtbdd.Graphviz
   , NodeLabeling
   , defaultNodeLabeling
 
-  , renderMtbddsToFile
   , renderMtbddToFile
-
-  , renderMtbdds
   , renderMtbdd
-
-  , prettyMtbdds
   , prettyMtbdd
   ) where
 
@@ -57,9 +52,9 @@ defaultOpts = RenderOpts
   }
 
 
-type NodePred t = Mtbdd t -> Bool
+type NodePred t = Node t -> Bool
 
-type EdgePred t = Mtbdd t -> Bool
+type EdgePred t = Node t -> Bool
 
 
 type TerminalLabeling t = Id -> t -> Doc
@@ -67,68 +62,56 @@ type TerminalLabeling t = Id -> t -> Doc
 defaultTerminalLabeling :: Pretty t => TerminalLabeling t
 defaultTerminalLabeling _ = pretty
 
-type NodeLabeling t = Id -> Var -> Mtbdd t -> Mtbdd t -> Doc
+type NodeLabeling t = Id -> Var -> Node t -> Node t -> Doc
 
 defaultNodeLabeling :: NodeLabeling t
 defaultNodeLabeling _ (Var var) _ _ = int var
 
 
-renderMtbddsToFile
-    :: (Eq t, Pretty t) => RenderOpts t -> Text -> FilePath -> [Mtbdd t] -> IO ()
-renderMtbddsToFile opts name fileName ms =
-    LIO.writeFile fileName (renderMtbdds opts name ms)
-
 renderMtbddToFile
     :: (Eq t, Pretty t) => RenderOpts t -> Text -> FilePath -> Mtbdd t -> IO ()
 renderMtbddToFile opts name fileName m =
-    renderMtbddsToFile opts name fileName [m]
+    LIO.writeFile fileName (renderMtbdd opts name m)
 
-
-renderMtbdds :: (Eq t, Pretty t) => RenderOpts t -> Text -> [Mtbdd t] -> Text
-renderMtbdds opts name = displayT . renderPretty 0.4 80 . prettyMtbdds opts name
 
 renderMtbdd :: (Eq t, Pretty t) => RenderOpts t -> Text -> Mtbdd t -> Text
-renderMtbdd opts name m = renderMtbdds opts name [m]
+renderMtbdd opts name = displayT . renderPretty 0.4 80 . prettyMtbdd opts name
 
 
-prettyMtbdds :: Eq t => RenderOpts t -> Text -> [Mtbdd t] -> Doc
-prettyMtbdds opts name ms = "digraph" <+> text name <+> lbrace <> line <>
+prettyMtbdd :: Eq t => RenderOpts t -> Text -> Mtbdd t -> Doc
+prettyMtbdd opts name m = "digraph" <+> text name <+> lbrace <> line <>
     indent 4 body <> line <> rbrace
   where
-    body = vsep [mtbddNodes opts lvls, mtbddEdges opts lvls]
-    lvls = fmap (fmap (filter (nodePred opts))) (levels ms)
+    body = vsep [mtbddNodes (varOrder m) opts lvls, mtbddEdges opts lvls]
+    lvls = fmap (fmap (filter (nodePred opts))) (levels m)
 
 
-prettyMtbdd :: (Eq t, Pretty t) => RenderOpts t -> Text -> Mtbdd t -> Doc
-prettyMtbdd opts name m = prettyMtbdds opts name [m]
-
-
-mtbddNodes :: RenderOpts t -> [(Var, [Mtbdd t])] -> Doc
-mtbddNodes opts = vsep . fmap subgraph where
-    subgraph (Var var, ms) = "subgraph" <+> name <+> lbrace <> line <>
+mtbddNodes :: VarOrder -> RenderOpts t -> [(Level, [Node t])] -> Doc
+mtbddNodes vo opts = vsep . fmap subgraph where
+    subgraph (Level lvl, ms) = "subgraph" <+> name <+> lbrace <> line <>
         indent 4 body <> line <> rbrace
       where
-        name | var < maxBound = int var
+        name | lvl < maxBound = int lvl
              | otherwise      = "terminals"
         body = (if compact opts then empty else "rank=same" <> semi <> line) <>
-               vsep (fmap (mtbddNode opts) ms) <> line
+               vsep (fmap (mtbddNode vo opts) ms) <> line
 
 
-mtbddNode :: RenderOpts t -> Mtbdd t -> Doc
-mtbddNode opts (Mtbdd nid n) = case n of
+mtbddNode :: VarOrder -> RenderOpts t -> Node t -> Doc
+mtbddNode vo opts (Node nid ty) = case ty of
     Terminal v -> int nid <+>
         brackets ("style=filled, shape=box" <> comma <>
         "label=" <> dquotes (terminalLabeling opts nid v)) <> semi
-    Node var one zero -> int nid <+>
-        brackets ("label=" <> dquotes (nodeLabeling opts nid var one zero)) <>
-        semi
+    Decision lvl one zero ->
+        let nodeLabel = nodeLabeling opts nid (lookupVar vo lvl) one zero
+        in int nid <+> brackets ("label=" <> dquotes nodeLabel) <> semi
 
 
-mtbddEdges :: RenderOpts t -> [(Var, [Mtbdd t])] -> Doc
+mtbddEdges :: RenderOpts t -> [(Level, [Node t])] -> Doc
 mtbddEdges opts = vsep . fmap edges . concatMap snd where
-    edges (Mtbdd nid n) = case n of
-        Terminal _      -> empty
-        Node _ one zero -> vsep
+    edges (Node nid ty) = case ty of
+        Terminal _          -> empty
+        Decision _ one zero -> vsep
           [ if p one then i <+> "->" <+> int (nodeId one) <> semi else empty
           , if p zero
                 then i <+> "->" <+> int (nodeId zero) <+>
@@ -140,8 +123,8 @@ mtbddEdges opts = vsep . fmap edges . concatMap snd where
         p = liftA2 (&&) (edgePred opts) (nodePred opts)
 
 
-levels :: Eq t => [Mtbdd t] -> [(Var, [Mtbdd t])]
-levels = sortOn fst . toLists . foldr insert Map.empty . concatMap allNodes
+levels :: Eq t => Mtbdd t -> [(Level, [Node t])]
+levels = sortOn fst . toLists . foldr insert Map.empty . allNodes
   where
-    insert m = Map.insertWith Set.union (variable m) (Set.singleton m)
+    insert m = Map.insertWith Set.union (level m) (Set.singleton m)
     toLists = Map.toList . Map.map Set.toList

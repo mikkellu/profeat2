@@ -1,0 +1,61 @@
+module Data.Mtbdd.Internal
+  ( Id
+
+  , Mtbdd(..)
+  , varOrder
+  , rootNode
+
+  , Node(..)
+  , NodeType(..)
+
+  , nodeId
+  , level
+  ) where
+
+import Data.Function (on)
+
+import Data.Ord (comparing)
+
+import Data.Hashable
+
+import Data.VarOrder
+
+
+type Id = Int
+
+
+data Mtbdd t = Mtbdd !VarOrder (Node t)
+
+varOrder :: Mtbdd t -> VarOrder
+varOrder (Mtbdd vo _) = vo
+
+rootNode :: Mtbdd t -> Node t
+rootNode (Mtbdd _ node) = node
+
+
+data Node t = Node !Id !(NodeType t)
+
+instance Hashable (Node t) where
+    hashWithSalt salt = hashWithSalt salt . nodeId
+    hash              = hash . nodeId
+
+
+data NodeType t
+  = Terminal !t
+  | Decision !Level (Node t) (Node t)
+
+instance Eq t => Eq (Node t) where
+    (==) = (==) `on` nodeId
+
+instance Ord t => Ord (Node t) where
+    compare = comparing nodeId
+
+
+nodeId :: Node t -> Id
+nodeId (Node nid _) = nid
+
+
+level :: Node t -> Level
+level (Node _ ty) = case ty of
+    Terminal _       -> Level maxBound
+    Decision lvl _ _ -> lvl

@@ -11,6 +11,8 @@ module Data.Mtbdd.Builder.Internal
   , Builder
   , runBuilder
 
+  , getVarOrder
+
   , findOrAddTerminal
   , findOrAddNode
   ) where
@@ -23,10 +25,11 @@ import Data.Hashable
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as Map
 
-import Data.Mtbdd
+import Data.Mtbdd.Internal
+import Data.VarOrder
 
 
-newtype Ref a s = Ref (Mtbdd a)
+newtype Ref t s = Ref (Node t)
 
 
 newtype BuilderT t s m a = BuilderT (StateT (BuilderState t) m a)
@@ -42,14 +45,15 @@ runBuilder :: (forall s. Builder t s a) -> a
 runBuilder m = runIdentity (runBuilderT m)
 
 
-type UniqueTable t = HashMap (Var, Id, Id) (Mtbdd t)
+type UniqueTable t = HashMap (Level, Id, Id) (Node t)
 
 
-type TerminalTable t = HashMap t (Mtbdd t)
+type TerminalTable t = HashMap t (Node t)
 
 
 data BuilderState t = BuilderState
   { nextId    :: !Id
+  , order     :: !VarOrder
   , unique    :: UniqueTable t
   , terminals :: TerminalTable t
   }
@@ -57,6 +61,7 @@ data BuilderState t = BuilderState
 initialState :: BuilderState t
 initialState = BuilderState
   { nextId    = 0
+  , order     = initialOrder
   , unique    = Map.empty
   , terminals = Map.empty
   }
@@ -67,34 +72,41 @@ freshNodeId = do
     modify $ \s -> s { nextId = nid + 1 }
     return nid
 
+
+getVarOrder :: Monad m => BuilderT t s m VarOrder
+getVarOrder = BuilderT (gets order)
+
+
 createTerminal
-    :: (Eq t, Hashable t, MonadState (BuilderState t) m) => t -> m (Mtbdd t)
+    :: (Eq t, Hashable t, MonadState (BuilderState t) m) => t -> m (Node t)
 createTerminal v = do
     nid <- freshNodeId
-    let term = Mtbdd nid (Terminal v)
+    let term = Node nid (Terminal v)
     modify $ \s -> s { terminals = Map.insert v term (terminals s) }
     return term
 
 createNode
-    :: MonadState (BuilderState t) m => Var -> Mtbdd t -> Mtbdd t -> m (Mtbdd t)
-createNode var one zero = do
+    :: MonadState (BuilderState t) m
+    => Level -> Node t -> Node t -> m (Node t)
+createNode lvl one zero = do
     nid <- freshNodeId
-    let node = Mtbdd nid (Node var one zero)
+    let node = Node nid (Decision lvl one zero)
     modify $ \s ->
-        s { unique = Map.insert (var, nodeId one, nodeId zero) node (unique s) }
+        s { unique = Map.insert (lvl, nodeId one, nodeId zero) node (unique s) }
     return node
 
 
-findOrAddTerminal :: (Eq t, Hashable t, Monad m) => t -> BuilderT t s m (Mtbdd t)
+findOrAddTerminal :: (Eq t, Hashable t, Monad m) => t -> BuilderT t s m (Node t)
 findOrAddTerminal v = BuilderT $ do
     ts <- gets terminals
     case Map.lookup v ts of
         Just term -> return term
         Nothing   -> createTerminal v
 
-findOrAddNode :: Monad m => Var -> Mtbdd t -> Mtbdd t -> BuilderT t s m (Mtbdd t)
-findOrAddNode var one zero = BuilderT $ do
+findOrAddNode
+    :: Monad m => Level -> Node t -> Node t -> BuilderT t s m (Node t)
+findOrAddNode lvl one zero = BuilderT $ do
     ut <- gets unique
-    case Map.lookup (var, nodeId one, nodeId zero) ut of
+    case Map.lookup (lvl, nodeId one, nodeId zero) ut of
         Just node -> return node
-        Nothing   -> createNode var one zero
+        Nothing   -> createNode lvl one zero
