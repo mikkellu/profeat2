@@ -13,8 +13,9 @@ module Data.Mtbdd.Builder.Internal
   , runBuilder
   , runBuilderWith
 
+  , getNumberOfVars
+  , adjustNumberOfVars
   , getVarOrder
-
   , findOrAddTerminal
   , findOrAddNode
   ) where
@@ -28,6 +29,7 @@ import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as Map
 
 import Data.Mtbdd
+import Data.Mtbdd.Internal
 import Data.VarOrder
 
 
@@ -45,7 +47,8 @@ runBuilderTWith
     => Mtbdd t -> (forall s. Ref t s -> BuilderT t s m a) -> m a
 runBuilderTWith m f = evalStateT (unB (f (Ref (rootNode m)))) initState
   where
-    initState = flip execState (initialState { order = varOrder m}) $
+    initState  = mtbddState { order = varOrder m, numVars = numberOfVars m }
+    mtbddState = flip execState initialState $
         forM_ (allNodes m) $ \node@(Node nid ty) -> do
             modify $ \s -> s { nextId = max (nid + 1) (nextId s) }
             case ty of
@@ -72,6 +75,7 @@ type TerminalTable t = HashMap t (Node t)
 
 data BuilderState t = BuilderState
   { nextId    :: !Id
+  , numVars   :: !Int
   , order     :: !VarOrder
   , unique    :: UniqueTable t
   , terminals :: TerminalTable t
@@ -80,6 +84,7 @@ data BuilderState t = BuilderState
 initialState :: BuilderState t
 initialState = BuilderState
   { nextId    = 0
+  , numVars   = 0
   , order     = initialOrder
   , unique    = Map.empty
   , terminals = Map.empty
@@ -90,6 +95,14 @@ freshNodeId = do
     nid <- gets nextId
     modify $ \s -> s { nextId = nid + 1 }
     return nid
+
+
+getNumberOfVars :: Monad m => BuilderT t s m Int
+getNumberOfVars = BuilderT (gets numVars)
+
+adjustNumberOfVars :: Monad m => Var -> BuilderT t s m ()
+adjustNumberOfVars (Var var) = BuilderT $
+    modify $ \s -> s { numVars = max (var + 1) (numVars s) }
 
 
 getVarOrder :: Monad m => BuilderT t s m VarOrder

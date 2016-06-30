@@ -2,6 +2,7 @@ module Data.Mtbdd.Internal
   ( Id
 
   , Mtbdd(..)
+  , numberOfVars
   , varOrder
   , rootNode
 
@@ -24,13 +25,16 @@ import Data.VarOrder
 type Id = Int
 
 
-data Mtbdd t = Mtbdd !VarOrder (Node t)
+data Mtbdd t = Mtbdd !Int !VarOrder (Node t)
+
+numberOfVars :: Mtbdd t -> Int
+numberOfVars (Mtbdd numVars _ _) = numVars
 
 varOrder :: Mtbdd t -> VarOrder
-varOrder (Mtbdd vo _) = vo
+varOrder (Mtbdd _ vo _) = vo
 
 rootNode :: Mtbdd t -> Node t
-rootNode (Mtbdd _ node) = node
+rootNode (Mtbdd _ _ node) = node
 
 
 data Node t = Node !Id !(NodeType t)

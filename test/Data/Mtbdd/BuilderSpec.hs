@@ -19,8 +19,8 @@ import qualified Data.Proposition as P
 spec :: Spec
 spec = do
     describe "Mtbdd" $
-        it "is equivalent to represented function" $
-            property $ \f (fromList -> ds) -> eval (toBdd f) ds == P.eval f ds
+        it "is equivalent to represented function" $ property $
+            \f (fromList -> ds) -> eval (toBdd f) ds == P.eval f ds
 
     describe "projection" $
         it "evaluates to the given values" $ do
@@ -30,7 +30,10 @@ spec = do
             eval f [True] `shouldBe` "True"
             eval f [False] `shouldBe` "False"
 
-    describe "eval" $
+    describe "eval" $ do
+        it "evaluates to True for all satisfying evaluations" $ property $
+            \(toBdd -> f) -> all (eval f) (sat id f)
+
         it "works for binary encoding" $ do
             let f = runBuilder $ do
                         result <- binaryEncoding 3
@@ -71,9 +74,8 @@ spec = do
             eval f [False] `shouldBe` 0
 
     describe "runBuilderWith" $
-        it "preserves structure" $
-            property $ \(toBdd -> f) ->
-                allNodes f == allNodes (runBuilderWith f deref)
+        it "preserves structure" $ property $
+            \(toBdd -> f) -> allNodes f == allNodes (runBuilderWith f deref)
 
 
 binaryEncoding :: Monad m => Int -> BuilderT Int s m (Ref Int s)

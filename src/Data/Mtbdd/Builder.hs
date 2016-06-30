@@ -44,9 +44,7 @@ instance (Monad m, Eq t, Hashable t, Num t) =>
 
 
 deref :: Monad m => Ref t s -> BuilderT t s m (Mtbdd t)
-deref (Ref node) = do
-    vo <- getVarOrder
-    return (Mtbdd vo node)
+deref (Ref node) = Mtbdd <$> getNumberOfVars <*> getVarOrder <*> pure node
 
 
 constant :: (Eq t, Hashable t, Monad m) => t -> BuilderT t s m (Ref t s)
@@ -56,6 +54,7 @@ constant v = Ref <$> findOrAddTerminal v
 projection
     :: (Eq t, Hashable t, Monad m) => Var -> t -> t -> BuilderT t s m (Ref t s)
 projection var one zero = do
+    adjustNumberOfVars var
     vo <- getVarOrder
 
     one'  <- findOrAddTerminal one

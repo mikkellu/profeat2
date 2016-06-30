@@ -85,11 +85,11 @@ eval m decisions = go (rootNode m) where
         Var var = lookupVar (varOrder m) lvl
 
 
-sat :: (t -> Bool) -> Int -> Mtbdd t -> Set (Vector Bool)
-sat p varCount (Mtbdd vo root) = go (V.replicate varCount False) 0 root where
+sat :: (t -> Bool) -> Mtbdd t -> Set (Vector Bool)
+sat p (Mtbdd numVars vo root) = go (V.replicate numVars False) 0 root where
     go ds i node@(Node _ ty) = case ty of
         Terminal v
-          | p v -> if i >= varCount
+          | p v -> if i >= numVars
                        then Set.singleton ds
                        else step node node
           | otherwise -> Set.empty
