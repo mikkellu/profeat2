@@ -118,12 +118,6 @@ apply' op = go where
                 then return one
                 else findOrAddNode lvl one zero
 
-    child node@(Node _ ty) lvl b = case ty of
-        Terminal _ -> node
-        Decision nodeLvl one zero
-          | lvl < nodeLvl -> node
-          | otherwise     -> if b then one else zero
-
 
 bindAp2 :: Monad m => (a -> b -> m c) -> m a -> m b -> m c
 bindAp2 f mx my = do

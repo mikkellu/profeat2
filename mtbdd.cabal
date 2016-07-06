@@ -1,5 +1,5 @@
 name:          mtbdd
-version:       0.17.0
+version:       0.18.0
 synopsis:      Multi-terminal binary decision diagrams
 description:   Please see README.md
 license:       BSD3
@@ -27,6 +27,7 @@ library
     Data.Mtbdd.Builder.Internal
     Data.Mtbdd.Graphviz
     Data.Mtbdd.Internal
+    Data.Mtbdd.Reorder
     Data.VarOrder
   hs-source-dirs: src
   ghc-options: -Wall

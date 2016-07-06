@@ -20,6 +20,7 @@ module Data.Mtbdd
   , variable
   , value
 
+  , size
   , allNodes
   , eval
   , sat
@@ -52,11 +53,14 @@ isInnerNode (Node _ Decision {}) = True
 isInnerNode _                    = False
 
 
-
 variable :: VarOrder -> Node t -> Var
 variable vo (Node _ ty) = case ty of
     Terminal _       -> Var maxBound
     Decision lvl _ _ -> lookupVar vo lvl
+
+
+size :: Eq t => Node t -> Int
+size = length . allNodes
 
 
 value :: Node t -> Maybe t
@@ -64,8 +68,8 @@ value (Node _ (Terminal v)) = Just v
 value _                     = Nothing
 
 
-allNodes :: Eq t => Mtbdd t -> [Node t]
-allNodes = HashSet.toList . go HashSet.empty . rootNode where
+allNodes :: Eq t => Node t -> [Node t]
+allNodes = HashSet.toList . go HashSet.empty where
     go ms m@(Node _ ty) =
         let ms' = HashSet.insert m ms
         in case ty of

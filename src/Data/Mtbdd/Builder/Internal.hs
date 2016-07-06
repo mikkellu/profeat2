@@ -16,6 +16,8 @@ module Data.Mtbdd.Builder.Internal
   , getNumberOfVars
   , adjustNumberOfVars
   , getVarOrder
+  , modifyVarOrder
+  , getDecisionNodes
   , findOrAddTerminal
   , findOrAddNode
   ) where
@@ -49,7 +51,7 @@ runBuilderTWith m f = evalStateT (unB (f (Ref (rootNode m)))) initState
   where
     initState  = mtbddState { order = varOrder m, numVars = numberOfVars m }
     mtbddState = flip execState initialState $
-        forM_ (allNodes m) $ \node@(Node nid ty) -> do
+        forM_ (allNodes (rootNode m)) $ \node@(Node nid ty) -> do
             modify $ \s -> s { nextId = max (nid + 1) (nextId s) }
             case ty of
                 Terminal v            -> insertTerminal v node
@@ -107,6 +109,13 @@ adjustNumberOfVars (Var var) = BuilderT $
 
 getVarOrder :: Monad m => BuilderT t s m VarOrder
 getVarOrder = BuilderT (gets order)
+
+modifyVarOrder :: Monad m => (VarOrder -> VarOrder) -> BuilderT t s m ()
+modifyVarOrder f = BuilderT (modify $ \s -> s { order = f (order s) })
+
+
+getDecisionNodes :: Monad m => BuilderT t s m [Node t]
+getDecisionNodes = BuilderT (Map.elems <$> gets unique)
 
 
 createTerminal

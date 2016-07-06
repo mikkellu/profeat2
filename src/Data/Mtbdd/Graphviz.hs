@@ -124,7 +124,7 @@ mtbddEdges opts = vsep . fmap edges . concatMap snd where
 
 
 levels :: Eq t => Mtbdd t -> [(Level, [Node t])]
-levels = sortOn fst . toLists . foldr insert Map.empty . allNodes
+levels = sortOn fst . toLists . foldr insert Map.empty . allNodes . rootNode
   where
     insert m = Map.insertWith Set.union (level m) (Set.singleton m)
     toLists = Map.toList . Map.map Set.toList

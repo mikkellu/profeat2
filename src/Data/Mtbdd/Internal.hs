@@ -11,6 +11,7 @@ module Data.Mtbdd.Internal
 
   , nodeId
   , level
+  , child
   ) where
 
 import Data.Function (on)
@@ -63,3 +64,11 @@ level :: Node t -> Level
 level (Node _ ty) = case ty of
     Terminal _       -> Level maxBound
     Decision lvl _ _ -> lvl
+
+
+child :: Node t -> Level -> Bool -> Node t
+child node@(Node _ ty) lvl b = case ty of
+    Terminal _ -> node
+    Decision nodeLvl one zero
+      | lvl < nodeLvl -> node
+      | otherwise     -> if b then one else zero
