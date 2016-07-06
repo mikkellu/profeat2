@@ -55,12 +55,11 @@ projection
     :: (Eq t, Hashable t, Monad m) => Var -> t -> t -> BuilderT t s m (Ref t s)
 projection var one zero = do
     adjustNumberOfVars var
-    vo <- getVarOrder
 
     one'  <- findOrAddTerminal one
     zero' <- findOrAddTerminal zero
 
-    Ref <$> findOrAddNode (lookupLevel vo var) one' zero'
+    Ref <$> findOrAddNode var one' zero'
 
 
 bindMap
@@ -79,13 +78,13 @@ map'
 map' f = go where
     go (Node _ ty) = case ty of
         Terminal v            -> findOrAddTerminal (f v)
-        Decision lvl one zero -> do
+        Decision var one zero -> do
             zero' <- go zero
             one'  <- go one
 
             if zero' == one'
                 then return one'
-                else findOrAddNode lvl one' zero'
+                else findOrAddNode var one' zero'
 
 
 bindApply
@@ -109,14 +108,21 @@ apply' op = go where
         (Node _ (Terminal vl), Node _ (Terminal vr)) ->
             findOrAddTerminal (vl `op` vr)
         _ -> do
-            let lvl = min (level l) (level r)
+            vo <- getVarOrder
+            let llvl = level vo l
+                rlvl = level vo r
+                var  = if llvl < rlvl then variable l else variable r
 
-            zero <- go (child l lvl False) (child r lvl False)
-            one  <- go (child l lvl True)  (child r lvl True)
+            zero <- go (child l var False) (child r var False)
+            one  <- go (child l var True)  (child r var True)
 
             if zero == one
                 then return one
-                else findOrAddNode lvl one zero
+                else findOrAddNode var one zero
+    child node@(Node _ ty) var b = case ty of
+        Decision nodeVar one zero
+          | var == nodeVar -> if b then one else zero
+        _ -> node
 
 
 bindAp2 :: Monad m => (a -> b -> m c) -> m a -> m b -> m c

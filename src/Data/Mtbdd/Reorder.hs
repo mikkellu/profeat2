@@ -9,6 +9,7 @@ module Data.Mtbdd.Reorder
 
 import Control.Monad.State
 
+import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as Map
 
 import Data.Mtbdd.Internal
@@ -16,49 +17,88 @@ import Data.Mtbdd.Builder.Internal
 import Data.VarOrder
 
 
-swap :: (Eq t, Monad m) => Int -> Node t -> BuilderT t s m (Node t)
-swap i node = do
-    modifyVarOrder (swapVars i)
-    evalStateT (go node) Map.empty
-  where
-    go n@(Node nid ty) = case ty of
-        Terminal _ -> return n
-        Decision (Level lvl) one zero
-          | lvl < i -> do
-              one'  <- go one
-              zero' <- go zero
+type ReorderT t s m a = StateT (HashMap Id (Node t)) (BuilderT t s m) a
 
-              if one' == zero'
-                  then return one'
-                  else lift (findOrAddNode (Level lvl) one' zero')
-          | lvl == i -> do
-              done <- get
-              case Map.lookup nid done of
-                  Just node' -> return node'
-                  Nothing
-                    | min (level one) (level zero) == Level (i + 1) -> do
-                          result <- lift (swapNode i one zero)
-                          modify (Map.insert nid result)
-                          return result
-                    | otherwise -> return n
-          | otherwise -> return n
+
+swap :: (Eq t, Monad m) => Level -> Node t -> BuilderT t s m (Node t)
+swap lvl node = do
+    result <- evalStateT (go node) Map.empty
+
+    vo <- getVarOrder
+    let varNext = lookupVar vo lvlNext
+    adjustNumberOfVars varNext
+    modifyVarOrder (swapVars lvl)
+
+    return result
+  where
+    go n@(Node nid ty) = do
+        vo <- lift getVarOrder
+        case ty of
+            Terminal _ -> return n
+            Decision var one zero
+              | lookupLevel vo var < lvl  -> rebuildNode go var one zero
+              | lookupLevel vo var == lvl -> unlessDone nid $
+                  if min (level vo one) (level vo zero) == lvlNext
+                      then swapNode var (lookupVar vo lvlNext) one zero
+                      else return n
+              | otherwise -> return n
+    lvlNext = Level (i + 1)
+    Level i = lvl
+
+
+rebuildNode
+    :: (Eq t, Monad m)
+    => (Node t -> ReorderT t s m (Node t))
+    -> Var
+    -> Node t
+    -> Node t
+    -> ReorderT t s m (Node t)
+rebuildNode f var one zero = do
+    one'  <- f one
+    zero' <- f zero
+
+    if one' == zero'
+        then return one'
+        else lift (findOrAddNode var one' zero')
+
 
 swapNode
     :: (Eq t, Monad m)
-    => Int
+    => Var
+    -> Var
     -> Node t
     -> Node t
     -> BuilderT t s m (Node t)
-swapNode i one zero = do
-    one'  <- mkNode True one zero
+swapNode var varNext one zero = do
+    one'  <- mkNode True  one zero
     zero' <- mkNode False one zero
 
-    findOrAddNode (Level i) one' zero'
+    findOrAddNode varNext one' zero'
   where
-    nextLvl = Level (i + 1)
-    mkNode b one' zero' =
-        let one''  = child one' nextLvl b
-            zero'' = child zero' nextLvl b
-        in if one'' == zero''
+    mkNode b one' zero' = do
+        let one''  = child' one'  b
+            zero'' = child' zero' b
+
+        if one'' == zero''
                then return one''
-               else findOrAddNode nextLvl one'' zero''
+               else findOrAddNode var one'' zero''
+
+    child' node@(Node _ ty) b = case ty of
+        Decision nodeVar one' zero'
+          | nodeVar == varNext -> if b then one' else zero'
+        _ -> node
+
+
+unlessDone
+    :: Monad m
+    => Id
+    -> BuilderT t s m (Node t)
+    -> ReorderT t s m (Node t)
+unlessDone nid m = do
+    done <- get
+    case Map.lookup nid done of
+        Just node -> return node
+        Nothing   -> do
+            result <- lift m
+            modify (Map.insert nid result)
+            return result

@@ -31,7 +31,6 @@ import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as Map
 
 import Data.Mtbdd
-import Data.Mtbdd.Internal
 import Data.VarOrder
 
 
@@ -55,7 +54,7 @@ runBuilderTWith m f = evalStateT (unB (f (Ref (rootNode m)))) initState
             modify $ \s -> s { nextId = max (nid + 1) (nextId s) }
             case ty of
                 Terminal v            -> insertTerminal v node
-                Decision lvl one zero -> insertDecision lvl one zero node
+                Decision var one zero -> insertDecision var one zero node
 
 
 type Builder t s a = BuilderT t s Identity a
@@ -69,7 +68,7 @@ runBuilderWith
 runBuilderWith m f = runIdentity (runBuilderTWith m f)
 
 
-type UniqueTable t = HashMap (Level, Id, Id) (Node t)
+type UniqueTable t = HashMap (Var, Id, Id) (Node t)
 
 
 type TerminalTable t = HashMap t (Node t)
@@ -134,18 +133,18 @@ insertTerminal v node = modify $ \s ->
 
 createDecision
     :: MonadState (BuilderState t) m
-    => Level -> Node t -> Node t -> m (Node t)
-createDecision lvl one zero = do
+    => Var -> Node t -> Node t -> m (Node t)
+createDecision var one zero = do
     nid <- freshNodeId
-    let node = Node nid (Decision lvl one zero)
-    insertDecision lvl one zero node
+    let node = Node nid (Decision var one zero)
+    insertDecision var one zero node
     return node
 
 insertDecision
     :: MonadState (BuilderState t) m
-    => Level -> Node t -> Node t -> Node t -> m ()
-insertDecision lvl one zero node = modify $ \s ->
-    s { unique = Map.insert (lvl, nodeId one, nodeId zero) node (unique s) }
+    => Var -> Node t -> Node t -> Node t -> m ()
+insertDecision var one zero node = modify $ \s ->
+    s { unique = Map.insert (var, nodeId one, nodeId zero) node (unique s) }
 
 
 findOrAddTerminal :: (Eq t, Hashable t, Monad m) => t -> BuilderT t s m (Node t)
@@ -156,9 +155,9 @@ findOrAddTerminal v = BuilderT $ do
         Nothing   -> createTerminal v
 
 findOrAddNode
-    :: Monad m => Level -> Node t -> Node t -> BuilderT t s m (Node t)
-findOrAddNode lvl one zero = BuilderT $ do
+    :: Monad m => Var -> Node t -> Node t -> BuilderT t s m (Node t)
+findOrAddNode var one zero = BuilderT $ do
     ut <- gets unique
-    case Map.lookup (lvl, nodeId one, nodeId zero) ut of
+    case Map.lookup (var, nodeId one, nodeId zero) ut of
         Just node -> return node
-        Nothing   -> createDecision lvl one zero
+        Nothing   -> createDecision var one zero

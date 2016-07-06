@@ -45,8 +45,8 @@ lookupLevel VarOrder{..} (Var var) = maybe (Level var) Level (varToLvl !? var)
 
 
 -- | Swaps the variables at positions n and n+1 in the given 'VarOrder'.
-swapVars :: Int -> VarOrder -> VarOrder
-swapVars i (ensureSize (i + 2) -> VarOrder{..}) =
+swapVars :: Level -> VarOrder -> VarOrder
+swapVars (Level i) (ensureSize (i + 2) -> VarOrder{..}) =
     let xLvl = i
         yLvl = i + 1
         xVar = lvlToVar ! xLvl

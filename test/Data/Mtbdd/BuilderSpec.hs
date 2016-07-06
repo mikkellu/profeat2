@@ -75,7 +75,9 @@ spec = do
 
     describe "runBuilderWith" $
         it "preserves structure" $ property $
-            \(toBdd -> f) -> allNodes f == allNodes (runBuilderWith f deref)
+            \(toBdd -> f) ->
+                allNodes (rootNode f) ==
+                allNodes (rootNode (runBuilderWith f deref))
 
 
 binaryEncoding :: Monad m => Int -> BuilderT Int s m (Ref Int s)

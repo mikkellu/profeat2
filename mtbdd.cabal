@@ -1,5 +1,5 @@
 name:          mtbdd
-version:       0.18.0
+version:       0.19.0
 synopsis:      Multi-terminal binary decision diagrams
 description:   Please see README.md
 license:       BSD3
@@ -38,12 +38,14 @@ test-suite mtbdd-test
   build-depends:
     base,
     mtbdd,
+    hashable >= 1.2.4 && < 2,
     hspec >= 2.2.3 && < 3,
     QuickCheck >= 2.8.2 && < 3,
     vector >= 0.11.0 && < 0.12
   main-is: Spec.hs
   other-modules:
     Data.Mtbdd.BuilderSpec
+    Data.Mtbdd.ReorderSpec
     Data.Proposition
     Data.VarOrderSpec
   hs-source-dirs: test

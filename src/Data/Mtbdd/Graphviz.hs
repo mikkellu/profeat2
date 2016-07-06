@@ -82,32 +82,32 @@ prettyMtbdd :: Eq t => RenderOpts t -> Text -> Mtbdd t -> Doc
 prettyMtbdd opts name m = "digraph" <+> text name <+> lbrace <> line <>
     indent 4 body <> line <> rbrace
   where
-    body = vsep [mtbddNodes (varOrder m) opts lvls, mtbddEdges opts lvls]
+    body = vsep [mtbddNodes opts lvls, mtbddEdges opts lvls]
     lvls = fmap (fmap (filter (nodePred opts))) (levels m)
 
 
-mtbddNodes :: VarOrder -> RenderOpts t -> [(Level, [Node t])] -> Doc
-mtbddNodes vo opts = vsep . fmap subgraph where
-    subgraph (Level lvl, ms) = "subgraph" <+> name <+> lbrace <> line <>
+mtbddNodes :: RenderOpts t -> [(Var, [Node t])] -> Doc
+mtbddNodes opts = vsep . fmap subgraph where
+    subgraph (Var var, ms) = "subgraph" <+> name <+> lbrace <> line <>
         indent 4 body <> line <> rbrace
       where
-        name | lvl < maxBound = int lvl
+        name | var < maxBound = int var
              | otherwise      = "terminals"
         body = (if compact opts then empty else "rank=same" <> semi <> line) <>
-               vsep (fmap (mtbddNode vo opts) ms) <> line
+               vsep (fmap (mtbddNode opts) ms) <> line
 
 
-mtbddNode :: VarOrder -> RenderOpts t -> Node t -> Doc
-mtbddNode vo opts (Node nid ty) = case ty of
+mtbddNode :: RenderOpts t -> Node t -> Doc
+mtbddNode opts (Node nid ty) = case ty of
     Terminal v -> int nid <+>
         brackets ("style=filled, shape=box" <> comma <>
         "label=" <> dquotes (terminalLabeling opts nid v)) <> semi
-    Decision lvl one zero ->
-        let nodeLabel = nodeLabeling opts nid (lookupVar vo lvl) one zero
+    Decision var one zero ->
+        let nodeLabel = nodeLabeling opts nid var one zero
         in int nid <+> brackets ("label=" <> dquotes nodeLabel) <> semi
 
 
-mtbddEdges :: RenderOpts t -> [(Level, [Node t])] -> Doc
+mtbddEdges :: RenderOpts t -> [(Var, [Node t])] -> Doc
 mtbddEdges opts = vsep . fmap edges . concatMap snd where
     edges (Node nid ty) = case ty of
         Terminal _          -> empty
@@ -123,8 +123,8 @@ mtbddEdges opts = vsep . fmap edges . concatMap snd where
         p = liftA2 (&&) (edgePred opts) (nodePred opts)
 
 
-levels :: Eq t => Mtbdd t -> [(Level, [Node t])]
+levels :: Eq t => Mtbdd t -> [(Var, [Node t])]
 levels = sortOn fst . toLists . foldr insert Map.empty . allNodes . rootNode
   where
-    insert m = Map.insertWith Set.union (level m) (Set.singleton m)
+    insert m = Map.insertWith Set.union (variable m) (Set.singleton m)
     toLists = Map.toList . Map.map Set.toList

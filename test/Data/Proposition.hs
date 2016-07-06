@@ -2,6 +2,8 @@
 
 module Data.Proposition
   ( Proposition(..)
+  , BinOp(..)
+
   , eval
   , toBdd
   ) where

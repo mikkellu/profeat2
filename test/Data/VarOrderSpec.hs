@@ -23,7 +23,8 @@ spec =
 instance Arbitrary VarOrder where
     arbitrary = do
         swaps <- arbitrary :: Gen [NonNegative Int]
-        return (foldr swapVars initialOrder (fmap getNonNegative swaps))
+        let swapLvls = fmap (Level . getNonNegative) swaps
+        return (foldr swapVars initialOrder swapLvls)
 
 deriving instance Arbitrary Level
 

@@ -8,6 +8,7 @@ module Data.Mtbdd
   , lookupLevel
 
   , Mtbdd
+  , numberOfVars
   , varOrder
   , rootNode
 
@@ -53,12 +54,6 @@ isInnerNode (Node _ Decision {}) = True
 isInnerNode _                    = False
 
 
-variable :: VarOrder -> Node t -> Var
-variable vo (Node _ ty) = case ty of
-    Terminal _       -> Var maxBound
-    Decision lvl _ _ -> lookupVar vo lvl
-
-
 size :: Eq t => Node t -> Int
 size = length . allNodes
 
@@ -81,26 +76,25 @@ eval :: Mtbdd t -> Vector Bool -> t
 eval m decisions = go (rootNode m) where
     go (Node _ ty) = case ty of
         Terminal v -> v
-        Decision lvl one zero
-          | lookupDecision lvl -> go one
+        Decision (Var var) one zero
+          | lookupDecision var -> go one
           | otherwise          -> go zero
-    lookupDecision lvl = fromMaybe False (decisions !? var)
-      where
-        Var var = lookupVar (varOrder m) lvl
+    lookupDecision var = fromMaybe False (decisions !? var)
 
 
 sat :: (t -> Bool) -> Mtbdd t -> Set (Vector Bool)
-sat p (Mtbdd numVars vo root) = go (V.replicate numVars False) 0 root where
-    go ds i node@(Node _ ty) = case ty of
+sat p (Mtbdd numVars vo root) = go (V.replicate numVars False) (Level 0) root
+  where
+    go ds lvl@(Level i) node@(Node _ ty) = case ty of
         Terminal v
           | p v -> if i >= numVars
                        then Set.singleton ds
                        else step node node
           | otherwise -> Set.empty
-        Decision (Level lvl) one zero
-          | i < lvl   -> step node node
-          | otherwise -> step one zero
+        Decision nodeVar one zero
+          | lvl < lookupLevel vo nodeVar -> step node node
+          | otherwise                    -> step one zero
       where
-        step one zero = go (ds // [(var, True)]) (i + 1) one <>
-                        go (ds // [(var, False)]) (i + 1) zero
-        Var var = lookupVar vo (Level i)
+        step one zero = go (ds // [(var, True)]) (Level (i + 1)) one <>
+                        go (ds // [(var, False)]) (Level (i + 1)) zero
+        Var var = lookupVar vo lvl

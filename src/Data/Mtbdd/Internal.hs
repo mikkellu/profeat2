@@ -10,8 +10,8 @@ module Data.Mtbdd.Internal
   , NodeType(..)
 
   , nodeId
+  , variable
   , level
-  , child
   ) where
 
 import Data.Function (on)
@@ -47,7 +47,7 @@ instance Hashable (Node t) where
 
 data NodeType t
   = Terminal !t
-  | Decision !Level (Node t) (Node t)
+  | Decision !Var (Node t) (Node t)
 
 instance Eq t => Eq (Node t) where
     (==) = (==) `on` nodeId
@@ -60,15 +60,13 @@ nodeId :: Node t -> Id
 nodeId (Node nid _) = nid
 
 
-level :: Node t -> Level
-level (Node _ ty) = case ty of
+variable :: Node t -> Var
+variable (Node _ ty) = case ty of
+    Terminal _       -> Var maxBound
+    Decision var _ _ -> var
+
+
+level :: VarOrder -> Node t -> Level
+level vo (Node _ ty) = case ty of
     Terminal _       -> Level maxBound
-    Decision lvl _ _ -> lvl
-
-
-child :: Node t -> Level -> Bool -> Node t
-child node@(Node _ ty) lvl b = case ty of
-    Terminal _ -> node
-    Decision nodeLvl one zero
-      | lvl < nodeLvl -> node
-      | otherwise     -> if b then one else zero
+    Decision var _ _ -> lookupLevel vo var
