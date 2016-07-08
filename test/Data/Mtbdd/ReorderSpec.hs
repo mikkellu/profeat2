@@ -19,7 +19,7 @@ import Data.Proposition
 
 
 spec :: Spec
-spec =
+spec = do
     describe "swap" $ do
         it "preserves the represented function" $ property $ withBoundedLevel $
             \f lvl -> sat id f == sat id (swap' lvl f)
@@ -29,6 +29,12 @@ spec =
                              result <- Ref <$> (swap lvl <=< swap lvl) node
                              deref result
                 in allNodes (rootNode f) == allNodes (rootNode f')
+
+    describe "sift" $ do
+        it "preserves the number of variables" $ property $
+            \(toBdd -> f) -> numberOfVars f == numberOfVars (sift f)
+        it "returns a BDD of equal or smaller size" $ property $
+            \(toBdd -> f) -> size (rootNode f) >= size (rootNode (sift f))
 
 
 withBoundedLevel

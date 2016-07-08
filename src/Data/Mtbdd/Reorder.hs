@@ -1,18 +1,23 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Data.Mtbdd.Reorder
-  ( swap
+  ( sift
+  , swap
   ) where
 
 
 import Control.Monad.State
 
+import Data.Hashable (Hashable)
+import qualified Data.Map as Map
 import Data.HashMap.Strict (HashMap)
-import qualified Data.HashMap.Strict as Map
+import qualified Data.HashMap.Strict as HashMap
 
-import Data.Mtbdd.Internal
+import Data.Mtbdd
+import Data.Mtbdd.Builder
 import Data.Mtbdd.Builder.Internal
 import Data.VarOrder
 
@@ -20,9 +25,51 @@ import Data.VarOrder
 type ReorderT t s m a = StateT (HashMap Id (Node t)) (BuilderT t s m) a
 
 
+sift :: (Eq t, Hashable t) => Mtbdd t -> Mtbdd t
+sift m = runBuilderWith m $ \(Ref node) -> do
+    numVars <- getNumberOfVars
+    result <- foldM shiftVar node [0 .. numVars - 1]
+    deref (Ref result)
+  where
+    shiftVar node (Var -> var) = do
+        numVars <- getNumberOfVars
+        vo <- getVarOrder
+        let lvl = lookupLevel vo var
+            s   = size node
+            cs  = Map.singleton s (node, vo)
+
+        cs' <- goUp cs lvl node
+        setVarOrder vo
+        cs'' <- goDown numVars cs' lvl node
+
+        let (node', vo') = snd (Map.findMin cs'')
+        setVarOrder vo'
+        return node'
+
+    goUp candidates (Level lvl) node
+      | lvl == 0  = return candidates
+      | otherwise = do
+          let lvl' = Level (lvl - 1)
+          node' <- swap lvl' node
+          vo'   <- getVarOrder
+          let s = size node'
+              candidates' = Map.insert s (node', vo') candidates
+          goUp candidates' lvl' node'
+
+    goDown numVars candidates (Level lvl) node
+      | lvl >= numVars - 2 = return candidates
+      | otherwise = do
+          node' <- swap (Level lvl) node
+          vo'   <- getVarOrder
+          let s = size node'
+              candidates' = Map.insert s (node', vo') candidates
+          goDown numVars candidates' (Level (lvl + 1)) node'
+
+
+
 swap :: (Eq t, Monad m) => Level -> Node t -> BuilderT t s m (Node t)
 swap lvl node = do
-    result <- evalStateT (go node) Map.empty
+    result <- evalStateT (go node) HashMap.empty
 
     vo <- getVarOrder
     let varNext = lookupVar vo lvlNext
@@ -96,9 +143,9 @@ unlessDone
     -> ReorderT t s m (Node t)
 unlessDone nid m = do
     done <- get
-    case Map.lookup nid done of
+    case HashMap.lookup nid done of
         Just node -> return node
         Nothing   -> do
             result <- lift m
-            modify (Map.insert nid result)
+            modify (HashMap.insert nid result)
             return result

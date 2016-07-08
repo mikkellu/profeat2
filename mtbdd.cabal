@@ -1,5 +1,5 @@
 name:          mtbdd
-version:       0.19.0
+version:       0.20.0
 synopsis:      Multi-terminal binary decision diagrams
 description:   Please see README.md
 license:       BSD3
@@ -38,6 +38,7 @@ test-suite mtbdd-test
   build-depends:
     base,
     mtbdd,
+    containers >= 0.5.6 && < 0.6,
     hashable >= 1.2.4 && < 2,
     hspec >= 2.2.3 && < 3,
     QuickCheck >= 2.8.2 && < 3,

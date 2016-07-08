@@ -16,6 +16,7 @@ module Data.Mtbdd.Builder.Internal
   , getNumberOfVars
   , adjustNumberOfVars
   , getVarOrder
+  , setVarOrder
   , modifyVarOrder
   , getDecisionNodes
   , findOrAddTerminal
@@ -108,6 +109,9 @@ adjustNumberOfVars (Var var) = BuilderT $
 
 getVarOrder :: Monad m => BuilderT t s m VarOrder
 getVarOrder = BuilderT (gets order)
+
+setVarOrder :: Monad m => VarOrder -> BuilderT t s m ()
+setVarOrder vo = modifyVarOrder (const vo)
 
 modifyVarOrder :: Monad m => (VarOrder -> VarOrder) -> BuilderT t s m ()
 modifyVarOrder f = BuilderT (modify $ \s -> s { order = f (order s) })
