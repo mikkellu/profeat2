@@ -8,10 +8,12 @@ module Data.Mtbdd.Builder.Internal
   , BuilderT(..)
   , runBuilderT
   , runBuilderTWith
+  , runBuilderTWithOrder
 
   , Builder
   , runBuilder
   , runBuilderWith
+  , runBuilderWithOrder
 
   , getNumberOfVars
   , adjustNumberOfVars
@@ -58,6 +60,11 @@ runBuilderTWith m f = evalStateT (unB (f (Ref (rootNode m)))) initState
                 Decision var one zero -> insertDecision var one zero node
 
 
+runBuilderTWithOrder
+    :: Monad m => VarOrder -> (forall s. BuilderT t s m a) -> m a
+runBuilderTWithOrder vo (BuilderT m) = evalStateT m initialState { order = vo }
+
+
 type Builder t s a = BuilderT t s Identity a
 
 runBuilder :: (forall s. Builder t s a) -> a
@@ -67,6 +74,9 @@ runBuilderWith
     :: (Eq t, Hashable t)
     => Mtbdd t -> (forall s. Ref t s -> Builder t s a) -> a
 runBuilderWith m f = runIdentity (runBuilderTWith m f)
+
+runBuilderWithOrder :: VarOrder -> (forall s. Builder t s a) -> a
+runBuilderWithOrder vo m = runIdentity (runBuilderTWithOrder vo m)
 
 
 type UniqueTable t = HashMap (Var, Id, Id) (Node t)

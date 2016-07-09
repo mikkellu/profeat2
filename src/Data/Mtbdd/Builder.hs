@@ -10,10 +10,12 @@ module Data.Mtbdd.Builder
   , BuilderT
   , runBuilderT
   , runBuilderTWith
+  , runBuilderTWithOrder
 
   , Builder
   , runBuilder
   , runBuilderWith
+  , runBuilderWithOrder
 
   , constant
   , projection

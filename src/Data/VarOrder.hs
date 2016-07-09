@@ -8,6 +8,7 @@ module Data.VarOrder
 
   , VarOrder
   , initialOrder
+  , fromList
   , lookupVar
   , lookupLevel
   , swapVars
@@ -15,7 +16,7 @@ module Data.VarOrder
 
 import Data.Hashable
 
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromJust, fromMaybe)
 
 import Data.Vector.Unboxed (Vector, (!), (!?), (//))
 import qualified Data.Vector.Unboxed as Vec
@@ -36,6 +37,15 @@ data VarOrder = VarOrder
 
 initialOrder :: VarOrder
 initialOrder = VarOrder Vec.empty Vec.empty
+
+fromList :: [Int] -> VarOrder
+fromList vars = VarOrder
+  { varToLvl = Vec.generate size (\i -> fromJust (lookup i inv))
+  , lvlToVar = Vec.generate size (\i -> vars !! i)
+  }
+  where
+    inv  = zip vars [0..]
+    size = length vars
 
 lookupVar :: VarOrder -> Level -> Var
 lookupVar VarOrder{..} (Level lvl) = maybe (Var lvl) Var (lvlToVar !? lvl)
