@@ -1,1 +1,1 @@
-filter(printall, Pmin=? [X (_s = 2)][F (_s = 1)], "init");
+filter(print, Pmin=? [X (_s = 2)][F (_s = 1)], "init");

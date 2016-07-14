@@ -1,2 +1,2 @@
-filter(printall, Pmax=? [ F (_a_active & _a_s = 1) ], "init");
+filter(print, Pmax=? [ F (_a_active & _a_s = 1) ], "init");
 
