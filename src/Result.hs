@@ -34,6 +34,7 @@ module Result
 
 import Prelude hiding ( (<$>) )
 import Control.Lens hiding ( (:<) )
+import Control.Applicative          ( (<|>), liftA2 )
 
 import Data.Foldable                ( toList )
 import qualified Data.Map as Map
@@ -43,6 +44,7 @@ import Data.Sequence                ( Seq, ViewL(..), viewl )
 import qualified Data.Sequence as Seq
 import Data.IntSet                  ( IntSet, member, findMin, findMax, singleton, size )
 import qualified Data.IntSet as Set
+import Data.Semigroup
 import Data.Strict.Tuple            ( (:!:), Pair(..) )
 import Data.Strict.Tuple.Lens       ()
 import qualified Data.Strict.Tuple as ST
@@ -54,7 +56,8 @@ import qualified Data.Vector.Generic as V
 import qualified Data.Vector as BV
 import qualified Data.Vector.Unboxed as UV
 
-import Text.PrettyPrint.Leijen.Text
+import Text.PrettyPrint.Leijen.Text hiding ((<>))
+import qualified Text.PrettyPrint.Leijen.Text as PP
 
 import Analysis.VarOrdering
 import Syntax hiding ( Range )
@@ -65,13 +68,24 @@ data Result
   | ResultRange !Double !Double
   deriving (Eq, Ord, Show)
 
+instance Semigroup Result where
+    ResultBool x <> ResultBool y = ResultBool (x && y)
+    ResultDouble x <> ResultDouble y
+      | x < y     = ResultRange x y
+      | x > y     = ResultRange y x
+      | otherwise = ResultDouble x
+    ResultRange xl xu <> ResultDouble y = ResultRange (min y xl) (max y xu)
+    ResultDouble x <> ResultRange yl yu = ResultRange (min x yl) (max x yu)
+    ResultRange xl xu <> ResultRange yl yu = ResultRange (min xl yl) (max xu yu)
+    _ <> _ = error "Result.<>: type error"
+
 instance Pretty Result where
     pretty = \case
         ResultBool False        -> "false"
         ResultBool True         -> "true"
         ResultDouble d          -> double d
         ResultRange lower upper ->
-            brackets (double lower <> comma <> double upper)
+            brackets (double lower PP.<> comma PP.<> double upper)
 
 type StateVec = UV.Vector Int
 
@@ -81,7 +95,7 @@ data ResultCollection = ResultCollection
   { _rcVarOrdering         :: !VarOrdering
   , _rcStateResults        :: !(Seq (StateVec :!: Result))
   , _rcGroupedStateResults :: !(Seq (GroupedStateVec :!: Result))
-  , _rcFinalResult         :: !Result
+  , _rcFinalResult         :: Maybe Result
   , _rcTrace               :: !(Seq StateVec)
   , _rcLog                 :: !(Seq Text)
   , _rcDdNodes             :: !(Seq (Int :!: Int))
@@ -96,7 +110,7 @@ emptyResultCollection vo = ResultCollection
   { _rcVarOrdering         = vo
   , _rcStateResults        = Seq.empty
   , _rcGroupedStateResults = Seq.empty
-  , _rcFinalResult         = ResultBool False
+  , _rcFinalResult         = Nothing
   , _rcTrace               = Seq.empty
   , _rcLog                 = Seq.empty
   , _rcDdNodes             = Seq.empty
@@ -109,19 +123,7 @@ appendResultCollection :: ResultCollection
                        -> ResultCollection
 appendResultCollection (ResultCollection xVo xSrs xGrs xR xTr xL xNs xBt xCt)
                        (ResultCollection _   ySrs yGrs yR _   yL yNs yBt yCt) =
-    let r = case (xR, yR) of
-                (ResultBool x, ResultBool y) -> ResultBool (x && y)
-                (ResultDouble x, ResultDouble y)
-                  | x < y     -> ResultRange x y
-                  | x > y     -> ResultRange y x
-                  | otherwise -> ResultDouble x
-                (ResultRange xl xu, ResultDouble y) ->
-                    ResultRange (min y xl) (max y xu)
-                (ResultDouble x, ResultRange yl yu) ->
-                    ResultRange (min x yl) (max x yu)
-                (ResultRange xl xu, ResultRange yl yu) ->
-                    ResultRange (min xl yl) (max xu yu)
-                _ -> error "Result.appendResultCollection: incompatible collections"
+    let r = liftA2 (<>) xR yR <|> xR <|> yR
     in ResultCollection xVo (mappend xSrs ySrs) (mappend xGrs yGrs) r xTr
            (mappend xL yL) (mappend xNs yNs) (xBt + yBt) (xCt + yCt)
 
@@ -197,18 +199,18 @@ prettyResultCollections includeLog (Specification defs) rcs =
     let props = defs^..traverse._PropertyDef
     in vsep . punctuate separator . fmap p $ zip props rcs
   where
-    p (def, rc) = pretty def <> line <> line <>
+    p (def, rc) = pretty def PP.<> line PP.<> line PP.<>
                   prettyResultCollection includeLog rc
-    separator = line <> line <> text (L.replicate 80 "-") <> line
+    separator = line PP.<> line PP.<> text (L.replicate 80 "-") PP.<> line
 
 prettyResultCollection :: Bool -> ResultCollection -> Doc
 prettyResultCollection includeLog ResultCollection{..} =
-    (if includeLog then prettyLog _rcLog <> line <> line else empty) <>
-    "Final result:" <+> pretty _rcFinalResult <$>
+    (if includeLog then prettyLog _rcLog PP.<> line PP.<> line else empty) PP.<>
+    maybe empty (("Final result:" <+>) . pretty) _rcFinalResult <$>
     stateResults <$>
     groupedStateResults <$>
     prettyTrace <$>
-    line <>
+    line PP.<>
     prettyTrnsNodes <$>
     "Time for model construction:" <+> pretty _rcBuildingTime <$>
     "Time for model checking:" <+> pretty _rcCheckingTime
@@ -259,7 +261,7 @@ prettyStateResult :: Vector v a
                   -> Result
                   -> Doc
 prettyStateResult f vo sv r =
-    parens (prettyStateVec f vo sv) <> char '=' <> pretty r
+    parens (prettyStateVec f vo sv) PP.<> char '=' PP.<> pretty r
 
 type ValPrinter a = (Doc, Range) -> a -> Maybe Doc
 
@@ -275,7 +277,7 @@ prettyValGroup (ident, r) vals = case r of
     RangeFeature
       | 0 `member` vals && 1 `member` vals -> Nothing
       | 1 `member` vals                    -> Just ident
-      | otherwise                          -> Just $ char '!' <> ident
+      | otherwise                          -> Just $ char '!' PP.<> ident
     RangeBool
       | 0 `member` vals && 1 `member` vals -> Nothing
       | 1 `member` vals                    -> identDef "true"
@@ -285,12 +287,12 @@ prettyValGroup (ident, r) vals = case r of
       | isContiguous vals && lower `member` vals && upper `member` vals
                           -> Nothing
       | isContiguous vals -> identDef $
-            braces (int (findMin vals) <> ".." <> int (findMax vals))
+            braces (int (findMin vals) PP.<> ".." PP.<> int (findMax vals))
       | otherwise         -> identDef $
             braces (hsep (punctuate comma (fmap int (Set.toAscList vals))))
     RangeInternal -> Nothing
   where
-    identDef doc = Just $ ident <> char '=' <> doc
+    identDef doc = Just $ ident PP.<> char '=' PP.<> doc
 
 prettyVal :: ValPrinter Int
 prettyVal (ident, r) v = case r of
@@ -305,7 +307,7 @@ prettyVal (ident, r) v = case r of
     Range _ _     -> identDef (int v)
     RangeInternal -> Nothing
   where
-    identDef doc = Just $ ident <> char '=' <> doc
+    identDef doc = Just $ ident PP.<> char '=' PP.<> doc
 
 isContiguous :: IntSet -> Bool
 isContiguous s

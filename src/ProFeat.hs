@@ -342,26 +342,25 @@ parsePrismOutputs outputs = do
         return $ parseResultCollections (varOrdering symTbl) out
 
 postprocessPrismOutput :: LSpecification -> [ResultCollection] -> ProFeat L.Text
-postprocessPrismOutput spec = (return . fmap removeNonConfVars)
-    >=> (return . fmap sortStateResults)
-    >=> applyRounding
-    >=> applyGrouping
-    >=> renderResultCollections
+postprocessPrismOutput spec rcs = do
+    let filteredRcs = filter (isJust . _rcFinalResult) rcs
+        rcs'        = fmap (sortStateResults . removeNonConfVars) filteredRcs
+    rcs'' <- applyGrouping =<< applyRounding rcs'
+    showLog <- asks showPrismLog
+    let doc = if null filteredRcs
+                  then prettyResultCollections True spec rcs
+                  else prettyResultCollections showLog spec rcs''
+    return (displayT (renderPretty 1.0 300 doc))
   where
-    applyRounding rcs = asks roundResults <&> \case
-        Just precision -> fmap (roundStateResults precision) rcs
-        Nothing        -> rcs
+    applyRounding rcs' = asks roundResults <&> \case
+        Just precision -> fmap (roundStateResults precision) rcs'
+        Nothing        -> rcs'
 
-    applyGrouping rcs = do
+    applyGrouping rcs' = do
         gr <- asks groupResults
         return $ if gr
-            then fmap groupStateVecs rcs
-            else rcs
-
-    renderResultCollections rcs = do
-        showLog <- asks showPrismLog
-        return . displayT . renderPretty 1.0 300 $
-            prettyResultCollections showLog spec rcs
+            then fmap groupStateVecs rcs'
+            else rcs'
 
 runApp :: ProFeat () -> ProFeatOptions -> IO ()
 runApp m opts = do

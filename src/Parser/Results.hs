@@ -48,7 +48,7 @@ resultCollection :: VarOrdering -> [Log] -> ResultCollection
 resultCollection vo ls =
     flip execState (emptyResultCollection vo) . for ls $ \case
         LogStateResults srs -> rcStateResults .= srs
-        LogFinalResult  r   -> rcFinalResult  .= r
+        LogFinalResult  r   -> rcFinalResult  .= Just r
         LogTrace        svs -> rcTrace        .= svs
         LogDdNodes      n   -> rcDdNodes      .= singleton n
         LogBuildingTime t   -> rcBuildingTime .= t
