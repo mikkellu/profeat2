@@ -1,0 +1,16 @@
+mdp
+
+init
+    true
+endinit
+
+formula _active = true;
+
+const double dist_0 = 6.25e-2;
+const double dist_1 = 0.25;
+const double dist_2 = 0.375;
+const double dist_3 = 0.25;
+const double dist_4 = 6.25e-2;
+
+const double x = dist_2;
+

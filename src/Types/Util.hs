@@ -115,6 +115,8 @@ fromConstType ct e =
     in case e of
         Just (ArrayExpr (_ :| es) _) ->
             CompoundType $ ArrayType (Just (0, genericLength es)) st
+        Just (CallExpr (FuncExpr FuncBinom _) _ _) ->
+            CompoundType $ ArrayType Nothing DoubleType
         _ -> SimpleType st
 
 toConstType :: SimpleType -> ConstType
