@@ -10,4 +10,5 @@ dist
 .ghci
 cabal.sandbox.config
 temp/
+misc/
 tmux.conf
