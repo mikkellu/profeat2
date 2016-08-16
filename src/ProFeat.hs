@@ -88,10 +88,8 @@ helpExportResults = "Export the results of model checking to <file>"
 helpPrismLog = "Show PRISM log messages"
 --    --import-results
 helpImportResults = "Import the PRISM results from <file> for postprocessing"
---    --group-results
-helpGroupResults = "Group initial configurations by their result"
 --    --round-results
-helpRoundResults = "Round results to <precision> digits before grouping"
+helpRoundResults = "Round results to <precision> digits"
 -- -t --translate
 helpTranslate = "Translate only, do not model check"
 -- -m --model-checking
@@ -130,7 +128,6 @@ data ProFeatOptions = ProFeatOptions
   , proFeatResultsPath :: Maybe FilePath
   , showPrismLog       :: !Bool
   , prismResultsPath   :: Maybe FilePath
-  , groupResults       :: !Bool
   , roundResults       :: Maybe Int
   , translateOnly      :: !Bool
   , modelCheckOnly     :: !Bool
@@ -151,7 +148,6 @@ defaultOptions = ProFeatOptions
   , proFeatResultsPath = Nothing
   , showPrismLog       = False
   , prismResultsPath   = Nothing
-  , groupResults       = False
   , roundResults       = Nothing
   , translateOnly      = False
   , modelCheckOnly     = False
@@ -185,9 +181,6 @@ proFeatOptions = ProFeatOptions
                            <> metavar "<file>"
                            <> hidden
                            <> help helpImportResults ))
-  <*> switch                ( long "group-results"
-                           <> hidden
-                           <> help helpGroupResults )
   <*> optional (option auto  ( long "round-results"
                            <> metavar "<precision>"
                            <> hidden
@@ -345,7 +338,7 @@ postprocessPrismOutput :: LSpecification -> [ResultCollection] -> ProFeat L.Text
 postprocessPrismOutput spec rcs = do
     let filteredRcs = filter (isJust . _rcFinalResult) rcs
         rcs'        = fmap (sortStateResults . removeNonConfVars) filteredRcs
-    rcs'' <- applyGrouping =<< applyRounding rcs'
+    rcs'' <- applyRounding rcs'
     showLog <- asks showPrismLog
     let doc = if null filteredRcs
                   then prettyResultCollections True spec rcs
@@ -355,12 +348,6 @@ postprocessPrismOutput spec rcs = do
     applyRounding rcs' = asks roundResults <&> \case
         Just precision -> fmap (roundStateResults precision) rcs'
         Nothing        -> rcs'
-
-    applyGrouping rcs' = do
-        gr <- asks groupResults
-        return $ if gr
-            then fmap groupStateVecs rcs'
-            else rcs'
 
 runApp :: ProFeat () -> ProFeatOptions -> IO ()
 runApp m opts = do
@@ -423,7 +410,7 @@ onVerbose :: ProFeat () -> ProFeat ()
 onVerbose = onVerbosity Verbose
 
 onVerbosity :: Verbosity -> ProFeat () -> ProFeat ()
-onVerbosity v = when' (return . (v ==) =<< asks verbosity)
+onVerbosity v = when' (fmap (v ==) (asks verbosity))
 
 when' :: Monad m => m Bool -> m () -> m ()
 when' mb m = mb >>= \b -> when b m

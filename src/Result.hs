@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -12,7 +13,6 @@ module Result
 
   , ResultCollection(..)
   , rcStateResults
-  , rcGroupedStateResults
   , rcFinalResult
   , rcTrace
   , rcLog
@@ -25,10 +25,7 @@ module Result
   , sortStateResults
   , removeNonConfVars
   , roundStateResults
-  , groupStateVecs
 
-  , prettyStateVec
-  , prettyResultCollection
   , prettyResultCollections
   ) where
 
@@ -37,13 +34,10 @@ import Control.Lens hiding ( (:<) )
 import Control.Applicative          ( (<|>), liftA2 )
 
 import Data.Foldable                ( toList )
-import qualified Data.Map as Map
 import Data.Maybe                   ( mapMaybe)
 import Data.Ord                     ( comparing )
 import Data.Sequence                ( Seq, ViewL(..), viewl )
 import qualified Data.Sequence as Seq
-import Data.IntSet                  ( IntSet, member, findMin, findMax, singleton, size )
-import qualified Data.IntSet as Set
 import Data.Semigroup
 import Data.Strict.Tuple            ( (:!:), Pair(..) )
 import Data.Strict.Tuple.Lens       ()
@@ -53,7 +47,6 @@ import Data.Text                    ( Text )
 import qualified Data.Text.Lazy as L
 import Data.Vector.Generic          ( Vector, (!) )
 import qualified Data.Vector.Generic as V
-import qualified Data.Vector as BV
 import qualified Data.Vector.Unboxed as UV
 
 import Text.PrettyPrint.Leijen.Text hiding ((<>))
@@ -89,12 +82,9 @@ instance Pretty Result where
 
 type StateVec = UV.Vector Int
 
-type GroupedStateVec = BV.Vector IntSet
-
 data ResultCollection = ResultCollection
   { _rcVarOrdering         :: !VarOrdering
   , _rcStateResults        :: !(Seq (StateVec :!: Result))
-  , _rcGroupedStateResults :: !(Seq (GroupedStateVec :!: Result))
   , _rcFinalResult         :: Maybe Result
   , _rcTrace               :: !(Seq StateVec)
   , _rcLog                 :: !(Seq Text)
@@ -109,7 +99,6 @@ emptyResultCollection :: VarOrdering -> ResultCollection
 emptyResultCollection vo = ResultCollection
   { _rcVarOrdering         = vo
   , _rcStateResults        = Seq.empty
-  , _rcGroupedStateResults = Seq.empty
   , _rcFinalResult         = Nothing
   , _rcTrace               = Seq.empty
   , _rcLog                 = Seq.empty
@@ -121,28 +110,14 @@ emptyResultCollection vo = ResultCollection
 appendResultCollection :: ResultCollection
                        -> ResultCollection
                        -> ResultCollection
-appendResultCollection (ResultCollection xVo xSrs xGrs xR xTr xL xNs xBt xCt)
-                       (ResultCollection _   ySrs yGrs yR _   yL yNs yBt yCt) =
+appendResultCollection (ResultCollection xVo xSrs xR xTr xL xNs xBt xCt)
+                       (ResultCollection _   ySrs yR _   yL yNs yBt yCt) =
     let r = liftA2 (<>) xR yR <|> xR <|> yR
-    in ResultCollection xVo (mappend xSrs ySrs) (mappend xGrs yGrs) r xTr
-           (mappend xL yL) (mappend xNs yNs) (xBt + yBt) (xCt + yCt)
+    in ResultCollection xVo (mappend xSrs ySrs) r xTr (mappend xL yL)
+          (mappend xNs yNs) (xBt + yBt) (xCt + yCt)
 
 sortStateResults :: ResultCollection -> ResultCollection
 sortStateResults = rcStateResults %~ Seq.sortBy (comparing (view _2'))
-
-groupStateVecs :: ResultCollection -> ResultCollection
-groupStateVecs rc =
-    let srs    = rc^.rcStateResults
-        groups = foldr insert Map.empty (fmap toGroupedStateResult srs)
-        gsrs   = mapToSeq groups
-    in rc & rcStateResults        .~ Seq.empty
-          & rcGroupedStateResults .~ gsrs
-  where
-    insert (gsv :!: r) = Map.insertWith (V.zipWith mappend) r gsv
-    mapToSeq = Seq.fromList . fmap (\(r, gsv) -> gsv :!: r) . Map.assocs
-
-toGroupedStateResult :: (StateVec :!: Result) -> (GroupedStateVec :!: Result)
-toGroupedStateResult = over _1' (V.map singleton . V.convert)
 
 roundStateResults :: Int -> ResultCollection -> ResultCollection
 roundStateResults precision =
@@ -208,7 +183,6 @@ prettyResultCollection includeLog ResultCollection{..} =
     (if includeLog then prettyLog _rcLog PP.<> line PP.<> line else empty) PP.<>
     maybe empty (("Final result:" <+>) . pretty) _rcFinalResult <$>
     stateResults <$>
-    groupedStateResults <$>
     prettyTrace <$>
     line PP.<>
     prettyTrnsNodes <$>
@@ -219,20 +193,13 @@ prettyResultCollection includeLog ResultCollection{..} =
       | Seq.null _rcStateResults = empty
       | otherwise =
         "Results for initial configurations:" <$>
-        indent 4 (prettyStateResults prettyVal _rcVarOrdering _rcStateResults)
-    groupedStateResults
-      | Seq.null _rcGroupedStateResults = empty
-      | otherwise =
-        "Results for initial configurations" <+>
-        "(grouped by result)" <$>
-        indent 4 (prettyStateResults prettyValGroup
-                                     _rcVarOrdering
-                                     _rcGroupedStateResults)
+        indent 4 (prettyStateResults _rcVarOrdering _rcStateResults)
+
     prettyTrace
       | Seq.null _rcTrace = empty
       | otherwise =
         "Counterexample/witness:" <$>
-        indent 4 (prettyStateVecs prettyVal _rcVarOrdering _rcTrace)
+        indent 4 (prettyStateVecs _rcVarOrdering _rcTrace)
 
     prettyTrnsNodes = case viewl _rcDdNodes of
         EmptyL -> empty
@@ -246,72 +213,33 @@ prettyResultCollection includeLog ResultCollection{..} =
 prettyLog :: Seq Text -> Doc
 prettyLog = vsep . fmap (text . L.fromStrict) . toList
 
-prettyStateResults :: Vector v a
-                   => ValPrinter a
-                   -> VarOrdering
-                   -> Seq (v a :!: Result)
+prettyStateResults :: Vector v Int
+                   => VarOrdering
+                   -> Seq (v Int :!: Result)
                    -> Doc
-prettyStateResults f vo =
-    vsep . fmap (ST.uncurry $ prettyStateResult f vo) . toList
+prettyStateResults vo = vsep . fmap (ST.uncurry $ prettyStateResult vo) . toList
 
-prettyStateResult :: Vector v a
-                  => ValPrinter a
-                  -> VarOrdering
-                  -> v a
-                  -> Result
-                  -> Doc
-prettyStateResult f vo sv r =
-    parens (prettyStateVec f vo sv) PP.<> char '=' PP.<> pretty r
+prettyStateResult :: Vector v Int => VarOrdering -> v Int -> Result -> Doc
+prettyStateResult vo sv r =
+    parens (prettyStateVec vo sv) PP.<> char '=' PP.<> pretty r
 
-type ValPrinter a = (Doc, Range) -> a -> Maybe Doc
+prettyStateVecs :: Vector v Int => VarOrdering -> Seq (v Int) -> Doc
+prettyStateVecs vo = vsep . fmap (parens . prettyStateVec vo) . toList
 
-prettyStateVecs :: Vector v a => ValPrinter a -> VarOrdering -> Seq (v a) -> Doc
-prettyStateVecs f vo = vsep . fmap (parens . prettyStateVec f vo) . toList
-
-prettyStateVec :: Vector v a => ValPrinter a -> VarOrdering -> v a -> Doc
-prettyStateVec f (VarOrdering vo) =
-    hsep . punctuate comma . mapMaybe (uncurry f) . zip vo . V.toList
-
-prettyValGroup :: ValPrinter IntSet
-prettyValGroup (ident, r) vals = case r of
-    RangeFeature
-      | 0 `member` vals && 1 `member` vals -> Nothing
-      | 1 `member` vals                    -> Just ident
-      | otherwise                          -> Just $ char '!' PP.<> ident
-    RangeBool
-      | 0 `member` vals && 1 `member` vals -> Nothing
-      | 1 `member` vals                    -> identDef "true"
-      | otherwise                          -> identDef "false"
-    Range lower upper
-      | size vals == 1    -> identDef $ int (findMin vals)
-      | isContiguous vals && lower `member` vals && upper `member` vals
-                          -> Nothing
-      | isContiguous vals -> identDef $
-            braces (int (findMin vals) PP.<> ".." PP.<> int (findMax vals))
-      | otherwise         -> identDef $
-            braces (hsep (punctuate comma (fmap int (Set.toAscList vals))))
-    RangeInternal -> Nothing
+prettyStateVec :: Vector v Int => VarOrdering -> v Int -> Doc
+prettyStateVec (VarOrdering vo) =
+    hsep . punctuate comma . mapMaybe (uncurry prettyVal) . zip vo . V.toList
   where
-    identDef doc = Just $ ident PP.<> char '=' PP.<> doc
-
-prettyVal :: ValPrinter Int
-prettyVal (ident, r) v = case r of
-    RangeFeature
-      | v == 0    -> Nothing
-      | v == 1    -> Just ident
-      | otherwise -> error "Result.prettyVal: illegal value for feature variable"
-    RangeBool
-      | v == 0    -> identDef "false"
-      | v == 1    -> identDef "true"
-      | otherwise -> error "Result.prettyVal: illegal value for boolean variable"
-    Range _ _     -> identDef (int v)
-    RangeInternal -> Nothing
-  where
-    identDef doc = Just $ ident PP.<> char '=' PP.<> doc
-
-isContiguous :: IntSet -> Bool
-isContiguous s
-  | Set.null s = True
-  | otherwise  = let xs = Set.toAscList s
-                 in and (zipWith ((==) . succ) xs (tail xs))
-
+    prettyVal (ident, r) v = case r of
+        RangeFeature
+          | v == 0    -> Nothing
+          | v == 1    -> Just ident
+          | otherwise -> error "Result.prettyVal: illegal value for feature variable"
+        RangeBool
+          | v == 0    -> identDef "false"
+          | v == 1    -> identDef "true"
+          | otherwise -> error "Result.prettyVal: illegal value for boolean variable"
+        Range _ _     -> identDef (int v)
+        RangeInternal -> Nothing
+      where
+        identDef doc = Just $ ident PP.<> char '=' PP.<> doc
