@@ -24,7 +24,7 @@ import Text.Parsec hiding ( (<|>), many )
 import Text.Parsec.Text
 import qualified Text.Parsec.Token as P
 
-import Analysis.VarOrdering
+import Analysis.VarOrder
 import Result
 
 data Log
@@ -37,14 +37,14 @@ data Log
   | Log             !Text
   deriving (Show)
 
-parseResultCollections :: VarOrdering -> Text -> [ResultCollection]
+parseResultCollections :: VarOrder -> Text -> [ResultCollection]
 parseResultCollections vo output =
     case parse prismOutput "output" output of
         Left err  -> error $ "internal error while parsing PRISM output\n:" ++
                              show err
         Right lss -> fmap (resultCollection vo) lss
 
-resultCollection :: VarOrdering -> [Log] -> ResultCollection
+resultCollection :: VarOrder -> [Log] -> ResultCollection
 resultCollection vo ls =
     flip execState (emptyResultCollection vo) . for ls $ \case
         LogStateResults srs -> rcStateResults .= srs

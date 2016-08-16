@@ -50,7 +50,7 @@ import System.Process hiding ( readProcessWithExitCode )
 
 import Text.PrettyPrint.Leijen.Text ( Pretty, displayT, pretty, renderPretty )
 
-import Analysis.VarOrdering
+import Analysis.VarOrder
 import Error
 import Parser
 import Parser.Results
@@ -332,7 +332,7 @@ parsePrismOutputs outputs = do
     parse :: S.Text -> ProFeat [ResultCollection]
     parse out = do
         symTbl <- get
-        return $ parseResultCollections (varOrdering symTbl) out
+        return $ parseResultCollections (varOrder symTbl) out
 
 postprocessPrismOutput :: LSpecification -> [ResultCollection] -> ProFeat L.Text
 postprocessPrismOutput spec rcs = do

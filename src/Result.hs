@@ -52,7 +52,7 @@ import qualified Data.Vector.Unboxed as UV
 import Text.PrettyPrint.Leijen.Text hiding ((<>))
 import qualified Text.PrettyPrint.Leijen.Text as PP
 
-import Analysis.VarOrdering
+import Analysis.VarOrder
 import Syntax hiding ( Range )
 
 data Result
@@ -83,7 +83,7 @@ instance Pretty Result where
 type StateVec = UV.Vector Int
 
 data ResultCollection = ResultCollection
-  { _rcVarOrdering         :: !VarOrdering
+  { _rcVarOrder            :: !VarOrder
   , _rcStateResults        :: !(Seq (StateVec :!: Result))
   , _rcFinalResult         :: Maybe Result
   , _rcTrace               :: !(Seq StateVec)
@@ -95,9 +95,9 @@ data ResultCollection = ResultCollection
 
 makeLenses ''ResultCollection
 
-emptyResultCollection :: VarOrdering -> ResultCollection
+emptyResultCollection :: VarOrder -> ResultCollection
 emptyResultCollection vo = ResultCollection
-  { _rcVarOrdering         = vo
+  { _rcVarOrder            = vo
   , _rcStateResults        = Seq.empty
   , _rcFinalResult         = Nothing
   , _rcTrace               = Seq.empty
@@ -139,12 +139,12 @@ data VarRole
 
 removeNonConfVars :: ResultCollection -> ResultCollection
 removeNonConfVars rc =
-    let srs            = rc^.rcStateResults
-        vrs            = findConfVars srs
-        VarOrdering vs = rc^.rcVarOrdering
-        vs'            = fmap fst . filter ((VarConf ==) . snd) . zip vs $ vrs
-        srs'           = filterConfVars vrs srs
-    in rc & rcVarOrdering  .~ VarOrdering vs'
+    let srs         = rc^.rcStateResults
+        vrs         = findConfVars srs
+        VarOrder vs = rc^.rcVarOrder
+        vs'         = fmap fst . filter ((VarConf ==) . snd) . zip vs $ vrs
+        srs'        = filterConfVars vrs srs
+    in rc & rcVarOrder  .~ VarOrder vs'
           & rcStateResults .~ srs'
 
 filterConfVars :: [VarRole]
@@ -193,13 +193,13 @@ prettyResultCollection includeLog ResultCollection{..} =
       | Seq.null _rcStateResults = empty
       | otherwise =
         "Results for initial configurations:" <$>
-        indent 4 (prettyStateResults _rcVarOrdering _rcStateResults)
+        indent 4 (prettyStateResults _rcVarOrder _rcStateResults)
 
     prettyTrace
       | Seq.null _rcTrace = empty
       | otherwise =
         "Counterexample/witness:" <$>
-        indent 4 (prettyStateVecs _rcVarOrdering _rcTrace)
+        indent 4 (prettyStateVecs _rcVarOrder _rcTrace)
 
     prettyTrnsNodes = case viewl _rcDdNodes of
         EmptyL -> empty
@@ -213,21 +213,18 @@ prettyResultCollection includeLog ResultCollection{..} =
 prettyLog :: Seq Text -> Doc
 prettyLog = vsep . fmap (text . L.fromStrict) . toList
 
-prettyStateResults :: Vector v Int
-                   => VarOrdering
-                   -> Seq (v Int :!: Result)
-                   -> Doc
+prettyStateResults :: Vector v Int => VarOrder -> Seq (v Int :!: Result) -> Doc
 prettyStateResults vo = vsep . fmap (ST.uncurry $ prettyStateResult vo) . toList
 
-prettyStateResult :: Vector v Int => VarOrdering -> v Int -> Result -> Doc
+prettyStateResult :: Vector v Int => VarOrder -> v Int -> Result -> Doc
 prettyStateResult vo sv r =
     parens (prettyStateVec vo sv) PP.<> char '=' PP.<> pretty r
 
-prettyStateVecs :: Vector v Int => VarOrdering -> Seq (v Int) -> Doc
+prettyStateVecs :: Vector v Int => VarOrder -> Seq (v Int) -> Doc
 prettyStateVecs vo = vsep . fmap (parens . prettyStateVec vo) . toList
 
-prettyStateVec :: Vector v Int => VarOrdering -> v Int -> Doc
-prettyStateVec (VarOrdering vo) =
+prettyStateVec :: Vector v Int => VarOrder -> v Int -> Doc
+prettyStateVec (VarOrder vo) =
     hsep . punctuate comma . mapMaybe (uncurry prettyVal) . zip vo . V.toList
   where
     prettyVal (ident, r) v = case r of
