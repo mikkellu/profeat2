@@ -12,7 +12,6 @@ import Control.Lens
 
 import Data.List          ( sortBy )
 import Data.List.NonEmpty ( NonEmpty(..) )
-import qualified Data.List.NonEmpty as N
 import Data.Map ( assocs )
 import Data.Maybe ( mapMaybe )
 import Data.Ord ( comparing )
@@ -84,7 +83,7 @@ controllerVars symTbl =
   where
     f ctx
       | ctx^.this.fsMandatory = []
-      | otherwise             = [(pretty ctx, RangeFeature)] -- TODO: Name kürzen
+      | otherwise = [(pretty (rootContext (ctx^.this)), RangeFeature)]
 
 attributeVars :: SymbolTable -> LVarOrder
 attributeVars symTbl = mconcat $ sortBy (comparing getLoc) attribs
@@ -125,16 +124,4 @@ prettyName :: Scope -> Ident -> Maybe Integer -> Doc
 prettyName sc ident idx = pretty (toName sc ident idx)
 
 toName :: Scope -> Ident -> Maybe Integer -> LName
-toName sc ident idx =
-    let localName = (ident, fmap intExpr idx)
-    in case sc of
-        Local ctx ->
-            let qs = localName :|
-                     fmap qualifier (N.init (getFeatureSymbols ctx))
-            in Name (N.reverse qs) noLoc
-        _         -> Name (localName :| []) noLoc
-  where
-    qualifier :: FeatureSymbol -> (Ident, Maybe LExpr)
-    qualifier fs
-      | fs^.fsIsMultiFeature = (fs^.fsIdent, Just (intExpr (fs^.fsIndex)))
-      | otherwise            = (fs^.fsIdent, Nothing)
+toName _ ident idx = Name ((ident, fmap intExpr idx) :| []) noLoc
