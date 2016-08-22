@@ -5,6 +5,7 @@
 
 module Data.Mtbdd.Reorder
   ( sift
+  , siftOnce
   , swap
   ) where
 
@@ -26,7 +27,15 @@ type ReorderT t s m a = StateT (HashMap Id (Node t)) (BuilderT t s m) a
 
 
 sift :: (Eq t, Hashable t) => Mtbdd t -> Mtbdd t
-sift m = runBuilderWith m $ \(Ref node) -> do
+sift m = find m (tail (iterate siftOnce m)) where
+    find r (c:cs)
+      | size (rootNode r) > size (rootNode c) = find c cs
+      | otherwise                             = r
+    find _ [] = error "empty list"
+
+
+siftOnce :: (Eq t, Hashable t) => Mtbdd t -> Mtbdd t
+siftOnce m = runBuilderWith m $ \(Ref node) -> do
     numVars <- getNumberOfVars
     result <- foldM shiftVar node [0 .. numVars - 1]
     deref (Ref result)
