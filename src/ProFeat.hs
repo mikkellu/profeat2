@@ -215,6 +215,9 @@ proFeat = withProFeatModel $ \model -> withProFeatProps $ \proFeatProps ->
                 hPutStrLn stderr "Could not postprocess PRISM results, no ProFeat properties list given"
                 exitWith $ ExitFailure 4
             Just props -> withFile resultsPath ReadMode $ \hIn -> do
+                (_, symTbl) <- liftEither' (translateModel model)
+                put symTbl
+
                 prismOutput <- liftIO $ SIO.hGetContents hIn
                 writeProFeatOutput props [prismOutput]
         Nothing -> do
