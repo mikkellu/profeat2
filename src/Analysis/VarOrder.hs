@@ -47,7 +47,6 @@ data Range
   = RangeFeature
   | RangeBool
   | Range !Int !Int
-  | RangeInternal
   deriving (Show)
 
 varOrder :: SymbolTable -> VarOrder

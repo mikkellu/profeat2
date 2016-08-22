@@ -237,6 +237,5 @@ prettyStateVec (VarOrder vo) =
           | v == 1    -> identDef "true"
           | otherwise -> error "Result.prettyVal: illegal value for boolean variable"
         Range _ _     -> identDef (int v)
-        RangeInternal -> Nothing
       where
         identDef doc = Just $ ident PP.<> char '=' PP.<> doc

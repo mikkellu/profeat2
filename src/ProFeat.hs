@@ -30,6 +30,7 @@ import Control.Lens hiding ( argument )
 import Control.Monad.Reader
 import Control.Monad.State
 
+import Data.Foldable ( for_ )
 import Data.Maybe
 import Data.Monoid
 import qualified Data.Text as S
@@ -55,6 +56,7 @@ import Error
 import Parser
 import Parser.Results
 import Result
+import Result.Diagram
 import SymbolTable
 import Syntax
 import Translator
@@ -84,6 +86,10 @@ helpExportModel = "Export the translated model to <file>"
 helpExportProperties = "Export the translated properties to <file>"
 -- -r --export-results
 helpExportResults = "Export the results of model checking to <file>"
+--    --export-diagram
+helpExportDiagram = "Export a decision diagram representing the results to <file> (in dot format)"
+--    --reorder-diagram
+helpReorderDiagram = "Try to reduce the size of the diagram exported by the export-diagram option"
 --    --prism-log
 helpPrismLog = "Show PRISM log messages"
 --    --import-results
@@ -126,6 +132,8 @@ data ProFeatOptions = ProFeatOptions
   , prismModelPath     :: Maybe FilePath
   , prismPropsPath     :: Maybe FilePath
   , proFeatResultsPath :: Maybe FilePath
+  , resultDiagramPath  :: Maybe FilePath
+  , reorderDiagram     :: !ReorderOpts
   , showPrismLog       :: !Bool
   , prismResultsPath   :: Maybe FilePath
   , roundResults       :: Maybe Int
@@ -146,6 +154,8 @@ defaultOptions = ProFeatOptions
   , prismModelPath     = Nothing
   , prismPropsPath     = Nothing
   , proFeatResultsPath = Nothing
+  , resultDiagramPath  = Nothing
+  , reorderDiagram     = NoReordering
   , showPrismLog       = False
   , prismResultsPath   = Nothing
   , roundResults       = Nothing
@@ -158,52 +168,59 @@ defaultOptions = ProFeatOptions
 
 proFeatOptions :: Parser ProFeatOptions
 proFeatOptions = ProFeatOptions
-  <$> strArgument           ( metavar "<model-file>"
-                           <> help helpModelFile )
-  <*> optional (strArgument ( metavar "<properties-file>"
-                           <> help helpPropsFile ))
-  <*> switch                ( long "one-by-one"
-                           <> help helpOneByOne )
-  <*> optional (strOption   ( long "export-model" <> short 'o'
-                           <> metavar "<file>"
-                           <> help helpExportModel ))
-  <*> optional (strOption   ( long "export-properties" <> short 'p'
-                           <> metavar "<file>"
-                           <> help helpExportProperties ))
-  <*> optional (strOption   ( long "export-results" <> short 'r'
-                           <> metavar "<file>"
-                           <> hidden
-                           <> help helpExportResults ))
-  <*> switch                ( long "prism-log"
-                           <> hidden
-                           <> help helpPrismLog )
-  <*> optional (strOption   ( long "import-results"
-                           <> metavar "<file>"
-                           <> hidden
-                           <> help helpImportResults ))
-  <*> optional (option auto  ( long "round-results"
-                           <> metavar "<precision>"
-                           <> hidden
-                           <> help helpRoundResults ))
-  <*> switch                ( long "translate" <> short 't'
-                           <> hidden
-                           <> help helpTranslate )
-  <*> switch                ( long "model-checking" <> short 'm'
-                           <> hidden
-                           <> help helpModelChecking )
-  <*> strOption             ( long "prism-path"
-                           <> metavar "<path>"
-                           <> value defaultPrismPath
-                           <> showDefault
-                           <> hidden
-                           <> help helpPrismPath )
-  <*> optional (strOption   ( long "prism-args"
-                           <> metavar "<args>"
-                           <> hidden
-                           <> help helpPrismArgs ))
-  <*> flag Normal Verbose   ( long "verbose" <> short 'v'
-                           <> hidden
-                           <> help helpVerbose )
+  <$> strArgument               ( metavar "<model-file>"
+                               <> help helpModelFile )
+  <*> optional (strArgument     ( metavar "<properties-file>"
+                               <> help helpPropsFile ))
+  <*> switch                    ( long "one-by-one"
+                               <> help helpOneByOne )
+  <*> optional (strOption       ( long "export-model" <> short 'o'
+                               <> metavar "<file>"
+                               <> help helpExportModel ))
+  <*> optional (strOption       ( long "export-properties" <> short 'p'
+                               <> metavar "<file>"
+                               <> help helpExportProperties ))
+  <*> optional (strOption       ( long "export-results" <> short 'r'
+                               <> metavar "<file>"
+                               <> hidden
+                               <> help helpExportResults ))
+  <*> optional (strOption       ( long "export-diagram"
+                               <> metavar "<file>"
+                               <> hidden
+                               <> help helpExportDiagram ))
+  <*> flag NoReordering Reorder ( long "reorder-diagram"
+                               <> hidden
+                               <> help helpReorderDiagram )
+  <*> switch                    ( long "prism-log"
+                               <> hidden
+                               <> help helpPrismLog )
+  <*> optional (strOption       ( long "import-results"
+                               <> metavar "<file>"
+                               <> hidden
+                               <> help helpImportResults ))
+  <*> optional (option auto      ( long "round-results"
+                               <> metavar "<precision>"
+                               <> hidden
+                               <> help helpRoundResults ))
+  <*> switch                    ( long "translate" <> short 't'
+                               <> hidden
+                               <> help helpTranslate )
+  <*> switch                    ( long "model-checking" <> short 'm'
+                               <> hidden
+                               <> help helpModelChecking )
+  <*> strOption                 ( long "prism-path"
+                               <> metavar "<path>"
+                               <> value defaultPrismPath
+                               <> showDefault
+                               <> hidden
+                               <> help helpPrismPath )
+  <*> optional (strOption       ( long "prism-args"
+                               <> metavar "<args>"
+                               <> hidden
+                               <> help helpPrismArgs ))
+  <*> flag Normal Verbose       ( long "verbose" <> short 'v'
+                               <> hidden
+                               <> help helpVerbose )
 
 type ProFeat = StateT SymbolTable (ExceptT Error (ReaderT ProFeatOptions IO))
 
@@ -342,6 +359,8 @@ postprocessPrismOutput spec rcs = do
     let filteredRcs = filter (isJust . _rcFinalResult) rcs
         rcs'        = fmap (sortStateResults . removeNonConfVars) filteredRcs
     rcs'' <- applyRounding rcs'
+    writeDiagramFiles rcs''
+
     showLog <- asks showPrismLog
     let doc = if null filteredRcs
                   then prettyResultCollections True spec rcs
@@ -351,6 +370,21 @@ postprocessPrismOutput spec rcs = do
     applyRounding rcs' = asks roundResults <&> \case
         Just precision -> fmap (roundStateResults precision) rcs'
         Nothing        -> rcs'
+
+writeDiagramFiles :: [ResultCollection] -> ProFeat ()
+writeDiagramFiles rcs = asks resultDiagramPath >>= \case
+    Nothing   -> return ()
+    Just path -> do
+        let (name, ext) = splitExtension path
+
+        symTbl <- get
+        let vo = varOrder symTbl
+
+        opts <- asks reorderDiagram
+
+        for_ (zip rcs [1 :: Integer ..]) $ \(rc, idx) -> do
+            let path' = addExtension (name ++ "_" ++ show idx) ext
+            liftIO $ writeDiagram opts vo path' (rc^.rcStateResults)
 
 runApp :: ProFeat () -> ProFeatOptions -> IO ()
 runApp m opts = do
