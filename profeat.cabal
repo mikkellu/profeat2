@@ -82,4 +82,3 @@ test-suite profeat-tests
                        transformers >=0.4,
                        wl-pprint-text >=1.1,
                        profeat
-

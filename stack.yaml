@@ -2,7 +2,7 @@ resolver: lts-6.10
 
 packages:
 - '.'
-- '../mtbdd'
+- 'mtbdd'
 
 extra-deps: []
 
