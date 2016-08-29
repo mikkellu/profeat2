@@ -83,6 +83,7 @@ module Symbols
   , allContexts
   , forAllContexts_
   , forAllContexts
+  , minimalPrefix
 
   , Scope(..)
   , HasScope(..)
@@ -100,8 +101,8 @@ import Control.Monad.Reader
 import Control.Lens
 
 import Data.Array
-import Data.List ( tails )
-import Data.List.NonEmpty ( NonEmpty(..), toList )
+import Data.List ( tails, inits, sortOn )
+import Data.List.NonEmpty ( NonEmpty(..), fromList, toList )
 import qualified Data.List.NonEmpty as L
 import Data.Map ( Map, empty )
 import Data.Maybe
@@ -386,6 +387,15 @@ forAllContexts m =
     traverse inLocalCtx . allContexts =<< view rootFeature
   where
     inLocalCtx ctx = local (scope .~ Local ctx) (m ctx)
+
+minimalPrefix :: FeatureSymbol -> FeatureContext -> FeatureContext
+minimalPrefix root ctx =
+    FeatureContext . fromList . last . sortOn length . mapMaybe (prune . suffixes) $ allContexts root
+  where
+    prune = listToMaybe . fmap fst . dropWhile eqCtx . zip (suffixes ctx)
+    suffixes = inits . toList . getFeatureSymbols
+    eqCtx (x, y) = and (zipWith eqFs x y)
+    eqFs x y  = _fsIdent x == _fsIdent y && _fsIndex x == _fsIndex y
 
 paramSymsToGlobalSyms :: Table ParamSymbol -> Table GlobalSymbol
 paramSymsToGlobalSyms = traverse %~ (GlobalSymbol <$> _psType <*> _psDecl)

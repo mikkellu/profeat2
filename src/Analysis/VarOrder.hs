@@ -82,7 +82,8 @@ controllerVars symTbl =
   where
     f ctx
       | ctx^.this.fsMandatory = []
-      | otherwise = [(pretty (rootContext (ctx^.this)), RangeFeature)]
+      | otherwise = [(featureName ctx, RangeFeature)]
+    featureName ctx = pretty (minimalPrefix (view rootFeature symTbl) ctx)
 
 attributeVars :: SymbolTable -> LVarOrder
 attributeVars symTbl = mconcat $ sortBy (comparing getLoc) attribs
