@@ -88,6 +88,8 @@ helpExportProperties = "Export the translated properties to <file>"
 helpExportResults = "Export the results of model checking to <file>"
 --    --export-diagram
 helpExportDiagram = "Export a decision diagram representing the results to <file> (in dot format)"
+--    --full-diagram
+helpFullDiagram = "Do not reduce decision diagram. The full diagram also encodes the set of initial configurations."
 --    --reorder-diagram
 helpReorderDiagram = "Try to reduce the size of the diagram exported by the export-diagram option"
 --    --prism-log
@@ -133,6 +135,7 @@ data ProFeatOptions = ProFeatOptions
   , prismPropsPath     :: Maybe FilePath
   , proFeatResultsPath :: Maybe FilePath
   , resultDiagramPath  :: Maybe FilePath
+  , fullDiagram        :: !ReduceOpts
   , reorderDiagram     :: !ReorderOpts
   , showPrismLog       :: !Bool
   , prismResultsPath   :: Maybe FilePath
@@ -155,6 +158,7 @@ defaultOptions = ProFeatOptions
   , prismPropsPath     = Nothing
   , proFeatResultsPath = Nothing
   , resultDiagramPath  = Nothing
+  , fullDiagram        = ReducedDiagram
   , reorderDiagram     = NoReordering
   , showPrismLog       = False
   , prismResultsPath   = Nothing
@@ -188,6 +192,10 @@ proFeatOptions = ProFeatOptions
                                <> metavar "<file>"
                                <> hidden
                                <> help helpExportDiagram ))
+  <*> flag ReducedDiagram FullDiagram
+                                ( long "full-diagram"
+                               <> hidden
+                               <> help helpFullDiagram )
   <*> flag NoReordering Reorder ( long "reorder-diagram"
                                <> hidden
                                <> help helpReorderDiagram )
@@ -380,7 +388,7 @@ writeDiagramFiles rcs = asks resultDiagramPath >>= \case
         symTbl <- get
         let vo = varOrder symTbl
 
-        opts <- asks reorderDiagram
+        opts <- DiagramOpts <$> asks fullDiagram <*> asks reorderDiagram
 
         for_ (zip rcs [1 :: Integer ..]) $ \(rc, idx) -> do
             let path' = addExtension (name ++ "_" ++ show idx) ext

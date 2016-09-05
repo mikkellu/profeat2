@@ -5,7 +5,9 @@
 {-# LANGUAGE ViewPatterns #-}
 
 module Result.Diagram
-  ( ReorderOpts(..)
+  ( DiagramOpts(..)
+  , ReduceOpts(..)
+  , ReorderOpts(..)
   , writeDiagram
   ) where
 
@@ -33,10 +35,15 @@ import Result
 
 -- Rendering -------------------------------------------------------------------
 
+data DiagramOpts = DiagramOpts
+  { reduceOpts  :: ReduceOpts
+  , reorderOpts :: ReorderOpts
+  }
+
 
 writeDiagram
     :: Vector v Int
-    => ReorderOpts
+    => DiagramOpts
     -> VarOrder
     -> FilePath
     -> Seq (v Int :!: Result)
@@ -47,8 +54,8 @@ writeDiagram opts vo name stateVecs =
                       name
                       mtbdd
   where
-    mtbdd = reorder (toMtbdd vo stateVecs)
-    reorder = case opts of
+    mtbdd = reorder (toMtbdd (reduceOpts opts) vo stateVecs)
+    reorder = case reorderOpts opts of
         Reorder      -> sift
         NoReordering -> id
 
@@ -82,18 +89,25 @@ numberOfBits upper = ceiling (logBase 2 (fromIntegral (upper + 1) :: Double))
 
 data ReorderOpts = Reorder | NoReordering
 
+data ReduceOpts = FullDiagram | ReducedDiagram
+
 type ResultRef s = Builder (Maybe Double) s (Ref (Maybe Double) s)
 
 
 toMtbdd
     :: Vector v Int
-    => VarOrder
+    => ReduceOpts
+    -> VarOrder
     -> Seq (v Int :!: Result)
     -> Mtbdd (Maybe Double)
-toMtbdd vo (fmap coerceStateVec -> svs) = runBuilder $ do
+toMtbdd opts vo (fmap coerceStateVec -> svs) = runBuilder $ do
     m <- combine (fmap (convertStateVec vo) svs)
-    result <- reduce m
+    result <- f m
     deref result
+  where
+    f = case opts of
+        FullDiagram    -> return
+        ReducedDiagram -> reduce
 
 
 coerceStateVec :: Vector v Int => v Int :!: Result -> v Int :!: Double
