@@ -54,7 +54,7 @@ isInnerNode (Node _ Decision {}) = True
 isInnerNode _                    = False
 
 
-size :: Eq t => Node t -> Int
+size :: Node t -> Int
 size = length . allNodes
 
 
@@ -63,7 +63,7 @@ value (Node _ (Terminal v)) = Just v
 value _                     = Nothing
 
 
-allNodes :: Eq t => Node t -> [Node t]
+allNodes :: Node t -> [Node t]
 allNodes = HashSet.toList . go HashSet.empty where
     go ms m@(Node _ ty) =
         let ms' = HashSet.insert m ms
