@@ -35,7 +35,7 @@ module Typechecker
   ) where
 
 import Control.Applicative
-import Control.Lens hiding ( contains )
+import Control.Lens hiding ( contains, lookupOf )
 import Control.Monad.Reader
 
 import Data.Array
@@ -70,8 +70,7 @@ data LabelInfo = LabelInfo
 
 -- | Evaluates the given range. The expressions must not contain loops or
 -- unexpanded formulas.
-evalRange :: ( Applicative m
-             , MonadReader r m
+evalRange :: ( MonadReader r m
              , MonadError Error m
              , HasSymbolTable r
              , HasScope r
@@ -82,8 +81,7 @@ evalRange = both evalInteger
 
 -- | Evaluates the given expression as 'Integer'. The expression must not
 -- contain loops or unexpanded formulas.
-evalInteger :: ( Applicative m
-               , MonadReader r m
+evalInteger :: ( MonadReader r m
                , MonadError Error m
                , HasSymbolTable r
                , HasScope r
@@ -98,8 +96,7 @@ evalInteger e = do
 
     return v
 
-checkInitialization :: ( Applicative m
-                       , MonadReader r m
+checkInitialization :: ( MonadReader r m
                        , MonadError Error m
                        , HasSymbolTable r
                        , HasScope r
@@ -134,8 +131,7 @@ unknownValues val = go where
     go (NameExpr name _) = [name]
     go e = concatMap go (children e)
 
-checkIfType :: ( Applicative m
-               , MonadReader r m
+checkIfType :: ( MonadReader r m
                , MonadError Error m
                , HasSymbolTable r
                , HasScope r
@@ -150,8 +146,7 @@ checkIfType p e = do
   where
     expected = filter p types
 
-checkIfType_ :: ( Applicative m
-                , MonadReader r m
+checkIfType_ :: ( MonadReader r m
                 , MonadError Error m
                 , HasSymbolTable r
                 , HasScope r
@@ -161,8 +156,7 @@ checkIfType_ :: ( Applicative m
              -> m ()
 checkIfType_ p e = void $ checkIfType p e
 
-typeOf :: ( Applicative m
-          , MonadReader r m
+typeOf :: ( MonadReader r m
           , MonadError Error m
           , HasSymbolTable r
           , HasScope r
@@ -278,7 +272,7 @@ typeOf (ConditionalExpr prop cond _) = do
     typeOf cond
 
 typeOf (QuantileExpr _ _ e _) = do
-    checkIfType_ (isBoolType) e
+    checkIfType_ isBoolType e
     return doubleType
 
 typeOf (LabelExpr ident l) = lookupLabel ident l >> return boolType
@@ -304,8 +298,7 @@ boundReturnType bound
   | isQuery bound = doubleType
   | otherwise     = boolType
 
-checkIfFeature :: ( Applicative m
-                  , MonadReader r m
+checkIfFeature :: ( MonadReader r m
                   , MonadError Error m
                   , HasSymbolTable r
                   , HasScope r
@@ -324,8 +317,7 @@ siType (SymbolInfo _ ident idx t) = case t of
         Just e  -> throw (exprAnnot e) $ NotAnArray ident
         Nothing -> return t
 
-getLabelInfo :: ( Applicative m
-                , MonadReader r m
+getLabelInfo :: ( MonadReader r m
                 , MonadError Error m
                 , HasSymbolTable r
                 , HasScope r
@@ -336,8 +328,7 @@ getLabelInfo name@(Name _ l) = lookupLabelInfo name >>= \case -- TODO: merge wit
     Just si -> return si
     Nothing -> throw l $ UndefinedIdentifier (prettyText name)
 
-lookupLabelInfo :: ( Applicative m
-                   , MonadReader r m
+lookupLabelInfo :: ( MonadReader r m
                    , MonadError Error m
                    , HasSymbolTable r
                    , HasScope r
@@ -354,8 +345,7 @@ isAttributeSymbol (SymbolInfo sc ident _ _) = case sc of
     Local ctx -> ctx^?!this.fsVars.at ident._Just.vsIsAttrib
     _         -> False
 
-getSymbolInfo :: ( Applicative m
-                 , MonadReader r m
+getSymbolInfo :: ( MonadReader r m
                  , MonadError Error m
                  , HasSymbolTable r
                  , HasScope r
@@ -366,8 +356,7 @@ getSymbolInfo name@(Name _ l) = lookupSymbolInfo name >>= \case
     Just si -> return si
     Nothing -> throw l $ UndefinedIdentifier (prettyText name)
 
-lookupSymbolInfo :: ( Applicative m
-                    , MonadReader r m
+lookupSymbolInfo :: ( MonadReader r m
                     , MonadError Error m
                     , HasSymbolTable r
                     , HasScope r
@@ -396,9 +385,7 @@ lookupSymbolInfo name@(Name _ l) = getContext name >>= \case
     notAMember ctx name' l' =
         throw l' $ NotAMember (prettyText ctx) (prettyText name')
 
-lookupType :: ( Applicative m
-              , MonadReader r m
-              , MonadError Error m
+lookupType :: ( MonadReader r m
               , HasSymbolTable r
               , HasScope r
               )
@@ -430,8 +417,7 @@ lookupTypeIn ctx = lookupOf vsType $ ctx^.this.fsVars
 lookupOf :: Getter a Type -> Table a -> Ident -> Maybe Type
 lookupOf g tbl ident = tbl^?at ident._Just.g
 
-getFeature :: ( Applicative m
-              , MonadReader r m
+getFeature :: ( MonadReader r m
               , MonadError Error m
               , HasSymbolTable r
               , HasScope r
@@ -443,8 +429,7 @@ getFeature name@(Name _ l) = do
     unless (isNothing name') . throw l . NotAFeature $ prettyText name
     return ctx
 
-getContext :: ( Applicative m
-              , MonadReader r m
+getContext :: ( MonadReader r m
               , MonadError Error m
               , HasSymbolTable r
               , HasScope r

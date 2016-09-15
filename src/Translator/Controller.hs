@@ -186,8 +186,7 @@ genActionLabel action ls = do
 
     return $ labelSetToAction ls'
 
-genActiveVars :: (MonadReader TrnsInfo m, MonadError Error m)
-              => m [LVarDecl]
+genActiveVars :: (MonadReader TrnsInfo m) => m [LVarDecl]
 genActiveVars = mapMaybe mkVarDecl . allContexts <$> view rootFeature where
     mkVarDecl ctx
       | ctx^.this.fsMandatory = Nothing
