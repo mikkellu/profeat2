@@ -49,10 +49,10 @@ data NodeType t
   = Terminal !t
   | Decision !Var (Node t) (Node t)
 
-instance Eq t => Eq (Node t) where
+instance Eq (Node t) where
     (==) = (==) `on` nodeId
 
-instance Ord t => Ord (Node t) where
+instance Ord (Node t) where
     compare = comparing nodeId
 
 

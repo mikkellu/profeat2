@@ -76,7 +76,7 @@ siftOnce m = runBuilderWith m $ \(Ref node) -> do
 
 
 
-swap :: (Eq t, Monad m) => Level -> Node t -> BuilderT t s m (Node t)
+swap :: Monad m => Level -> Node t -> BuilderT t s m (Node t)
 swap lvl node = do
     result <- evalStateT (go node) HashMap.empty
 
@@ -103,7 +103,7 @@ swap lvl node = do
 
 
 rebuildNode
-    :: (Eq t, Monad m)
+    :: Monad m
     => (Node t -> ReorderT t s m (Node t))
     -> Var
     -> Node t
@@ -119,7 +119,7 @@ rebuildNode f var one zero = do
 
 
 swapNode
-    :: (Eq t, Monad m)
+    :: Monad m
     => Var
     -> Var
     -> Node t

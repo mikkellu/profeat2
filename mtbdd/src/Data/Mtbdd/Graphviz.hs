@@ -68,17 +68,16 @@ defaultNodeLabeling :: NodeLabeling t
 defaultNodeLabeling _ (Var var) _ _ = int var
 
 
-renderMtbddToFile
-    :: (Eq t, Pretty t) => RenderOpts t -> Text -> FilePath -> Mtbdd t -> IO ()
+renderMtbddToFile :: RenderOpts t -> Text -> FilePath -> Mtbdd t -> IO ()
 renderMtbddToFile opts name fileName m =
     LIO.writeFile fileName (renderMtbdd opts name m)
 
 
-renderMtbdd :: (Eq t, Pretty t) => RenderOpts t -> Text -> Mtbdd t -> Text
+renderMtbdd :: RenderOpts t -> Text -> Mtbdd t -> Text
 renderMtbdd opts name = displayT . renderPretty 0.4 80 . prettyMtbdd opts name
 
 
-prettyMtbdd :: Eq t => RenderOpts t -> Text -> Mtbdd t -> Doc
+prettyMtbdd :: RenderOpts t -> Text -> Mtbdd t -> Doc
 prettyMtbdd opts name m = "digraph" <+> text name <+> lbrace <> line <>
     indent 4 body <> line <> rbrace
   where
@@ -123,7 +122,7 @@ mtbddEdges opts = vsep . fmap edges . concatMap snd where
         p = liftA2 (&&) (edgePred opts) (nodePred opts)
 
 
-levels :: Eq t => Mtbdd t -> [(Var, [Node t])]
+levels :: Mtbdd t -> [(Var, [Node t])]
 levels = sortOn fst . toLists . foldr insert Map.empty . allNodes . rootNode
   where
     insert m = Map.insertWith Set.union (variable m) (Set.singleton m)
