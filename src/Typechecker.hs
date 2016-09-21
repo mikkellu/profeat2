@@ -1,9 +1,10 @@
-{-# LANGUAGE FlexibleContexts
-           , LambdaCase
-           , MultiWayIf
-           , RankNTypes
-           , TupleSections
-           , ViewPatterns #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Typechecker
   ( SymbolInfo(..)
@@ -275,7 +276,9 @@ typeOf (QuantileExpr _ _ e _) = do
     checkIfType_ isBoolType e
     return doubleType
 
-typeOf (LabelExpr ident l) = lookupLabel ident l >> return boolType
+typeOf (LabelExpr ident l)
+  | ident == "init" || ident == "deadlock" = return boolType
+  | otherwise = lookupLabel ident l >> return boolType
 typeOf (NameExpr name _)   = getSymbolInfo name >>= siType
 typeOf (FuncExpr f l)      = throw l $ StandaloneFuntion f
 
