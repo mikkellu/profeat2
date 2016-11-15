@@ -89,7 +89,7 @@ helpExportResults = "Export the results of model checking to <file>"
 --    --export-diagram
 helpExportDiagram = "Export a decision diagram representing the results to <file> (in dot format)"
 --    --full-diagram
-helpFullDiagram = "Do not reduce decision diagram. The full diagram also encodes the set of initial configurations."
+helpFullDiagram = "Export the full decision diagram. The full diagram also encodes the set of initial configurations."
 --    --reorder-diagram
 helpReorderDiagram = "Try to reduce the size of the diagram exported by the export-diagram option"
 --    --prism-log
