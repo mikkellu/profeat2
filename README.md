@@ -4,10 +4,10 @@ Building ProFeat from source
 Prerequisites
 -------------
 
-Download and install the `stack` tool from [Stackage](www.stackage.org).
+Download and install the [Stack](haskellstack.org) tool.
 
 If you do not have a recent version of GHC on your system (at least version
-7.10), run
+8.0), run
 
     stack setup
 
