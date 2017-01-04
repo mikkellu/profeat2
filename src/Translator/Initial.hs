@@ -38,7 +38,6 @@ featureExpr ctx =
     let fs             = ctx^.this
         (lower, upper) = fs^.fsGroupCard
         childs         = fs^..fsChildren.traverse.traverse
-        n              = genericLength childs
 
         childCtxs             = fmap (`extendContext` ctx) childs
         (optCtxs, nonOptCtxs) = partition (^.this.fsOptional) childCtxs
@@ -48,13 +47,8 @@ featureExpr ctx =
         l = (intExpr lower - intExpr nOpt) `lte` sum (fmap activeExpr nonOptCtxs)
         u = sum (fmap activeExpr childCtxs) `lte` intExpr upper
 
-    in if (lower, upper) == (n, n)
-           then BoolExpr True noLoc -- all non-optional features are mandatory
-                                    -- in this case, no constraint is
-                                    -- necessary, because mandatory
-                                    -- features have no variable, and the
-                                    -- value for optional features can be
-                                    -- chosen arbitrarily
+    in if all (^.fsMandatory) childs
+           then BoolExpr True noLoc
            else l `lAnd` u
 
 activeExpr :: FeatureContext -> LExpr
