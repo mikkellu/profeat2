@@ -48,8 +48,7 @@ translateModel :: LModel -> Either Error (LModel, SymbolTable)
 translateModel (Model modelT defs) = do
     symTbl <- extendSymbolTable (emptySymbolTable modelT) defs
 
-    mFams <- getFamily symTbl defs
-    let (defs', symTbl') = case mFams of
+    let (defs', symTbl') = case symTbl^.familySym of
             Just (FamilySymbol params constrs _) ->
                 let gs  = paramSymsToGlobalSyms params
                     i   = genInitDef constrs
@@ -84,7 +83,7 @@ translateModelInstances :: LModel -> Either Error ([LModel], SymbolTable)
 translateModelInstances (Model modelT defs) = do
     symTbl <- extendSymbolTable (emptySymbolTable modelT) defs
 
-    getFamily symTbl defs >>= \case
+    case symTbl^.familySym of
         Just fams -> do
             vals <- paramValuations (symTbl^.constValues) fams
 

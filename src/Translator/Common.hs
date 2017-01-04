@@ -2,6 +2,7 @@
 {-# LANGUAGE LambdaCase       #-}
 {-# LANGUAGE PatternGuards    #-}
 {-# LANGUAGE TemplateHaskell  #-}
+{-# LANGUAGE ViewPatterns     #-}
 
 module Translator.Common
   ( TrnsInfo(..)
@@ -36,7 +37,7 @@ import Control.Lens
 import Control.Monad.Reader
 
 import Data.Foldable ( toList )
-import Data.Map ( member )
+import Data.Map ( (!), member, keysSet )
 import Data.Monoid
 import Data.Set ( Set )
 import qualified Data.Set as Set
@@ -91,7 +92,7 @@ trnsVarDecl t (VarDecl ident vt e l) = do
     let mkIdent = fullyQualifiedIdent sc ident
 
     void $ _Just (checkInitialization t) e
-    vt' <- exprs (partialEval <=< trnsExpr (const True)) vt
+    vt' <- exprs (substituteParams <=< trnsExpr (const True)) vt
 
     return $ case t of
         CompoundType (ArrayType (Just (lower, upper)) _) ->
@@ -244,6 +245,20 @@ partialEval e = do
                 v <- eval' val e'
                 return (valueExpr v)
             else return e'
+
+substituteParams :: (MonadReader r m, HasSymbolTable r) => LExpr -> m LExpr
+substituteParams e = do
+    val  <- view constValues
+    fams <- view familySym
+    return $ case fams of
+        Nothing    -> e
+        Just fams' -> transform (f (fams'^.famsParameters.to keysSet) val) e
+  where
+    f params val e' = case e' of
+        NameExpr (viewSimpleName -> Just (ident, _, _)) _
+          | ident `Set.member` params -> valueExpr (val ! (ident, 0))
+        _ -> e'
+
 
 labelSetName :: Set LabelSymbol -> LName
 labelSetName ls = review _Ident (T.concat . fmap labelIdent $ toList ls, noLoc)

@@ -9,7 +9,6 @@ module SymbolTable
   ( module Symbols
 
   , extendSymbolTable
-  , getFamily
   , updateSymbolTable
   ) where
 
@@ -66,6 +65,11 @@ extendSymbolTable symTbl defs = flip execStateT symTbl $ do -- TODO: refactor
     expandExprsOf $ constants.traverse.csExpr.traverse
     checkIfNonCyclicConstants =<< use constants
     evalConstValues
+
+    symTbl' <- get
+    fams <- lift (getFamily symTbl' defs)
+    familySym .= fams
+
 
 getFamily :: SymbolTable -> [LDefinition] -> Either Error (Maybe FamilySymbol)
 getFamily symTbl defs = flip runReaderT (Env Global symTbl) $

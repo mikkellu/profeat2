@@ -17,7 +17,7 @@ endrewards
 
 const int max_processes = 5;
 
-global num_processes : [3 .. 5];
+global num_processes : [3 .. max_processes];
 
 global q_0 : [0 .. 1];
 global q_1 : [0 .. 1];

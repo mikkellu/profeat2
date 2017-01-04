@@ -192,6 +192,7 @@ instance Ord FeatureSymbol where
 
 data SymbolTable = SymbolTable
   { _modelType     :: !ModelType
+  , _familySym     :: Maybe FamilySymbol
   , _globals       :: Table GlobalSymbol
   , _constants     :: Table ConstSymbol
   , _formulas      :: Table LFormula
@@ -245,6 +246,7 @@ instance HasScope Env where
 emptySymbolTable :: ModelType -> SymbolTable
 emptySymbolTable t = SymbolTable
   { _modelType     = t
+  , _familySym     = Nothing
   , _globals       = empty
   , _constants     = empty
   , _formulas      = empty
