@@ -254,11 +254,11 @@ proFeat = withProFeatModel $ \model -> withProFeatProps $ \proFeatProps ->
             withDefault "out.prism" prismModelPath $ \p ->
                 renderToFiles p prismModels
             withDefault "out.props" prismPropsPath $
-                void . for prismProps . renderToFile
+                for_ prismProps . renderToFile
 
             when' (asks translateOnly) $ liftIO exitSuccess
 
-            prismOutputs <- for prismModels (callPrism prismProps)
+            prismOutputs <- callPrism prismModels prismProps
 
             when' (asks modelCheckOnly) $ liftIO exitSuccess
 
@@ -312,35 +312,40 @@ translateProps spec = do
     symTbl <- get
     liftEither' $ translateSpec symTbl spec
 
-callPrism :: Maybe LSpecification -> LModel -> ProFeat S.Text
-callPrism prismProps prismModel = do
-    vPutStr "Model Checking..."
+callPrism :: [LModel] -> Maybe LSpecification -> ProFeat [S.Text]
+callPrism prismModels prismProps = do
+    ps <- modelPaths
+    let numModels = length ps
 
-    renderToFile modelPath prismModel
-
-    args <- case prismProps of
-        Nothing    -> return [modelPath]
-        Just props -> do
-            renderToFile propsPath props
-            return [modelPath, propsPath]
-
+    propsArg <- if isJust prismProps
+                    then (:[]) <$> lookupPath "out.props" prismPropsPath
+                    else return []
     prismPath <- asks prismExecPath
     prismArgs <- maybe [] words <$> asks prismArguments
 
-    (exitCode, std, err) <- liftIO $
-        readProcessWithExitCode prismPath (args ++ prismArgs)
+    for (zip [1 :: Integer ..] ps) $ \(i, modelPath) -> do
+        vPutStr $ "Model Checking (" ++ show i ++ "/" ++ show numModels ++ ") "
 
-    vPutStrLn "done"
+        let args = (modelPath:propsArg) ++ prismArgs
 
-    unless (exitCode == ExitSuccess) . liftIO $ do
-        SIO.hPutStrLn stdout std
-        SIO.hPutStrLn stderr err
-        exitWith exitCode
+        (exitCode, std, err) <- liftIO $
+            readProcessWithExitCode prismPath args
 
-    return std
+        vPutStrLn "done"
+
+        unless (exitCode == ExitSuccess) . liftIO $ do
+            SIO.hPutStrLn stdout std
+            SIO.hPutStrLn stderr err
+            exitWith exitCode
+
+        return std
   where
-    modelPath = "out.prism"
-    propsPath = "out.props"
+    modelPaths :: ProFeat [FilePath]
+    modelPaths = do
+        path <- lookupPath "out.prism" prismModelPath
+        return $ if length prismModels == 1
+            then [path]
+            else fmap (path `addFileIndex`) [0..length prismModels - 1]
 
 writeProFeatOutput :: LSpecification -> [S.Text] -> ProFeat ()
 writeProFeatOutput spec prismOutputs = do
@@ -465,9 +470,12 @@ withDefault
     -> (ProFeatOptions -> Maybe FilePath)
     -> (FilePath -> ProFeat ())
     -> ProFeat ()
-withDefault def opt m = asks opt >>= \case
-    Just o  -> m o
-    Nothing -> when' (asks translateOnly) $ m def
+withDefault def opt m = lookupPath def opt >>= m
+
+lookupPath :: FilePath -> (ProFeatOptions -> Maybe FilePath) -> ProFeat FilePath
+lookupPath def opt = flip fmap (asks opt) $ \case
+    Just path -> path
+    Nothing   -> def
 
 pathToMaybe :: FilePath -> Maybe FilePath
 pathToMaybe path = case path of
@@ -478,12 +486,13 @@ renderToFiles :: (Pretty p) => FilePath -> [p] -> ProFeat ()
 renderToFiles path = \case
     []  -> return ()
     [x] -> renderToFile path x
-    xs  -> void . for (zip xs [0 :: Integer ..]) $ \(x, i) ->
-               renderToFile (path `addIndex` i) x
-  where
-    addIndex p i =
-        let (file, ext) = splitExtensions p
-        in (file ++ "_" ++ show i) `addExtension` ext
+    xs  -> void . for (zip xs [0..]) $ \(x, i) ->
+               renderToFile (path `addFileIndex` i) x
+
+addFileIndex :: FilePath -> Int -> FilePath
+addFileIndex p i =
+    let (file, ext) = splitExtensions p
+    in (file ++ "_" ++ show i) `addExtension` ext
 
 renderToFile :: (Pretty p) => FilePath -> p -> ProFeat ()
 renderToFile path = liftIO . LIO.writeFile path . render
