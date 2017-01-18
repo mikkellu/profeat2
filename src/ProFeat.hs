@@ -327,9 +327,10 @@ callPrism prismModels prismProps = do
         vPutStr $ "Model Checking (" ++ show i ++ "/" ++ show numModels ++ ") "
 
         let args = (modelPath:propsArg) ++ prismArgs
+        showLog <- asks showPrismLog
 
         (exitCode, std, err) <- liftIO $
-            readProcessWithExitCode prismPath args
+            readProcessWithExitCode showLog prismPath args
 
         vPutStrLn "done"
 
@@ -376,8 +377,8 @@ postprocessPrismOutput spec rcs = do
 
     showLog <- asks showPrismLog
     let doc = if null filteredRcs
-                  then prettyResultCollections True spec rcs
-                  else prettyResultCollections showLog spec rcs''
+                  then prettyResultCollections (not showLog) spec rcs -- only show PRISM log in case it hasn't been shown beforehand
+                  else prettyResultCollections False spec rcs''
     return (displayT (renderPretty 1.0 300 doc))
   where
     applyRounding rcs' = asks roundResults <&> \case
@@ -500,8 +501,9 @@ renderToFile path = liftIO . LIO.writeFile path . render
 render :: (Pretty p) => p -> L.Text
 render = displayT . renderPretty 0.4 80 . pretty
 
-readProcessWithExitCode :: FilePath -> [String] -> IO (ExitCode, S.Text, S.Text)
-readProcessWithExitCode cmd args = mask $ \restore -> do
+readProcessWithExitCode
+    :: Bool -> FilePath -> [String] -> IO (ExitCode, S.Text, S.Text)
+readProcessWithExitCode echo cmd args = mask $ \restore -> do
     let p = (proc cmd args)
               { std_out = CreatePipe
               , std_err = CreatePipe
@@ -512,8 +514,8 @@ readProcessWithExitCode cmd args = mask $ \restore -> do
         mOut <- newEmptyMVar
         mErr <- newEmptyMVar
 
-        _ <- forkIO (SIO.hGetContents hOut >>= putMVar mOut)
-        _ <- forkIO (SIO.hGetContents hErr >>= putMVar mErr)
+        _ <- forkIO (getLog hOut >>= putMVar mOut)
+        _ <- forkIO (getLog hErr >>= putMVar mErr)
 
         out <- readMVar mOut
         err <- readMVar mErr
@@ -522,8 +524,19 @@ readProcessWithExitCode cmd args = mask $ \restore -> do
 
         return (exitCode, out, err)
   where
+    getLog
+      | echo      = tee
+      | otherwise = SIO.hGetContents
     release hOut hErr pid = do
         hClose hOut
         hClose hErr
         waitForProcess pid
-
+    tee h = loop [] where
+        loop ls = do
+            eof <- hIsEOF h
+            if eof
+                then return $ S.unlines (reverse ls)
+                else do
+                    l <- SIO.hGetLine h
+                    SIO.putStrLn l
+                    loop (l:ls)
