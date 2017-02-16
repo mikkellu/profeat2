@@ -27,6 +27,7 @@ module Result
   , roundStateResults
 
   , prettyResultCollections
+  , prettyVal
   ) where
 
 import Prelude hiding ( (<$>) )
@@ -226,16 +227,17 @@ prettyStateVecs vo = vsep . fmap (parens . prettyStateVec vo) . toList
 prettyStateVec :: Vector v Int => VarOrder -> v Int -> Doc
 prettyStateVec (VarOrder vo) =
     hsep . punctuate comma . mapMaybe (uncurry prettyVal) . zip vo . V.toList
+
+prettyVal :: (Doc, Range) -> Int -> Maybe Doc
+prettyVal (ident, r) v = case r of
+    RangeFeature
+      | v == 0    -> Nothing
+      | v == 1    -> Just ident
+      | otherwise -> error "Result.prettyVal: illegal value for feature variable"
+    RangeBool
+      | v == 0    -> identDef "false"
+      | v == 1    -> identDef "true"
+      | otherwise -> error "Result.prettyVal: illegal value for boolean variable"
+    Range _ _     -> identDef (int v)
   where
-    prettyVal (ident, r) v = case r of
-        RangeFeature
-          | v == 0    -> Nothing
-          | v == 1    -> Just ident
-          | otherwise -> error "Result.prettyVal: illegal value for feature variable"
-        RangeBool
-          | v == 0    -> identDef "false"
-          | v == 1    -> identDef "true"
-          | otherwise -> error "Result.prettyVal: illegal value for boolean variable"
-        Range _ _     -> identDef (int v)
-      where
-        identDef doc = Just $ ident PP.<> char '=' PP.<> doc
+    identDef doc = Just $ ident PP.<> char '=' PP.<> doc
