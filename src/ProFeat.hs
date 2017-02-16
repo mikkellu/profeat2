@@ -56,6 +56,7 @@ import Error
 import Parser
 import Parser.Results
 import Result
+import Result.Csv
 import Result.Diagram
 import SymbolTable
 import Syntax
@@ -85,7 +86,7 @@ helpExportModel = "Export the translated model to <file>"
 -- -p --export-properties
 helpExportProperties = "Export the translated properties to <file>"
 -- -r --export-results
-helpExportResults = "Export the results of model checking to <file>"
+helpExportResults = "Export the results of model checking as CSV to <file>"
 --    --export-diagram
 helpExportDiagram = "Export a decision diagram representing the results to <file> (in dot format)"
 --    --full-diagram
@@ -355,7 +356,7 @@ writeProFeatOutput spec prismOutputs = do
                      parsePrismOutputs prismOutputs
     vPutStrLn "done"
 
-    maybeWriteFile proFeatOutput =<< asks proFeatResultsPath
+    liftIO (LIO.putStrLn proFeatOutput)
 
 parsePrismOutputs :: [S.Text] -> ProFeat [ResultCollection]
 parsePrismOutputs []      = return []
@@ -373,6 +374,8 @@ postprocessPrismOutput spec rcs = do
     let filteredRcs = filter (isJust . _rcFinalResult) rcs
         rcs'        = fmap (sortStateResults . removeNonConfVars) filteredRcs
     rcs'' <- applyRounding rcs'
+
+    writeCsvFiles rcs''
     writeDiagramFiles rcs''
 
     showLog <- asks showPrismLog
@@ -384,6 +387,17 @@ postprocessPrismOutput spec rcs = do
     applyRounding rcs' = asks roundResults <&> \case
         Just precision -> fmap (roundStateResults precision) rcs'
         Nothing        -> rcs'
+
+writeCsvFiles :: [ResultCollection] -> ProFeat ()
+writeCsvFiles rcs = asks proFeatResultsPath >>= \case
+    Nothing   -> return ()
+    Just path -> do
+        let (name, ext) = splitExtension path
+
+        for_ (zip rcs [1 :: Integer ..]) $ \(rc, idx) -> do
+            let path' = addExtension (name ++ "_" ++ show idx) ext
+                csv   = displayT (renderPretty 1.0 300 (toCsv rc))
+            liftIO $ LIO.writeFile path' csv
 
 writeDiagramFiles :: [ResultCollection] -> ProFeat ()
 writeDiagramFiles rcs = asks resultDiagramPath >>= \case
@@ -414,12 +428,6 @@ run :: ProFeat a
     -> ProFeatOptions
     -> IO (Either Error (a, SymbolTable))
 run m = runReaderT . runExceptT . runStateT m
-
--- | Write the given 'Text' to a file if 'Just' a path is given, else write
--- to 'stdout'.
-maybeWriteFile :: L.Text -> Maybe FilePath -> ProFeat ()
-maybeWriteFile content path = maybeWithFile WriteMode path $
-    liftIO . flip LIO.hPutStrLn content
 
 -- | @maybeWithFile mode path act@ opens a file if 'Just' given a path and
 -- passes the resulting handle to @act@. If @path@ is 'Nothing', the

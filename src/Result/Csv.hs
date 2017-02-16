@@ -27,7 +27,7 @@ stateResults :: Vector v Int => VarOrder -> Seq (v Int :!: Result) -> Doc
 stateResults vo = vsep . fmap (ST.uncurry $ stateResult vo) . toList
 
 stateResult :: Vector v Int => VarOrder -> v Int -> Result -> Doc
-stateResult vo sv r = stateVec vo sv <> char ',' <> pretty r
+stateResult vo sv r = stateVec vo sv <> char ',' <+> pretty r
 
 stateVec :: Vector v Int => VarOrder -> v Int -> Doc
 stateVec (VarOrder vo) = hsep . mapMaybe (uncurry prettyVal) . zip vo . V.toList
