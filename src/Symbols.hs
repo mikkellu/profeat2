@@ -351,7 +351,7 @@ extendContext fs = FeatureContext . L.cons fs . getFeatureSymbols
 thisFeature :: FeatureContext -> FeatureSymbol
 thisFeature = L.head . getFeatureSymbols
 
-this :: Contravariant f
+this :: (Contravariant f, Functor f)
      => (FeatureSymbol -> f FeatureSymbol)
      -> FeatureContext -> f FeatureContext
 this = to thisFeature
