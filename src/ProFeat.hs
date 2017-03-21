@@ -87,12 +87,12 @@ helpExportModel = "Export the translated model to <file>"
 helpExportProperties = "Export the translated properties to <file>"
 -- -r --export-results
 helpExportResults = "Export the results of model checking as CSV to <file>"
---    --export-diagram
-helpExportDiagram = "Export a decision diagram representing the results to <file> (in dot format)"
---    --full-diagram
-helpFullDiagram = "Export the full decision diagram. The full diagram also encodes the set of initial configurations."
---    --reorder-diagram
-helpReorderDiagram = "Try to reduce the size of the diagram exported by the export-diagram option"
+--    --export-mtbdd
+helpExportMtbdd = "Export a decision diagram representing the results to <file> (in dot format)"
+--    --full-mtbdd
+helpFullMtbdd = "Export the full decision diagram. The full diagram also encodes the set of initial configurations."
+--    --reorder-mtbdd
+helpReorderMtbdd = "Try to reduce the size of the diagram exported by the export-mtbdd option"
 --    --prism-log
 helpPrismLog = "Show PRISM log messages"
 --    --import-results
@@ -135,9 +135,9 @@ data ProFeatOptions = ProFeatOptions
   , prismModelPath     :: Maybe FilePath
   , prismPropsPath     :: Maybe FilePath
   , proFeatResultsPath :: Maybe FilePath
-  , resultDiagramPath  :: Maybe FilePath
-  , fullDiagram        :: !ReduceOpts
-  , reorderDiagram     :: !ReorderOpts
+  , resultMtbddPath    :: Maybe FilePath
+  , fullMtbdd          :: !ReduceOpts
+  , reorderMtbdd       :: !ReorderOpts
   , showPrismLog       :: !Bool
   , prismResultsPath   :: Maybe FilePath
   , roundResults       :: Maybe Int
@@ -158,9 +158,9 @@ defaultOptions = ProFeatOptions
   , prismModelPath     = Nothing
   , prismPropsPath     = Nothing
   , proFeatResultsPath = Nothing
-  , resultDiagramPath  = Nothing
-  , fullDiagram        = ReducedDiagram
-  , reorderDiagram     = NoReordering
+  , resultMtbddPath    = Nothing
+  , fullMtbdd          = ReducedDiagram
+  , reorderMtbdd       = NoReordering
   , showPrismLog       = False
   , prismResultsPath   = Nothing
   , roundResults       = Nothing
@@ -189,17 +189,17 @@ proFeatOptions = ProFeatOptions
                                <> metavar "<file>"
                                <> hidden
                                <> help helpExportResults ))
-  <*> optional (strOption       ( long "export-diagram"
+  <*> optional (strOption       ( long "export-mtbdd"
                                <> metavar "<file>"
                                <> hidden
-                               <> help helpExportDiagram ))
+                               <> help helpExportMtbdd ))
   <*> flag ReducedDiagram FullDiagram
-                                ( long "full-diagram"
+                                ( long "full-mtbdd"
                                <> hidden
-                               <> help helpFullDiagram )
-  <*> flag NoReordering Reorder ( long "reorder-diagram"
+                               <> help helpFullMtbdd )
+  <*> flag NoReordering Reorder ( long "reorder-mtbdd"
                                <> hidden
-                               <> help helpReorderDiagram )
+                               <> help helpReorderMtbdd )
   <*> switch                    ( long "prism-log"
                                <> hidden
                                <> help helpPrismLog )
@@ -376,7 +376,7 @@ postprocessPrismOutput spec rcs = do
     rcs'' <- applyRounding rcs'
 
     writeCsvFiles rcs''
-    writeDiagramFiles rcs''
+    writeMtbddFiles rcs''
 
     showLog <- asks showPrismLog
     let doc = if null filteredRcs
@@ -399,8 +399,8 @@ writeCsvFiles rcs = asks proFeatResultsPath >>= \case
                 csv   = displayT (renderPretty 1.0 300 (toCsv rc))
             liftIO $ LIO.writeFile path' csv
 
-writeDiagramFiles :: [ResultCollection] -> ProFeat ()
-writeDiagramFiles rcs = asks resultDiagramPath >>= \case
+writeMtbddFiles :: [ResultCollection] -> ProFeat ()
+writeMtbddFiles rcs = asks resultMtbddPath >>= \case
     Nothing   -> return ()
     Just path -> do
         let (name, ext) = splitExtension path
@@ -408,7 +408,7 @@ writeDiagramFiles rcs = asks resultDiagramPath >>= \case
         symTbl <- get
         let vo = varOrder symTbl
 
-        opts <- DiagramOpts <$> asks fullDiagram <*> asks reorderDiagram
+        opts <- DiagramOpts <$> asks fullMtbdd <*> asks reorderMtbdd
 
         for_ (zip rcs [1 :: Integer ..]) $ \(rc, idx) -> do
             let path' = addExtension (name ++ "_" ++ show idx) ext
