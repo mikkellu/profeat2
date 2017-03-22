@@ -53,6 +53,7 @@ import Text.PrettyPrint.Leijen.Text ( Pretty, displayT, pretty, renderPretty )
 
 import Analysis.VarOrder
 import Error
+import FeatureDiagram
 import Parser
 import Parser.Results
 import Result
@@ -85,6 +86,8 @@ helpOneByOne = "Check (or export) all configurations one by one"
 helpExportModel = "Export the translated model to <file>"
 -- -p --export-properties
 helpExportProperties = "Export the translated properties to <file>"
+--    --export-fd
+helpExportFeatureDiagram = "Export a feature diagram to <file> (in dot format)"
 -- -r --export-results
 helpExportResults = "Export the results of model checking as CSV to <file>"
 --    --export-mtbdd
@@ -134,6 +137,7 @@ data ProFeatOptions = ProFeatOptions
   , oneByOne           :: !Bool
   , prismModelPath     :: Maybe FilePath
   , prismPropsPath     :: Maybe FilePath
+  , featureDiagramPath :: Maybe FilePath
   , proFeatResultsPath :: Maybe FilePath
   , resultMtbddPath    :: Maybe FilePath
   , fullMtbdd          :: !ReduceOpts
@@ -157,6 +161,7 @@ defaultOptions = ProFeatOptions
   , oneByOne           = False
   , prismModelPath     = Nothing
   , prismPropsPath     = Nothing
+  , featureDiagramPath = Nothing
   , proFeatResultsPath = Nothing
   , resultMtbddPath    = Nothing
   , fullMtbdd          = ReducedDiagram
@@ -185,6 +190,10 @@ proFeatOptions = ProFeatOptions
   <*> optional (strOption       ( long "export-properties" <> short 'p'
                                <> metavar "<file>"
                                <> help helpExportProperties ))
+  <*> optional (strOption       ( long "export-fd"
+                               <> metavar "<file>"
+                               <> hidden
+                               <> help helpExportFeatureDiagram ))
   <*> optional (strOption       ( long "export-results" <> short 'r'
                                <> metavar "<file>"
                                <> hidden
@@ -256,6 +265,8 @@ proFeat = withProFeatModel $ \model -> withProFeatProps $ \proFeatProps ->
                 renderToFiles p prismModels
             withDefault "out.props" prismPropsPath $
                 for_ prismProps . renderToFile
+
+            void $ asks featureDiagramPath >>= _Just writeFeatureDiagramFile
 
             when' (asks translateOnly) $ liftIO exitSuccess
 
@@ -387,6 +398,11 @@ postprocessPrismOutput spec rcs = do
     applyRounding rcs' = asks roundResults <&> \case
         Just precision -> fmap (roundStateResults precision) rcs'
         Nothing        -> rcs'
+
+writeFeatureDiagramFile :: FilePath -> ProFeat ()
+writeFeatureDiagramFile path = do
+    symTbl <- get
+    liftIO $ writeFeatureDiagram path (symTbl^.rootFeature)
 
 writeCsvFiles :: [ResultCollection] -> ProFeat ()
 writeCsvFiles rcs = asks proFeatResultsPath >>= \case
