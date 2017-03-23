@@ -4,11 +4,11 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ViewPatterns #-}
 
-module Result.Diagram
-  ( DiagramOpts(..)
+module Result.Mtbdd
+  ( MtbddOpts(..)
   , ReduceOpts(..)
   , ReorderOpts(..)
-  , writeDiagram
+  , writeMtbdd
   ) where
 
 import Control.Applicative
@@ -35,20 +35,20 @@ import VarOrder ( VarOrder(..), Range(..) )
 
 -- Rendering -------------------------------------------------------------------
 
-data DiagramOpts = DiagramOpts
+data MtbddOpts = MtbddOpts
   { reduceOpts  :: ReduceOpts
   , reorderOpts :: ReorderOpts
   }
 
 
-writeDiagram
+writeMtbdd
     :: Vector v Int
-    => DiagramOpts
+    => MtbddOpts
     -> VarOrder
     -> FilePath
     -> Seq (v Int :!: Result)
     -> IO ()
-writeDiagram opts vo name stateVecs =
+writeMtbdd opts vo name stateVecs =
     renderMtbddToFile (featureRenderOpts vo)
                       (pack (dropExtension name))
                       name
@@ -89,7 +89,7 @@ numberOfBits upper = ceiling (logBase 2 (fromIntegral (upper + 1) :: Double))
 
 data ReorderOpts = Reorder | NoReordering
 
-data ReduceOpts = FullDiagram | ReducedDiagram
+data ReduceOpts = FullMtbdd | ReducedMtbdd
 
 type ResultRef s = Builder (Maybe Double) s (Ref (Maybe Double) s)
 
@@ -106,8 +106,8 @@ toMtbdd opts vo (fmap coerceStateVec -> svs) = runBuilder $ do
     deref result
   where
     f = case opts of
-        FullDiagram    -> return
-        ReducedDiagram -> reduce
+        FullMtbdd    -> return
+        ReducedMtbdd -> reduce
 
 
 coerceStateVec :: Vector v Int => v Int :!: Result -> v Int :!: Double

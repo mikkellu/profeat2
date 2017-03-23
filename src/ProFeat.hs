@@ -57,7 +57,7 @@ import Parser
 import Parser.Results
 import Result
 import Result.Csv
-import Result.Diagram
+import Result.Mtbdd
 import SymbolTable
 import Syntax
 import Translator
@@ -164,7 +164,7 @@ defaultOptions = ProFeatOptions
   , featureDiagramPath = Nothing
   , proFeatResultsPath = Nothing
   , resultMtbddPath    = Nothing
-  , fullMtbdd          = ReducedDiagram
+  , fullMtbdd          = ReducedMtbdd
   , reorderMtbdd       = NoReordering
   , showPrismLog       = False
   , prismResultsPath   = Nothing
@@ -202,7 +202,7 @@ proFeatOptions = ProFeatOptions
                                <> metavar "<file>"
                                <> hidden
                                <> help helpExportMtbdd ))
-  <*> flag ReducedDiagram FullDiagram
+  <*> flag ReducedMtbdd FullMtbdd
                                 ( long "full-mtbdd"
                                <> hidden
                                <> help helpFullMtbdd )
@@ -418,12 +418,12 @@ writeMtbddFiles rcs = asks resultMtbddPath >>= \case
         let (name, ext) = splitExtension path
 
         vm <- varMap <$> get
-        opts <- DiagramOpts <$> asks fullMtbdd <*> asks reorderMtbdd
+        opts <- MtbddOpts <$> asks fullMtbdd <*> asks reorderMtbdd
 
         for_ (zip rcs [1 :: Integer ..]) $ \(rc, idx) -> do
             let vo = toVarOrder vm $ rc^.rcVariables
             let path' = addExtension (name ++ "_" ++ show idx) ext
-            liftIO $ writeDiagram opts vo path' (rc^.rcStateResults)
+            liftIO $ writeMtbdd opts vo path' (rc^.rcStateResults)
 
 runApp :: ProFeat () -> ProFeatOptions -> IO ()
 runApp m opts = do
