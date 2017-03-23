@@ -5,7 +5,7 @@ module FeatureDiagram
   ( writeFeatureDiagram
   ) where
 
-import Symbols
+import Control.Lens
 
 import Data.Map ( Map, (!) )
 import qualified Data.Map as Map
@@ -13,6 +13,8 @@ import Data.Text.Lazy ( Text )
 import qualified Data.Text.Lazy.IO as LIO
 
 import Text.PrettyPrint.Leijen.Text
+
+import Symbols
 
 
 type FeatureIds = Map FeatureSymbol Doc
@@ -26,7 +28,18 @@ renderFeatureDiagram :: FeatureSymbol -> Text
 renderFeatureDiagram = displayT . renderPretty 0.4 80 . featureDiagram
 
 featureDiagram :: FeatureSymbol -> Doc
-featureDiagram root = featureNodes (featureIds root) root
+featureDiagram root =
+    "digraph" <+> dquotes "feature-diagram" <+> lbrace <> line <>
+    indent 4 body <> line <> rbrace
+  where
+    ids = featureIds root
+    body =
+        attributes <> line <>
+        featureNodes ids root <>
+        decompositionEdges ids root
+    attributes =
+        "node [shape = plaintext];" <> line <>
+        "splines = line;"
 
 featureIds :: FeatureSymbol -> FeatureIds
 featureIds root = Map.fromList . fmap mkId . allContexts $ root where
@@ -34,8 +47,37 @@ featureIds root = Map.fromList . fmap mkId . allContexts $ root where
 
 featureNodes :: FeatureIds -> FeatureSymbol -> Doc
 featureNodes ids (rootContext -> root) = go empty [root] where
+    go _          []   = empty
     go parentName ctxs = "subgraph" <+> dquotes parentName <+> lbrace <> line <>
         indent 4 ("rank = same;" <> line <> vsep (fmap featureNode ctxs)) <>
         line <> rbrace <> line <>
         vsep (fmap (\ctx -> go (pretty ctx) (childContexts ctx)) ctxs)
-    featureNode ctx = dquotes (ids ! thisFeature ctx) <> semi
+    featureNode ctx = dquotes (getId ctx ids) <+>
+        brackets ("label =" <+> label ctx) <> semi
+    label ctx =
+        "<<table border=\"0\" cellborder=\"1\" cellspacing=\"0\">" <>
+        "<tr><td cellpadding=\"3\">" <> getId ctx ids <> "</td></tr>" <>
+        groupCard ctx <>
+        "</table>>"
+    groupCard ctx =
+        let (lower, upper) = ctx^.this.fsGroupCard
+        in if lower == 0 && upper == 0
+               then empty
+               else "<tr><td border=\"0\">" <>
+                    brackets (integer lower <> ".." <> integer upper) <>
+                    "</td></tr>"
+
+decompositionEdges :: FeatureIds -> FeatureSymbol -> Doc
+decompositionEdges ids = vsep . fmap mkEdges . allContexts
+  where
+    mkEdges ctx = vsep (fmap (mkEdge ctx) (childContexts ctx))
+    mkEdge parent child =
+        dquotes (getId parent ids) <> colon <> "s" <+> "->" <+>
+        dquotes (getId child ids) <> colon <> "n" <+>
+        brackets ("arrowhead =" <+> arrowhead) <> semi
+      where
+        arrowhead | child^.this.fsOptional = "odot"
+                  | otherwise              = "none"
+
+getId :: FeatureContext -> FeatureIds -> Doc
+getId ctx ids = ids ! thisFeature ctx
