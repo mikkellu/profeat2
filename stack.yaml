@@ -2,7 +2,11 @@ resolver: lts-8.0
 
 packages:
 - '.'
-- 'mtbdd'
+- location: 'mtbdd'
+  extra-dep: true
+- location: 'qm'
+  extra-dep: true
+
 
 extra-deps: []
 

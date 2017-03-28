@@ -56,6 +56,7 @@ import FeatureDiagram
 import Parser
 import Parser.Results
 import Result
+import Result.Constraint
 import Result.Csv
 import Result.Mtbdd
 import SymbolTable
@@ -90,6 +91,8 @@ helpExportProperties = "Export the translated properties to <file>"
 helpExportFeatureDiagram = "Export a feature diagram to <file> (in dot format)"
 -- -r --export-results
 helpExportResults = "Export the results of model checking as CSV to <file>"
+--    --above-threshold
+helpAboveThreshold = "Compute a constraint such that the result is above the given threshold for all products"
 --    --export-mtbdd
 helpExportMtbdd = "Export a decision diagram representing the results to <file> (in dot format)"
 --    --full-mtbdd
@@ -132,48 +135,50 @@ proFeatMain = handling _IOException ioeHandler $
 
 -- | Stores the command line arguments.
 data ProFeatOptions = ProFeatOptions
-  { proFeatModelPath   :: FilePath
-  , proFeatPropsPath   :: Maybe FilePath
-  , oneByOne           :: !Bool
-  , prismModelPath     :: Maybe FilePath
-  , prismPropsPath     :: Maybe FilePath
-  , featureDiagramPath :: Maybe FilePath
-  , proFeatResultsPath :: Maybe FilePath
-  , resultMtbddPath    :: Maybe FilePath
-  , fullMtbdd          :: !ReduceOpts
-  , reorderMtbdd       :: !ReorderOpts
-  , showPrismLog       :: !Bool
-  , prismResultsPath   :: Maybe FilePath
-  , roundResults       :: Maybe Int
-  , translateOnly      :: !Bool
-  , modelCheckOnly     :: !Bool
-  , prismExecPath      :: FilePath
-  , prismArguments     :: Maybe String
-  , verbosity          :: !Verbosity
+  { proFeatModelPath      :: FilePath
+  , proFeatPropsPath      :: Maybe FilePath
+  , oneByOne              :: !Bool
+  , prismModelPath        :: Maybe FilePath
+  , prismPropsPath        :: Maybe FilePath
+  , featureDiagramPath    :: Maybe FilePath
+  , proFeatResultsPath    :: Maybe FilePath
+  , resultsAboveThreshold :: Maybe Double
+  , resultMtbddPath       :: Maybe FilePath
+  , fullMtbdd             :: !ReduceOpts
+  , reorderMtbdd          :: !ReorderOpts
+  , showPrismLog          :: !Bool
+  , prismResultsPath      :: Maybe FilePath
+  , roundResults          :: Maybe Int
+  , translateOnly         :: !Bool
+  , modelCheckOnly        :: !Bool
+  , prismExecPath         :: FilePath
+  , prismArguments        :: Maybe String
+  , verbosity             :: !Verbosity
   }
 
 data Verbosity = Normal | Verbose deriving (Eq)
 
 defaultOptions :: ProFeatOptions
 defaultOptions = ProFeatOptions
-  { proFeatModelPath   = "-"
-  , proFeatPropsPath   = Nothing
-  , oneByOne           = False
-  , prismModelPath     = Nothing
-  , prismPropsPath     = Nothing
-  , featureDiagramPath = Nothing
-  , proFeatResultsPath = Nothing
-  , resultMtbddPath    = Nothing
-  , fullMtbdd          = ReducedMtbdd
-  , reorderMtbdd       = NoReordering
-  , showPrismLog       = False
-  , prismResultsPath   = Nothing
-  , roundResults       = Nothing
-  , translateOnly      = False
-  , modelCheckOnly     = False
-  , prismExecPath      = defaultPrismPath
-  , prismArguments     = Nothing
-  , verbosity          = Normal
+  { proFeatModelPath      = "-"
+  , proFeatPropsPath      = Nothing
+  , oneByOne              = False
+  , prismModelPath        = Nothing
+  , prismPropsPath        = Nothing
+  , featureDiagramPath    = Nothing
+  , proFeatResultsPath    = Nothing
+  , resultsAboveThreshold = Nothing
+  , resultMtbddPath       = Nothing
+  , fullMtbdd             = ReducedMtbdd
+  , reorderMtbdd          = NoReordering
+  , showPrismLog          = False
+  , prismResultsPath      = Nothing
+  , roundResults          = Nothing
+  , translateOnly         = False
+  , modelCheckOnly        = False
+  , prismExecPath         = defaultPrismPath
+  , prismArguments        = Nothing
+  , verbosity             = Normal
   }
 
 proFeatOptions :: Parser ProFeatOptions
@@ -198,6 +203,10 @@ proFeatOptions = ProFeatOptions
                                <> metavar "<file>"
                                <> hidden
                                <> help helpExportResults ))
+  <*> optional (option auto     ( long "above-threshold"
+                               <> metavar "<threshold>"
+                               <> hidden
+                               <> help helpAboveThreshold ))
   <*> optional (strOption       ( long "export-mtbdd"
                                <> metavar "<file>"
                                <> hidden
@@ -363,10 +372,7 @@ callPrism prismModels prismProps = do
 writeProFeatOutput :: LSpecification -> [S.Text] -> ProFeat ()
 writeProFeatOutput spec prismOutputs = do
     vPutStr "Processing results..."
-    proFeatOutput <- postprocessPrismOutput spec (parsePrismOutputs prismOutputs)
-    vPutStrLn "done"
-
-    liftIO (LIO.putStrLn proFeatOutput)
+    postprocessPrismOutput spec (parsePrismOutputs prismOutputs)
 
 parsePrismOutputs :: [S.Text] -> [ResultCollection]
 parsePrismOutputs []      = []
@@ -374,7 +380,7 @@ parsePrismOutputs outputs =
     let rcs = fmap parseResultCollections outputs
     in foldr1 (zipWith appendResultCollection) rcs
 
-postprocessPrismOutput :: LSpecification -> [ResultCollection] -> ProFeat L.Text
+postprocessPrismOutput :: LSpecification -> [ResultCollection] -> ProFeat ()
 postprocessPrismOutput spec rcs = do
     let filteredRcs = filter (isJust . _rcFinalResult) rcs
         rcs'        = fmap (sortStateResults . removeNonConfVars) filteredRcs
@@ -388,7 +394,11 @@ postprocessPrismOutput spec rcs = do
     let doc = if null filteredRcs
                   then prettyResultCollections vm (not showLog) spec rcs -- only show PRISM log in case it hasn't been shown beforehand
                   else prettyResultCollections vm False spec rcs''
-    return (displayT (renderPretty 1.0 300 doc))
+        proFeatOutput = displayT (renderPretty 1.0 300 doc)
+
+    liftIO (LIO.putStrLn proFeatOutput)
+
+    showThresholdConstraints rcs''
   where
     applyRounding rcs' = asks roundResults <&> \case
         Just precision -> fmap (roundStateResults precision) rcs'
@@ -410,6 +420,20 @@ writeCsvFiles rcs = asks proFeatResultsPath >>= \case
             let path' = addExtension (name ++ "_" ++ show idx) ext
                 csv   = displayT (renderPretty 1.0 300 (toCsv vm rc))
             liftIO $ LIO.writeFile path' csv
+
+showThresholdConstraints :: [ResultCollection] -> ProFeat ()
+showThresholdConstraints rcs = asks resultsAboveThreshold >>= \case
+    Nothing -> return ()
+    Just threshold -> do
+        vm <- varMap <$> get
+        for_ rcs $ \rc -> do
+            let vo = toVarOrder vm $ rc^.rcVariables
+            liftIO . putStrLn $ "Constraint for threshold >= " ++ show threshold
+            liftIO $ print (constraintsFor vo rc (prop threshold))
+  where
+    prop t = \case
+        ResultDouble r | r >= t -> True
+        _                       -> False
 
 writeMtbddFiles :: [ResultCollection] -> ProFeat ()
 writeMtbddFiles rcs = asks resultMtbddPath >>= \case

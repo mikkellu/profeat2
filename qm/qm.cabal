@@ -1,0 +1,82 @@
+name:                qm
+
+-- http://www.haskell.org/haskellwiki/Package_versioning_policy
+-- PVP summary:      +-+------- breaking API changes
+--                   | | +----- non-breaking API additions
+--                   | | | +--- code changes with no API change
+version:             0.1.0.0
+
+synopsis:            The Quine-McCluskey Algorithm for Minimization of Boolean Functions.
+
+-- A longer description of the package.
+description:         Ported to Haskell from the Python qm Package (<http://pypi.python.org/pypi/qm>) and the improved qm (including Petrick's method) by George Prekas (<http://github.com/prekageo/optistate>).
+
+-- URL for the project homepage or repository.
+homepage:            https://github.com/martinfinke/qm
+
+-- The license under which the package is released.
+license:             MIT
+
+-- The file containing the license text.
+license-file:        LICENSE
+
+-- The package author(s).
+author:              Robert Dick, Pat Maupin, George Prekas, Martin Finke
+
+-- An email address to which users can send suggestions, bug reports, and 
+-- patches.
+maintainer:          martin@basteln.local
+
+-- A copyright notice.
+-- copyright:           
+
+category:            Logic
+
+build-type:          Simple
+
+-- Extra files to be distributed with the package, such as examples or a 
+-- README.
+extra-source-files:  README.md
+
+-- Constraint on the version of Cabal needed to build this package.
+cabal-version:       >=1.10
+
+
+source-repository this
+  type: git
+  location: https://github.com/martinfinke/qm
+  tag: stable
+
+
+library
+  -- Modules exported by the library.
+  exposed-modules:     Qm
+  
+  -- Modules included in this library but not exported.
+  -- other-modules:       QmSpec, SpecHelper, Spec
+  
+  -- LANGUAGE extensions used by modules in this package.
+  -- other-extensions:    
+  
+  -- Other library packages from which modules are imported.
+  build-depends:       base >=4.9,
+                       containers >=0.5,
+                       transformers >= 0.4.2.0
+  
+  -- Directories containing source files.
+  hs-source-dirs:      src
+  
+  -- Base language which the package is written in.
+  default-language:    Haskell2010
+  
+
+Test-Suite tests
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      src, test
+  main-is:             Spec.hs
+  build-depends:       hspec >= 2.1.7, QuickCheck >= 2.8.1,
+                       base >=4.9,
+                       containers >=0.5,
+                       transformers >= 0.4.2.0
+  default-language:    Haskell2010
+  ghc-options:         -threaded

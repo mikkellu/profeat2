@@ -1,5 +1,5 @@
 name:                profeat
-version:             0.116.0.0
+version:             0.117.1.0
 synopsis:            A feature modelling framework
 author:              Philipp Chrszon
 maintainer:          Philipp.Chrszon@tu-dresden.de
@@ -19,6 +19,7 @@ library
                        ProductLine,
                        ProFeat,
                        Result,
+                       Result.Constraint,
                        Result.Csv,
                        Result.Mtbdd,
                        SrcLoc,
@@ -54,6 +55,7 @@ library
                        optparse-applicative >=0.13,
                        parsec >=3.1,
                        process >=1.4.3,
+                       qm >=0.1,
                        semigroups >=0.18,
                        strict >=0.3,
                        transformers >=0.5.2,
