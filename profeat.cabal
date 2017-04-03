@@ -1,5 +1,5 @@
 name:                profeat
-version:             0.113.1.0
+version:             0.114.0.0
 synopsis:            A feature modelling framework
 author:              Philipp Chrszon
 maintainer:          Philipp.Chrszon@tu-dresden.de
@@ -40,7 +40,8 @@ library
                        Translator.Rewards,
                        Typechecker,
                        Types,
-                       Types.Util
+                       Types.Util,
+                       VarOrder
   other-modules:       Data.Strict.Tuple.Lens,
                        Paths_profeat
   hs-source-dirs:      src

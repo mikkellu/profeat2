@@ -63,6 +63,7 @@ import SymbolTable
 import Syntax
 import Translator
 import Types
+import VarOrder
 
 import Paths_profeat ( version )
 
