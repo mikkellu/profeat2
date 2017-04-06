@@ -1,5 +1,5 @@
 name:                profeat
-version:             0.114.0.0
+version:             0.115.0.0
 synopsis:            A feature modelling framework
 author:              Philipp Chrszon
 maintainer:          Philipp.Chrszon@tu-dresden.de
@@ -9,7 +9,6 @@ cabal-version:       >=1.8
 
 library
   exposed-modules:     Analysis.InitialState,
-                       Analysis.VarOrder,
                        Error,
                        Eval,
                        FeatureDiagram,

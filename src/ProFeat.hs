@@ -51,7 +51,6 @@ import System.Process hiding ( readProcessWithExitCode )
 
 import Text.PrettyPrint.Leijen.Text ( Pretty, displayT, pretty, renderPretty )
 
-import Analysis.VarOrder
 import Error
 import FeatureDiagram
 import Parser
@@ -364,22 +363,16 @@ callPrism prismModels prismProps = do
 writeProFeatOutput :: LSpecification -> [S.Text] -> ProFeat ()
 writeProFeatOutput spec prismOutputs = do
     vPutStr "Processing results..."
-    proFeatOutput <- postprocessPrismOutput spec =<<
-                     parsePrismOutputs prismOutputs
+    proFeatOutput <- postprocessPrismOutput spec (parsePrismOutputs prismOutputs)
     vPutStrLn "done"
 
     liftIO (LIO.putStrLn proFeatOutput)
 
-parsePrismOutputs :: [S.Text] -> ProFeat [ResultCollection]
-parsePrismOutputs []      = return []
-parsePrismOutputs outputs = do
-    rcs <- traverse parse outputs
-    return $ foldr1 (zipWith appendResultCollection) rcs
-  where
-    parse :: S.Text -> ProFeat [ResultCollection]
-    parse out = do
-        symTbl <- get
-        return $ parseResultCollections (varOrder symTbl) out
+parsePrismOutputs :: [S.Text] -> [ResultCollection]
+parsePrismOutputs []      = []
+parsePrismOutputs outputs =
+    let rcs = fmap parseResultCollections outputs
+    in foldr1 (zipWith appendResultCollection) rcs
 
 postprocessPrismOutput :: LSpecification -> [ResultCollection] -> ProFeat L.Text
 postprocessPrismOutput spec rcs = do
@@ -390,10 +383,11 @@ postprocessPrismOutput spec rcs = do
     writeCsvFiles rcs''
     writeMtbddFiles rcs''
 
+    vm <- varMap <$> get
     showLog <- asks showPrismLog
     let doc = if null filteredRcs
-                  then prettyResultCollections (not showLog) spec rcs -- only show PRISM log in case it hasn't been shown beforehand
-                  else prettyResultCollections False spec rcs''
+                  then prettyResultCollections vm (not showLog) spec rcs -- only show PRISM log in case it hasn't been shown beforehand
+                  else prettyResultCollections vm False spec rcs''
     return (displayT (renderPretty 1.0 300 doc))
   where
     applyRounding rcs' = asks roundResults <&> \case
@@ -410,10 +404,11 @@ writeCsvFiles rcs = asks proFeatResultsPath >>= \case
     Nothing   -> return ()
     Just path -> do
         let (name, ext) = splitExtension path
+        vm <- varMap <$> get
 
         for_ (zip rcs [1 :: Integer ..]) $ \(rc, idx) -> do
             let path' = addExtension (name ++ "_" ++ show idx) ext
-                csv   = displayT (renderPretty 1.0 300 (toCsv rc))
+                csv   = displayT (renderPretty 1.0 300 (toCsv vm rc))
             liftIO $ LIO.writeFile path' csv
 
 writeMtbddFiles :: [ResultCollection] -> ProFeat ()
@@ -422,12 +417,11 @@ writeMtbddFiles rcs = asks resultMtbddPath >>= \case
     Just path -> do
         let (name, ext) = splitExtension path
 
-        symTbl <- get
-        let vo = varOrder symTbl
-
+        vm <- varMap <$> get
         opts <- DiagramOpts <$> asks fullMtbdd <*> asks reorderMtbdd
 
         for_ (zip rcs [1 :: Integer ..]) $ \(rc, idx) -> do
+            let vo = toVarOrder vm $ rc^.rcVariables
             let path' = addExtension (name ++ "_" ++ show idx) ext
             liftIO $ writeDiagram opts vo path' (rc^.rcStateResults)
 

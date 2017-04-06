@@ -29,8 +29,8 @@ import Text.PrettyPrint.Leijen.Text ( Doc, (<>), int )
 
 import System.FilePath ( dropExtension )
 
-import Analysis.VarOrder ( VarOrder(..), Range(..) )
 import Result
+import VarOrder ( VarOrder(..), Range(..) )
 
 
 -- Rendering -------------------------------------------------------------------

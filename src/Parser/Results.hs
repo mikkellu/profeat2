@@ -1,9 +1,11 @@
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 {-# OPTIONS_GHC -fno-warn-unused-binds       #-}
 
+{-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE LambdaCase                #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE RecordWildCards           #-}
+{-# LANGUAGE TemplateHaskell           #-}
 {-# LANGUAGE TypeOperators             #-}
 
 module Parser.Results
@@ -14,6 +16,8 @@ import Control.Applicative
 import Control.Lens hiding ( noneOf )
 import Control.Monad.State
 
+import Data.Maybe
+import Data.Monoid
 import Data.Sequence ( Seq, fromList, singleton )
 import Data.Strict.Tuple
 import Data.Text ( Text, pack )
@@ -24,11 +28,11 @@ import Text.Parsec hiding ( (<|>), many )
 import Text.Parsec.Text
 import qualified Text.Parsec.Token as P
 
-import Analysis.VarOrder
 import Result
 
 data Log
-  = LogStateResults !(Seq (StateVec :!: Result))
+  = LogVariables    VariablesRaw
+  | LogStateResults !(Seq (StateVec :!: Result))
   | LogFinalResult  !Result
   | LogTrace        !(Seq StateVec)
   | LogDdNodes      !(Int :!: Int)
@@ -37,16 +41,30 @@ data Log
   | Log             !Text
   deriving (Show)
 
-parseResultCollections :: VarOrder -> Text -> [ResultCollection]
-parseResultCollections vo output =
-    case parse prismOutput "output" output of
-        Left err  -> error $ "internal error while parsing PRISM output\n:" ++
-                             show err
-        Right lss -> fmap (resultCollection vo) lss
+makePrisms ''Log
 
-resultCollection :: VarOrder -> [Log] -> ResultCollection
-resultCollection vo ls =
-    flip execState (emptyResultCollection vo) . for ls $ \case
+parseResultCollections :: Text -> [ResultCollection]
+parseResultCollections output =
+    case parse prismOutput "output" output of
+        Left err ->
+            error $ "internal error while parsing PRISM output\n:" ++ show err
+        Right lss ->
+            let varss = fmap extractVariables lss
+                vars =
+                    fromMaybe
+                        (error
+                             "could not parse variable order from PRISM output")
+                        (getLast (mconcat varss))
+            in fmap (resultCollection vars) lss
+
+extractVariables :: [Log] -> Last VariablesRaw
+extractVariables =
+    mconcat . fmap (Last . Just) . toListOf (traverse . _LogVariables)
+
+resultCollection :: VariablesRaw -> [Log] -> ResultCollection
+resultCollection vars ls =
+    flip execState (emptyResultCollection vars) . for ls $ \case
+        LogVariables    _   -> return () -- ignore, handled in parseResultCollections
         LogStateResults srs -> rcStateResults .= srs
         LogFinalResult  r   -> rcFinalResult  .= Just r
         LogTrace        svs -> rcTrace        .= svs
@@ -91,12 +109,12 @@ separator :: Parser ()
 separator = () <$ lexeme (try (char '-' *> char '-' `manyTill` newline))
 
 prismOutput :: Parser [[Log]]
-prismOutput = whiteSpace *> (anyToken `manyTill` separator)
-                         *> (logs `sepBy` separator) <* eof
+prismOutput = whiteSpace *> (logs `sepBy` separator) <* eof
 
 logs :: Parser [Log]
 logs = many . choice $
-  [ logStateResults
+  [ logVariables
+  , logStateResults
   , logFinalResult
   , logTrace
   , logDdNodes
@@ -104,6 +122,13 @@ logs = many . choice $
   , logCheckingTime
   , logAny
   ]
+
+logVariables :: Parser Log
+logVariables = LogVariables <$>
+    (start *> ((pack <$> ident) `endBy` char ' ') <* whiteSpace)
+  where
+    start = trySymbol "Variables:" <|> trySymbol "Variables (after reordering):"
+    ident = many (alphaNum <|> char '_')
 
 logStateResults :: Parser Log
 logStateResults =

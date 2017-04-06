@@ -17,11 +17,12 @@ import qualified Data.Vector.Generic as V
 
 import Text.PrettyPrint.Leijen.Text
 
-import Analysis.VarOrder
 import Result
+import VarOrder
 
-toCsv :: ResultCollection -> Doc
-toCsv ResultCollection{..} = stateResults _rcVarOrder _rcStateResults
+toCsv :: VarMap -> ResultCollection -> Doc
+toCsv vm ResultCollection{..} =
+    stateResults (toVarOrder vm _rcVariables) _rcStateResults
 
 stateResults :: Vector v Int => VarOrder -> Seq (v Int :!: Result) -> Doc
 stateResults vo = vsep . fmap (ST.uncurry $ stateResult vo) . toList
