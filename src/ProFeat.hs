@@ -442,12 +442,23 @@ writeMtbddFiles rcs = asks resultMtbddPath >>= \case
         let (name, ext) = splitExtension path
 
         vm <- varMap <$> get
-        opts <- MtbddOpts <$> asks fullMtbdd <*> asks reorderMtbdd
+
+        tPred <- flip fmap (asks resultsAboveThreshold) $ \case
+            Just threshold -> thresholdFunc threshold
+            Nothing        -> id
+        opts <- MtbddOpts <$> asks fullMtbdd
+                          <*> asks reorderMtbdd
+                          <*> pure tPred
 
         for_ (zip rcs [1 :: Integer ..]) $ \(rc, idx) -> do
             let vo = toVarOrder vm $ rc^.rcVariables
             let path' = addExtension (name ++ "_" ++ show idx) ext
             liftIO $ writeMtbdd opts vo path' (rc^.rcStateResults)
+  where
+    thresholdFunc threshold = \case
+        Just d | d >= threshold -> Just 1.0
+               | otherwise      -> Just 0.0
+        Nothing -> Nothing
 
 runApp :: ProFeat () -> ProFeatOptions -> IO ()
 runApp m opts = do

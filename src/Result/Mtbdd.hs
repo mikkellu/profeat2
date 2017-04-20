@@ -38,6 +38,7 @@ import VarOrder ( VarOrder(..), Range(..) )
 data MtbddOpts = MtbddOpts
   { reduceOpts  :: ReduceOpts
   , reorderOpts :: ReorderOpts
+  , mappingFunc :: Maybe Double -> Maybe Double
   }
 
 
@@ -54,7 +55,7 @@ writeMtbdd opts vo name stateVecs =
                       name
                       mtbdd
   where
-    mtbdd = reorder (toMtbdd (reduceOpts opts) vo stateVecs)
+    mtbdd = reorder (toMtbdd (reduceOpts opts) (mappingFunc opts) vo stateVecs)
     reorder = case reorderOpts opts of
         Reorder      -> sift
         NoReordering -> id
@@ -97,13 +98,15 @@ type ResultRef s = Builder (Maybe Double) s (Ref (Maybe Double) s)
 toMtbdd
     :: Vector v Int
     => ReduceOpts
+    -> (Maybe Double -> Maybe Double)
     -> VarOrder
     -> Seq (v Int :!: Result)
     -> Mtbdd (Maybe Double)
-toMtbdd opts vo (fmap coerceStateVec -> svs) = runBuilder $ do
+toMtbdd opts mf vo (fmap coerceStateVec -> svs) = runBuilder $ do
     m <- combine (fmap (convertStateVec vo) svs)
     result <- f m
-    deref result
+    result' <- Data.Mtbdd.Builder.map mf result
+    deref result'
   where
     f = case opts of
         FullMtbdd    -> return
