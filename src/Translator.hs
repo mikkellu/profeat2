@@ -370,7 +370,7 @@ extractInits :: Trans InitExprs
 extractInits = do
     symTbl <- view symbolTable
 
-    let varInit = fmap varInitExpr (initialState symTbl)
+    varInit <- traverse varInitExpr (initialState symTbl)
     eInit <- case symTbl^.initConfExpr of
         Just e  -> trnsExpr isBoolType e
         Nothing -> return $ BoolExpr True noLoc
@@ -378,9 +378,11 @@ extractInits = do
 
     return . InitExprs . concat $ [initConstrExprs, varInit, [eInit]]
 
-varInitExpr :: (QualifiedVar, LExpr) -> LExpr
-varInitExpr (QualifiedVar sc ident idx, e) =
-    NameExpr (fullyQualifiedName sc ident idx noLoc) noLoc `eq` e
+-- TODO: translate e
+varInitExpr :: (QualifiedVar, LExpr) -> Trans LExpr
+varInitExpr (QualifiedVar sc ident idx, e) = do
+    e' <- trnsExpr (const True) e
+    return $ NameExpr (fullyQualifiedName sc ident idx noLoc) noLoc `eq` e'
 
 extractConstraints :: Bool -> Trans [LExpr]
 extractConstraints initial =
