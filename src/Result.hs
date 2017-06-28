@@ -12,6 +12,11 @@ module Result
   , StateVec
   , VariablesRaw
 
+  , StateResult(..)
+  , srIndex
+  , srStateVec
+  , srResult
+
   , ResultCollection(..)
   , rcVariables
   , rcStateResults
@@ -91,9 +96,17 @@ type StateVec = UV.Vector Int
 
 type VariablesRaw = [Text]
 
+data StateResult = StateResult
+  { _srIndex    :: !Int
+  , _srStateVec :: !StateVec
+  , _srResult   :: !Result
+  } deriving (Show)
+
+makeLenses ''StateResult
+
 data ResultCollection = ResultCollection
   { _rcVariables           :: VariablesRaw
-  , _rcStateResults        :: !(Seq (StateVec :!: Result))
+  , _rcStateResults        :: !(Seq StateResult)
   , _rcFinalResult         :: Maybe Result
   , _rcTrace               :: !(Seq StateVec)
   , _rcLog                 :: !(Seq Text)
@@ -122,7 +135,7 @@ appendResultCollection :: ResultCollection
 appendResultCollection (ResultCollection xVars xSrs xR xTr xL xNs xBt xCt)
                        (ResultCollection yVars ySrs yR yTr yL yNs yBt yCt) =
     let idxm  = indexMap xVars yVars
-        ySrs' = over (traverse._1) (reorderStateVec idxm) ySrs
+        ySrs' = over (traverse.srStateVec) (reorderStateVec idxm) ySrs
         yTr'  = over traverse (reorderStateVec idxm) yTr
         r = liftA2 (<>) xR yR <|> xR <|> yR
     in ResultCollection xVars (xSrs <> ySrs') r (xTr <> yTr') (xL <> yL)
@@ -144,11 +157,11 @@ reorderStateVec :: (Int, IndexMap) -> StateVec -> StateVec
 reorderStateVec (len, idxs) sv = UV.generate len (\i -> sv ! (idxs ! i))
 
 sortStateResults :: ResultCollection -> ResultCollection
-sortStateResults = rcStateResults %~ Seq.sortBy (comparing (view _2'))
+sortStateResults = rcStateResults %~ Seq.sortBy (comparing (view srResult))
 
 roundStateResults :: Int -> ResultCollection -> ResultCollection
 roundStateResults precision =
-    rcStateResults %~ fmap (over _2' $ roundResult precision)
+    rcStateResults %~ fmap (over srResult $ roundResult precision)
 
 roundResult :: Int -> Result -> Result
 roundResult precision r = case r of
@@ -175,21 +188,21 @@ removeNonConfVars rc =
           & rcStateResults .~ srs'
 
 filterConfVars :: [VarRole]
-               -> Seq (StateVec :!: Result)
-               -> Seq (StateVec :!: Result)
+               -> Seq StateResult
+               -> Seq StateResult
 filterConfVars vrs = fmap go where
-    go            = over _1' filterVals
+    go            = over srStateVec filterVals
     confIndices   = fmap fst . filter ((VarConf ==) . snd) . zip [0..] $ vrs
     filterVals sv = let confVals = fmap (sv !) confIndices
                     in V.fromList confVals
 
-findConfVars :: Seq (StateVec :!: Result) -> [VarRole]
-findConfVars (viewl -> (sv :!: _) :< srs) =
+findConfVars :: Seq StateResult -> [VarRole]
+findConfVars (viewl -> StateResult _ sv _ :< srs) =
     fmap go (enumFromTo 0 (V.length sv - 1))
   where
     go :: Int -> VarRole
     go i = let v = sv ! i
-           in if all ((v ==) . (! i) . ST.fst) srs
+           in if all ((v ==) . (! i) . _srStateVec) srs
                   then VarNonConf
                   else VarConf
 findConfVars _ = []
@@ -246,11 +259,11 @@ prettyResultCollection vm includeLog ResultCollection{..} =
 prettyLog :: Seq Text -> Doc
 prettyLog = vsep . fmap (text . L.fromStrict) . toList
 
-prettyStateResults :: Vector v Int => VarOrder -> Seq (v Int :!: Result) -> Doc
-prettyStateResults vo = vsep . fmap (ST.uncurry $ prettyStateResult vo) . toList
+prettyStateResults :: VarOrder -> Seq StateResult -> Doc
+prettyStateResults vo = vsep . fmap (prettyStateResult vo) . toList
 
-prettyStateResult :: Vector v Int => VarOrder -> v Int -> Result -> Doc
-prettyStateResult vo sv r =
+prettyStateResult :: VarOrder -> StateResult -> Doc
+prettyStateResult vo (StateResult i sv r) = int i <> colon <>
     parens (prettyStateVec vo sv) PP.<> char '=' PP.<> pretty r
 
 prettyStateVecs :: Vector v Int => VarOrder -> Seq (v Int) -> Doc

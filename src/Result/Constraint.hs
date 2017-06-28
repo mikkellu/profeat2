@@ -12,7 +12,6 @@ import Data.Bits
 import Data.Foldable
 import Data.Set ( (\\) )
 import qualified Data.Set as Set
-import Data.Strict.Tuple ( (:!:) )
 import qualified Data.Vector.Generic as V
 
 import Qm
@@ -25,7 +24,7 @@ import VarOrder
 constraintsFor :: VarOrder -> ResultCollection -> (Result -> Bool) -> Doc
 constraintsFor vo rc p =
     toConstraints vo . qm' . toBitVectors vo .
-    filter (p . view _2) $ rc^..rcStateResults.traverse
+    filter (p . view srResult) $ rc^..rcStateResults.traverse
   where
     qm' ones  = qm ones [] dontCares
     dontCares = invalidFeatureCombinations vo rc
@@ -49,8 +48,8 @@ toConstraint (VarOrder vo) (QmTerm (vars, mask)) =
         | active    = name
         | otherwise = "!" <> name
 
-toBitVectors :: VarOrder -> [StateVec :!: Result] -> [BitVector]
-toBitVectors vo = fmap (toBitVector vo . view _1)
+toBitVectors :: VarOrder -> [StateResult] -> [BitVector]
+toBitVectors vo = fmap (toBitVector vo . view srStateVec)
 
 toBitVector :: VarOrder -> StateVec -> BitVector
 toBitVector (VarOrder vo) sv =

@@ -32,7 +32,7 @@ import Result
 
 data Log
   = LogVariables    VariablesRaw
-  | LogStateResults !(Seq (StateVec :!: Result))
+  | LogStateResults !(Seq StateResult)
   | LogFinalResult  !Result
   | LogTrace        !(Seq StateVec)
   | LogDdNodes      !(Int :!: Int)
@@ -135,9 +135,11 @@ logStateResults =
     LogStateResults . fromList <$> (start *> skipLine *> many stateResult)
   where
     start       = trySymbol "Satisfying states" <|> trySymbol "Results"
-    stateResult = (:!:) <$> (integer *> colon *> stateVec)
-                        <*> option (ResultBool True)
-                                   (ResultDouble <$> (reservedOp "=" *> float'))
+    stateResult = StateResult
+        <$> (int <* colon)
+        <*> stateVec
+        <*> option (ResultBool True)
+                   (ResultDouble <$> (reservedOp "=" *> float'))
 
 logFinalResult :: Parser Log
 logFinalResult = LogFinalResult <$> (start *> result <* skipLine) where

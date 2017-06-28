@@ -43,19 +43,19 @@ data MtbddOpts = MtbddOpts
 
 
 writeMtbdd
-    :: Vector v Int
-    => MtbddOpts
+    :: MtbddOpts
     -> VarOrder
     -> FilePath
-    -> Seq (v Int :!: Result)
+    -> Seq StateResult
     -> IO ()
-writeMtbdd opts vo name stateVecs =
+writeMtbdd opts vo name stateResults =
     renderMtbddToFile (featureRenderOpts vo)
                       (pack (dropExtension name))
                       name
                       mtbdd
   where
     mtbdd = reorder (toMtbdd (reduceOpts opts) (mappingFunc opts) vo stateVecs)
+    stateVecs = fmap (\(StateResult _ sv r) -> sv :!: r) stateResults
     reorder = case reorderOpts opts of
         Reorder      -> sift
         NoReordering -> id

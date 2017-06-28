@@ -9,8 +9,6 @@ module Result.Csv
 
 import Data.Foldable ( toList )
 import Data.Maybe ( mapMaybe)
-import qualified Data.Strict.Tuple as ST
-import Data.Strict.Tuple ( (:!:) )
 import Data.Sequence ( Seq )
 import Data.Vector.Generic ( Vector )
 import qualified Data.Vector.Generic as V
@@ -24,11 +22,12 @@ toCsv :: VarMap -> ResultCollection -> Doc
 toCsv vm ResultCollection{..} =
     stateResults (toVarOrder vm _rcVariables) _rcStateResults
 
-stateResults :: Vector v Int => VarOrder -> Seq (v Int :!: Result) -> Doc
-stateResults vo = vsep . fmap (ST.uncurry $ stateResult vo) . toList
+stateResults :: VarOrder -> Seq StateResult -> Doc
+stateResults vo = vsep . fmap (stateResult vo) . toList
 
-stateResult :: Vector v Int => VarOrder -> v Int -> Result -> Doc
-stateResult vo sv r = stateVec vo sv <> char ',' <+> pretty r
+stateResult :: VarOrder -> StateResult -> Doc
+stateResult vo (StateResult i sv r) =
+    int i <> char ',' <+> stateVec vo sv <> char ',' <+> pretty r
 
 stateVec :: Vector v Int => VarOrder -> v Int -> Doc
 stateVec (VarOrder vo) = hsep . mapMaybe (uncurry prettyVal) . zip vo . V.toList
