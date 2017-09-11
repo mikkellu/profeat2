@@ -1,5 +1,9 @@
 mdp
 
+const int max_processes = 5;
+
+label "stable" = (0 < num_processes ? q_0 : 0) + ((1 < num_processes ? q_1 : 0) + ((2 < num_processes ? q_2 : 0) + ((3 < num_processes ? q_3 : 0) + (4 < num_processes ? q_4 : 0)))) = 1;
+
 init
     (0 < num_processes ? q_0 : 0) + ((1 < num_processes ? q_1 : 0) + ((2 < num_processes ? q_2 : 0) + ((3 < num_processes ? q_3 : 0) + (4 < num_processes ? q_4 : 0)))) >= 1
 endinit
@@ -10,12 +14,6 @@ formula _process_1_active = true;
 formula _process_2_active = true;
 formula _process_3_active = true;
 formula _process_4_active = true;
-
-rewards "steps"
-    true : 1;
-endrewards
-
-const int max_processes = 5;
 
 global num_processes : [3 .. max_processes];
 
@@ -52,4 +50,6 @@ module _process_4_process_impl
     [] _process_4_active & (num_processes = 5 & q_4 = 1) -> 0.5:(q_4' = 0) & (q_0' = 1) + 0.5:(q_4' = 0) & (q_3' = 1);
 endmodule
 
-label "stable" = (0 < num_processes ? q_0 : 0) + ((1 < num_processes ? q_1 : 0) + ((2 < num_processes ? q_2 : 0) + ((3 < num_processes ? q_3 : 0) + (4 < num_processes ? q_4 : 0)))) = 1;
+rewards "steps"
+    true : 1;
+endrewards

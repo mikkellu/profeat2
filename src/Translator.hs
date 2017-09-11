@@ -152,12 +152,17 @@ translateModel' symTbl initExprs invs =
                                trnsLabels (symTbl^..labels.traverse)
             rewardsDefs <- trnsRewards
 
-            return . Model modelT . sortBy (comparing defAnnot) $ concat
+            let orderDependentDefs =
+                    sortBy (comparing defAnnot) $ concat
+                        [ globalDefs
+                        , moduleDefs
+                        , toList controllerDef
+                        ]
+
+            return . Model modelT $ concat
                 [ constDefs
-                , globalDefs
-                , moduleDefs
-                , toList controllerDef
                 , labelDefs
+                , orderDependentDefs
                 , rewardsDefs
                 ]
 

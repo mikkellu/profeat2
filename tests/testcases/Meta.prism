@@ -1,3 +1,10 @@
+mdp
+
+const int n = 3;
+const int x = 1;
+const int y = 1 + (2 + 3);
+const int z = min(1, min(2, 3));
+
 init
     _last_1 = false &
     _last_2 = false &
@@ -6,17 +13,6 @@ init
 endinit
 
 formula _active = true;
-
-rewards "test"
-    [act_3] true : 1;
-    [act_2] true : 1;
-    [act_1] true : 1;
-endrewards
-
-const int n = 3;
-const int x = 1;
-const int y = 1 + (2 + 3);
-const int z = min(1, min(2, 3));
 
 module _root_impl
     _s      : [1..n];
@@ -31,3 +27,8 @@ module _root_impl
                              (1/n):(_s' = 3) & (_last_1' = 3 = 1) & (_last_2' = 3 = 2) & (_last_3' = 3 = 3);
 endmodule
 
+rewards "test"
+    [act_3] true : 1;
+    [act_2] true : 1;
+    [act_1] true : 1;
+endrewards

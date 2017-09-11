@@ -1,3 +1,5 @@
+mdp
+
 init
     _sub_s = 1 + 1
 endinit
@@ -5,11 +7,10 @@ endinit
 formula _active     = true;
 formula _sub_active = true;
 
-rewards "test"
-    [] true : 1;
-endrewards
-
 module _sub_sub_impl
     _sub_s : [0..1+1];
 endmodule
 
+rewards "test"
+    [] true : 1;
+endrewards
