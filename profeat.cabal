@@ -60,7 +60,7 @@ library
                        strict >=0.3,
                        transformers >=0.5.2,
                        text >=1.2,
-                       vector >=0.11,
+                       vector >=0.12,
                        wl-pprint-text >=1.1
   ghc-options:         -Wall
 
