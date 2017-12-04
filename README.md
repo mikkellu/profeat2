@@ -4,7 +4,7 @@ Building ProFeat from source
 Prerequisites
 -------------
 
-Download and install the [Stack](haskellstack.org) tool.
+Download and install the [Stack](https://www.haskellstack.org) tool.
 
 If you do not have a recent version of GHC on your system (at least version
 8.0), run
