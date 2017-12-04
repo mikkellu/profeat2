@@ -112,8 +112,8 @@ reservedNames =
     , "endmodule", "this", "active", "activate", "deactivate", "array", "bool"
     , "int", "double", "init", "endinit", "invariant", "endinvariant", "for"
     , "endfor", "in", "id", "block", "filter", "min", "max", "quantile"
-    , "reward", "true", "false", "P", "R", "S", "E", "A", "U", "W", "R", "X"
-    , "F", "G", "C", "I"
+    , "sample", "reward", "true", "false", "P", "R", "S", "E", "A", "U", "W"
+    , "R", "X", "F", "G", "C", "I"
     ]
 reservedOpNames =
     [ "/", "*", "-", "+", "=", "!=", ">", "<", ">=", "<=", "&", "|", "!"
@@ -448,6 +448,7 @@ atom allowPctl
                    , filterExpr allowPctl
                    , labelExpr allowPctl
                    , arrayExpr
+                   , sampleExpr
                    , FuncExpr        <$> function
                    , NameExpr        <$> name
                    ])
@@ -519,6 +520,13 @@ forLoop p = loc (ForLoop <$> (reserved "for" *> identifier')
                          <*> (reserved "in"  *> range)
                          <*> block "for" p)
          <?> "for loop"
+
+sampleExpr :: Parser (SrcLoc -> LExpr)
+sampleExpr = SampleExpr <$> (reserved "sample" *> parens (commaSep sampleArg))
+  where
+    sampleArg =
+        (ArgString <$> doubleQuotes identifier') <|>
+        (ArgExpr <$> expr)
 
 filterExpr :: Bool -> Parser (SrcLoc -> LExpr)
 filterExpr False = parserZero

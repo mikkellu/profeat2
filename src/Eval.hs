@@ -159,6 +159,7 @@ evalImpl (NameExpr (viewSimpleName -> Just (ident, idx, _)) _) = case idx of
     Nothing -> (! (ident, 0)) <$> ask
 evalImpl NameExpr {}        = error "Eval.eval: illegal name"
 evalImpl (FuncExpr _ _)     = typeError
+evalImpl SampleExpr {}      = error "Eval.eval: SampleExpr"
 evalImpl FilterExpr {}      = error "Eval.eval: FilterExpr"
 evalImpl ProbExpr {}        = error "Eval.eval: ProbExpr"
 evalImpl SteadyExpr {}      = error "Eval.eval: SteadyExpr"

@@ -58,6 +58,7 @@ module Syntax
   , Update(..)
   , Assign(..)
   , Expr(..)
+  , SampleArg(..)
   , RewardProp(..)
   , Bound(..)
   , MinMax(..)
@@ -111,6 +112,7 @@ module Syntax
   , LUpdate
   , LAssign
   , LExpr
+  , LSampleArg
   , LRewardProp
   , LBound
   , LRepeatable
@@ -453,6 +455,7 @@ data Expr a
   | CallExpr (Expr a) [Expr a] !a
   | NameExpr (Name a) !a
   | FuncExpr !Function !a
+  | SampleExpr [SampleArg a] !a
   | FilterExpr !FilterOp (Expr a) (Maybe (Expr a)) !a
   | ProbExpr (Bound a) (Expr a) !a
   | SteadyExpr (Bound a) (Expr a) !a
@@ -511,6 +514,7 @@ instance Plated (Expr a) where
         CallExpr e' args a -> CallExpr <$> f e' <*> traverse f args <*> pure a
         NameExpr name a -> NameExpr <$> exprs f name <*> pure a
         FuncExpr _ _ -> pure e
+        SampleExpr args a -> SampleExpr <$> traverse (exprs f) args <*> pure a
         FilterExpr fOp prop grd a  ->
             FilterExpr fOp <$> f prop <*> traverse f grd <*> pure a
         ArrayExpr es a             ->
@@ -531,6 +535,16 @@ instance Plated (Expr a) where
 
 instance HasExprs Expr where
     exprs f = f
+
+data SampleArg a
+    = ArgExpr (Expr a)
+    | ArgString !Ident
+    deriving (Eq, Functor, Show)
+
+instance HasExprs SampleArg where
+    exprs f sa = case sa of
+        ArgExpr e -> ArgExpr <$> f e
+        _         -> pure sa
 
 data RewardProp a
   = Reachability (Expr a)
@@ -627,6 +641,7 @@ exprAnnot e = case e of
     CallExpr _ _ a        -> a
     NameExpr _ a          -> a
     FuncExpr _ a          -> a
+    SampleExpr _ a        -> a
     FilterExpr _ _ _ a    -> a
     ProbExpr _ _ a        -> a
     SteadyExpr _ _ a      -> a
@@ -704,6 +719,7 @@ type LUpdate          = Update SrcLoc
 type LAssign          = Assign SrcLoc
 type LProperty        = Property SrcLoc
 type LExpr            = Expr SrcLoc
+type LSampleArg       = SampleArg SrcLoc
 type LRewardProp      = RewardProp SrcLoc
 type LBound           = Bound SrcLoc
 type LRepeatable b    = Repeatable b SrcLoc
@@ -930,6 +946,8 @@ prettyExpr prec e = case e of
         parens (hcat . punctuate comma $ fmap pretty args)
     NameExpr n _          -> pretty n
     FuncExpr func _       -> pretty func
+    SampleExpr es _       ->
+        "sample" <> parens (hcat . punctuate comma . fmap pretty $ es)
     FilterExpr fOp p s _  -> "filter" <> parens (pretty fOp <> comma <+>
                                                  pretty p <> comma <+>
                                                  pretty s)
@@ -960,6 +978,10 @@ instance Pretty (RewardProp a) where
         Cumulative t      -> "C<=" <> text t
         Instant t         -> "I=" <> text t
         Steady            -> "S"
+
+instance Pretty (SampleArg a) where
+    pretty (ArgExpr e)   = pretty e
+    pretty (ArgString s) = dquotes (text s)
 
 instance Pretty (Bound a) where
     pretty Bound{..} =

@@ -204,6 +204,8 @@ typeOf (CondExpr cond te ee _) = do
 
 typeOf (LoopExpr _ _) = error "Typechecker.typeOf: unresolved LoopExpr"
 
+typeOf (SampleExpr _ _) = return intType
+
 typeOf (CallExpr (FuncExpr function _) args l) = case function of
     FuncMin    -> do
         ts <- for args $ checkIfType isNumericType
