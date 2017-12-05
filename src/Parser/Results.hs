@@ -190,7 +190,18 @@ value = choice
 float' :: Parser Double
 float' = choice
   [ ( 1.0/0) <$ symbol "Infinity"
-  , (-1.0/0) <$ symbol "-Infinity"
-  , float
+  , (-1.0/0) <$ try (symbol "-Infinity")
+  , signedFloat
   ]
 
+signedFloat :: Parser Double
+signedFloat = do
+    f <- lexeme sign
+    x <- float
+    return (f x)
+
+sign :: Num a => Parser (a -> a)
+sign =
+    (negate <$ char '-') <|>
+    (id     <$ char '+') <|>
+    return id
