@@ -386,7 +386,7 @@ postprocessPrismOutput spec rcs = do
         rcs'        = fmap (sortStateResults . removeNonConfVars) filteredRcs
     rcs'' <- applyRounding rcs'
 
-    writeCsvFiles rcs''
+    writeCsvFiles spec rcs''
     writeMtbddFiles rcs''
 
     vm <- varMap <$> get
@@ -409,16 +409,18 @@ writeFeatureDiagramFile path = do
     symTbl <- get
     liftIO $ writeFeatureDiagram path (symTbl^.rootFeature)
 
-writeCsvFiles :: [ResultCollection] -> ProFeat ()
-writeCsvFiles rcs = asks proFeatResultsPath >>= \case
+writeCsvFiles :: LSpecification -> [ResultCollection] -> ProFeat ()
+writeCsvFiles (Specification defs) rcs = asks proFeatResultsPath >>= \case
     Nothing   -> return ()
     Just path -> do
+        let props = defs^..traverse._PropertyDef
         let (name, ext) = splitExtension path
+
         vm <- varMap <$> get
 
-        for_ (zip rcs [1 :: Integer ..]) $ \(rc, idx) -> do
+        for_ (zip3 rcs props [1 :: Integer ..]) $ \(rc, prop, idx) -> do
             let path' = addExtension (name ++ "_" ++ show idx) ext
-                csv   = displayT (renderPretty 1.0 300 (toCsv vm rc))
+                csv   = displayT (renderPretty 1.0 300 (toCsv vm prop rc))
             liftIO $ LIO.writeFile path' csv
 
 showThresholdConstraints :: [ResultCollection] -> ProFeat ()
