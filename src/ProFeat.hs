@@ -53,6 +53,7 @@ import Text.PrettyPrint.Leijen.Text ( Pretty, displayT, pretty, renderPretty )
 
 import Error
 import FeatureDiagram
+import qualified FeatureVars
 import Parser
 import Parser.Results
 import Result
@@ -89,6 +90,8 @@ helpExportModel = "Export the translated model to <file>"
 helpExportProperties = "Export the translated properties to <file>"
 --    --export-fd
 helpExportFeatureDiagram = "Export a feature diagram to <file> (in dot format)"
+--    --export-vars
+helpExportVars = "Export the mapping of feature names to feature variables as CSV to <file>"
 -- -r --export-results
 helpExportResults = "Export the results of model checking as CSV to <file>"
 --    --above-threshold
@@ -141,6 +144,7 @@ data ProFeatOptions = ProFeatOptions
   , prismModelPath        :: Maybe FilePath
   , prismPropsPath        :: Maybe FilePath
   , featureDiagramPath    :: Maybe FilePath
+  , featureVarsPath       :: Maybe FilePath
   , proFeatResultsPath    :: Maybe FilePath
   , resultsAboveThreshold :: Maybe Double
   , resultMtbddPath       :: Maybe FilePath
@@ -166,6 +170,7 @@ defaultOptions = ProFeatOptions
   , prismModelPath        = Nothing
   , prismPropsPath        = Nothing
   , featureDiagramPath    = Nothing
+  , featureVarsPath       = Nothing
   , proFeatResultsPath    = Nothing
   , resultsAboveThreshold = Nothing
   , resultMtbddPath       = Nothing
@@ -199,6 +204,10 @@ proFeatOptions = ProFeatOptions
                                <> metavar "<file>"
                                <> hidden
                                <> help helpExportFeatureDiagram ))
+  <*> optional (strOption       ( long "export-vars"
+                               <> metavar "<file>"
+                               <> hidden
+                               <> help helpExportVars ))
   <*> optional (strOption       ( long "export-results" <> short 'r'
                                <> metavar "<file>"
                                <> hidden
@@ -276,6 +285,7 @@ proFeat = withProFeatModel $ \model -> withProFeatProps $ \proFeatProps ->
                 for_ prismProps . renderToFile
 
             void $ asks featureDiagramPath >>= _Just writeFeatureDiagramFile
+            writeFeatureVarsFile
 
             when' (asks translateOnly) $ liftIO exitSuccess
 
@@ -422,6 +432,14 @@ writeCsvFiles (Specification defs) rcs = asks proFeatResultsPath >>= \case
             let path' = addExtension (name ++ "_" ++ show idx) ext
                 csv   = displayT (renderPretty 1.0 300 (toCsv vm prop rc))
             liftIO $ LIO.writeFile path' csv
+
+writeFeatureVarsFile :: ProFeat ()
+writeFeatureVarsFile = asks featureVarsPath >>= \case
+    Nothing -> return ()
+    Just path -> do
+        root <- use rootFeature
+        let csv = displayT (renderPretty 1.0 300 (FeatureVars.toCsv root))
+        liftIO $ LIO.writeFile path csv
 
 showThresholdConstraints :: [ResultCollection] -> ProFeat ()
 showThresholdConstraints rcs = asks resultsAboveThreshold >>= \case

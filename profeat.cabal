@@ -1,5 +1,5 @@
 name:                profeat
-version:             0.121.0.0
+version:             0.121.1.0
 synopsis:            A feature modelling framework
 author:              Philipp Chrszon
 maintainer:          Philipp.Chrszon@tu-dresden.de
@@ -12,6 +12,7 @@ library
                        Error,
                        Eval,
                        FeatureDiagram,
+                       FeatureVars,
                        Functions,
                        Parser,
                        Parser.Internal,
