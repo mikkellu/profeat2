@@ -427,10 +427,11 @@ writeCsvFiles (Specification defs) rcs = asks proFeatResultsPath >>= \case
         let (name, ext) = splitExtension path
 
         vm <- varMap <$> get
+        root <- use rootFeature
 
         for_ (zip3 rcs props [1 :: Integer ..]) $ \(rc, prop, idx) -> do
             let path' = addExtension (name ++ "_" ++ show idx) ext
-                csv   = displayT (renderPretty 1.0 300 (toCsv vm prop rc))
+                csv   = displayT (renderPretty 1.0 300 (toCsv root vm prop rc))
             liftIO $ LIO.writeFile path' csv
 
 writeFeatureVarsFile :: ProFeat ()

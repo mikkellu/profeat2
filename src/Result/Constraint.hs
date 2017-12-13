@@ -37,7 +37,7 @@ toConstraints vo =
 toConstraint :: VarOrder -> QmTerm -> [Doc]
 toConstraint (VarOrder vo) (QmTerm (vars, mask)) =
     fst . flip execState ([], 0) $ for_ vo $ \(name, r) -> case r of
-        RangeFeature -> do
+        RangeFeature _ -> do
             i <- use _2
             unless (mask `testBit` i) $ -- it is not a "don't care" variable
                 _1 %= (++ [literal name (vars `testBit` i)])
@@ -54,7 +54,7 @@ toBitVectors vo = fmap (toBitVector vo . view srStateVec)
 toBitVector :: VarOrder -> StateVec -> BitVector
 toBitVector (VarOrder vo) sv =
     fst . flip execState (zeroBits, 0) $ for_ vars $ \((_, r), v) -> case r of
-        RangeFeature -> do
+        RangeFeature _ -> do
             when (v == 1) $ do
                 i <- use _2
                 _1 %= (`setBit` i)
@@ -78,5 +78,5 @@ allFeatureCombinations (VarOrder vo) = [0 .. 2 ^ numBits - 1]
   where
     numBits = length (filter isFeature vo)
     isFeature (_, r) = case r of
-        RangeFeature -> True
-        _            -> False
+        RangeFeature _ -> True
+        _              -> False

@@ -275,7 +275,7 @@ prettyStateVec (VarOrder vo) =
 
 prettyVal :: (Doc, Range) -> Int -> Maybe Doc
 prettyVal (ident, r) v = case r of
-    RangeFeature
+    RangeFeature _
       | v == 0    -> Nothing
       | v == 1    -> Just ident
       | otherwise -> error "Result.prettyVal: illegal value for feature variable"

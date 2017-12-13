@@ -23,13 +23,12 @@ import Translator.Names ( fullyQualifiedIdent, activeIdent )
 import Types
 
 
-newtype VarOrder = VarOrder [(Doc, Range)] deriving (Show)
+newtype VarOrder = VarOrder [(Doc, Range)]
 
 data Range
-  = RangeFeature
+  = RangeFeature !FeatureContext
   | RangeBool
   | Range !Int !Int
-  deriving (Show)
 
 
 type VarMap = Map Text (Doc, Range)
@@ -65,7 +64,7 @@ controllerVars symTbl =
         | otherwise =
             Map.singleton
                 (toStrict (activeIdent ctx))
-                (featureName ctx, RangeFeature)
+                (featureName ctx, RangeFeature ctx)
     featureName ctx = pretty (minimalPrefix (view rootFeature symTbl) ctx)
 
 attributeVars :: SymbolTable -> VarMap
