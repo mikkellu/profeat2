@@ -268,28 +268,36 @@ proFeat = withProFeatModel $ \model -> withProFeatProps $ \proFeatProps ->
                 hPutStrLn stderr "Could not postprocess PRISM results, no ProFeat properties list given"
                 exitWith $ ExitFailure 4
             Just props -> withFile resultsPath ReadMode $ \hIn -> do
-                (_, symTbl) <- liftEither' (translateModel model)
+                InstanceInfo symTbl _ _ <- liftEither' (infoAllInOne model)
                 put symTbl
 
                 prismOutput <- liftIO $ SIO.hGetContents hIn
                 writeProFeatOutput props [prismOutput]
         Nothing -> do
             vPutStr "Translating..."
-            prismModels <- translate model
-            prismProps <- _Just translateProps proFeatProps
-            vPutStrLn "done"
+            infos <- instanceInfos model
 
-            withDefault "out.prism" prismModelPath $ \p ->
-                renderToFiles p prismModels
+            withDefault "out.prism" prismModelPath $ \p -> case infos of
+                [] -> return ()
+                [i] -> do
+                    model' <- liftEither' (translateModel i)
+                    renderToFile p model'
+                _ -> for_ (zip infos [0..]) $ \(i, k) -> do
+                    model' <- liftEither' (translateModel i)
+                    renderToFile (p `addFileIndex` k) model'
+
+            prismProps <- _Just translateProps proFeatProps
             withDefault "out.props" prismPropsPath $
                 for_ prismProps . renderToFile
+
+            vPutStrLn "done"
 
             void $ asks featureDiagramPath >>= _Just writeFeatureDiagramFile
             writeFeatureVarsFile
 
             when' (asks translateOnly) $ liftIO exitSuccess
 
-            prismOutputs <- callPrism prismModels prismProps
+            prismOutputs <- callPrism (length infos) prismProps
 
             when' (asks modelCheckOnly) $ liftIO exitSuccess
 
@@ -304,18 +312,20 @@ withProFeatModel m = do
         modelContents <- liftIO $ LIO.hGetContents hIn
         m =<< liftEither' (parseModel path modelContents)
 
-translate :: LModel -> ProFeat [LModel]
-translate model = do
+instanceInfos :: LModel -> ProFeat [InstanceInfo]
+instanceInfos model = do
     genInstances <- asks oneByOne
     if genInstances
         then do
-            (models', symTbl) <- liftEither' (translateModelInstances model)
-            put symTbl
-            return models'
+            infos <- liftEither' (infosOneByOne model)
+            unless (null infos) $ do
+                let InstanceInfo symTbl' _ _ = last infos
+                put symTbl'
+            return infos
         else do
-            (model', symTbl) <- liftEither' (translateModel model)
-            put symTbl
-            return [model']
+            i <- liftEither' (infoAllInOne model)
+            put (infoSymbolTable i)
+            return [i]
 
 withProFeatProps :: (Maybe LSpecification -> ProFeat a) -> ProFeat a
 withProFeatProps m = asks proFeatPropsPath >>= \case
@@ -334,8 +344,9 @@ withProFeatProps m = asks proFeatPropsPath >>= \case
 
 withTranslatedModel :: (LModel -> ProFeat a) -> ProFeat a
 withTranslatedModel m = withProFeatModel $ \model -> do
-    (model', symTbl) <- liftEither' (translateModel model)
-    put symTbl
+    i <- liftEither' (infoAllInOne model)
+    put (infoSymbolTable i)
+    model' <- liftEither' (translateModel i)
     m model'
 
 translateProps :: LSpecification -> ProFeat LSpecification
@@ -343,10 +354,9 @@ translateProps spec = do
     symTbl <- get
     liftEither' $ translateSpec symTbl spec
 
-callPrism :: [LModel] -> Maybe LSpecification -> ProFeat [S.Text]
-callPrism prismModels prismProps = do
+callPrism :: Int -> Maybe LSpecification -> ProFeat [S.Text]
+callPrism numModels prismProps = do
     ps <- modelPaths
-    let numModels = length ps
 
     propsArg <- if isJust prismProps
                     then (:[]) <$> lookupPath "out.props" prismPropsPath
@@ -375,9 +385,9 @@ callPrism prismModels prismProps = do
     modelPaths :: ProFeat [FilePath]
     modelPaths = do
         path <- lookupPath "out.prism" prismModelPath
-        return $ if length prismModels == 1
+        return $ if numModels == 1
             then [path]
-            else fmap (path `addFileIndex`) [0..length prismModels - 1]
+            else fmap (path `addFileIndex`) [0..numModels - 1]
 
 writeProFeatOutput :: LSpecification -> [S.Text] -> ProFeat ()
 writeProFeatOutput spec prismOutputs = do
@@ -557,13 +567,6 @@ pathToMaybe :: FilePath -> Maybe FilePath
 pathToMaybe path = case path of
     "-" -> Nothing
     _   -> Just path
-
-renderToFiles :: (Pretty p) => FilePath -> [p] -> ProFeat ()
-renderToFiles path = \case
-    []  -> return ()
-    [x] -> renderToFile path x
-    xs  -> void . for (zip xs [0..]) $ \(x, i) ->
-               renderToFile (path `addFileIndex` i) x
 
 addFileIndex :: FilePath -> Int -> FilePath
 addFileIndex p i =

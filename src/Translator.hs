@@ -5,7 +5,11 @@
 
 module Translator
   ( translateModel
-  , translateModelInstances
+
+  , InstanceInfo(..)
+  , infoAllInOne
+  , infosOneByOne
+
   , translateSpec
   ) where
 
@@ -44,8 +48,15 @@ import Translator.Names
 import Translator.Properties
 import Translator.Rewards
 
-translateModel :: LModel -> Either Error (LModel, SymbolTable)
-translateModel (Model modelT defs) = do
+
+data InstanceInfo = InstanceInfo
+    { infoSymbolTable :: SymbolTable
+    , infoInitExprs   :: InitExprs
+    , infoInvariants  :: Invariants
+    }
+
+infoAllInOne :: LModel -> Either Error InstanceInfo
+infoAllInOne (Model modelT defs) = do
     symTbl <- extendSymbolTable (emptySymbolTable modelT) defs
 
     let (defs', symTbl') = case symTbl^.familySym of
@@ -60,8 +71,7 @@ translateModel (Model modelT defs) = do
     symTbl'' <- updateSymbolTable symTbl' defs'
 
     (initExprs, invs) <- extractInitsAndInvariants symTbl''
-    model' <- translateModel' symTbl'' initExprs invs
-    return (model', symTbl'')
+    return (InstanceInfo symTbl'' initExprs invs)
   where
     genInitDef [] = []
     genInitDef cs = (:[]) . InitDef . flip Init noLoc $ foldr1 lAnd cs
@@ -79,15 +89,15 @@ translateModel (Model modelT defs) = do
                     Map.singleton (ident, idx) (IntVal upper)
                 _ -> Map.empty
 
-translateModelInstances :: LModel -> Either Error ([LModel], SymbolTable)
-translateModelInstances (Model modelT defs) = do
+infosOneByOne :: LModel -> Either Error [InstanceInfo]
+infosOneByOne (Model modelT defs) = do
     symTbl <- extendSymbolTable (emptySymbolTable modelT) defs
 
     case symTbl^.familySym of
         Just fams -> do
             vals <- paramValuations (symTbl^.constValues) fams
 
-            results <- fmap concat . for vals $ \val -> do
+            fmap concat . for vals $ \val -> do
                 let constTbl = valuationToConstSymbols (fams^.famsParameters) val
                     symTbl' = symTbl & constants   %~ union constTbl
                                      & constValues %~ union val
@@ -100,19 +110,15 @@ translateModelInstances (Model modelT defs) = do
 
                 for featVals $ \featVal -> do
                     let initExprs' = InitExprs initExprs <> valInitExprs featVal
-                    model' <- translateModel' symTbl'' initExprs' invs
-                    return (model', symTbl'')
-
-            let (models', symTbls') = unzip results
-            return (models', if null results then symTbl else last symTbls')
+                    return (InstanceInfo symTbl'' initExprs' invs)
         Nothing -> do
             symTbl' <- updateSymbolTable symTbl defs
             (InitExprs initExprs, invs) <- extractInitsAndInvariants symTbl'
             vals <- getInitialValuations symTbl'
 
-            fmap (, symTbl') . for vals $ \val ->
+            for vals $ \val -> do
                 let initExprs' = InitExprs initExprs <> valInitExprs val
-                in translateModel' symTbl' initExprs' invs
+                return (InstanceInfo symTbl' initExprs' invs)
   where
     familyFeatureContexts symTbl fams = runReaderT
         (traverse getFeature (fams^.famsFeatures)) (Env Global symTbl)
@@ -139,8 +145,8 @@ translateModelInstances (Model modelT defs) = do
         mkVal ctx = let ident = activeIdent ctx
                     in zip (repeat (ident, 0)) [IntVal 0, IntVal 1]
 
-translateModel' :: SymbolTable -> InitExprs -> Invariants -> Either Error LModel
-translateModel' symTbl initExprs invs =
+translateModel :: InstanceInfo -> Either Error LModel
+translateModel (InstanceInfo symTbl initExprs invs) =
     flip runReaderT (trnsInfo symTbl invs) $ do
         (controllerDef, lss) <- trnsControllerDef initExprs
         local (labelSets .~ lss) $ do
