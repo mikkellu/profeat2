@@ -117,6 +117,8 @@ helpPrismPath    = "Set the path of the PRISM executable"
 defaultPrismPath = "prism"
 --    --prism-args
 helpPrismArgs = "Pass <args> to PRISM"
+--    --prism-calls
+helpPrismCalls = "Write the list of PRISM calls to <file>"
 -- -v --verbose
 helpVerbose = "Enable verbose output"
 
@@ -157,6 +159,7 @@ data ProFeatOptions = ProFeatOptions
   , modelCheckOnly        :: !Bool
   , prismExecPath         :: FilePath
   , prismArguments        :: Maybe String
+  , prismCallsPath        :: Maybe FilePath
   , verbosity             :: !Verbosity
   }
 
@@ -183,6 +186,7 @@ defaultOptions = ProFeatOptions
   , modelCheckOnly        = False
   , prismExecPath         = defaultPrismPath
   , prismArguments        = Nothing
+  , prismCallsPath        = Nothing
   , verbosity             = Normal
   }
 
@@ -254,6 +258,10 @@ proFeatOptions = ProFeatOptions
                                <> metavar "<args>"
                                <> hidden
                                <> help helpPrismArgs ))
+  <*> optional (strOption       ( long "prism-calls"
+                               <> metavar "<path>"
+                               <> hidden
+                               <> help helpPrismCalls ))
   <*> flag Normal Verbose       ( long "verbose" <> short 'v'
                                <> hidden
                                <> help helpVerbose )
@@ -297,6 +305,7 @@ proFeat = withProFeatModel $ \model -> withProFeatProps $ \proFeatProps ->
 
             vPutStrLn "done"
 
+            writePrismCallsFile (length infos) prismProps
             void $ asks featureDiagramPath >>= _Just writeFeatureDiagramFile
             writeFeatureVarsFile
 
@@ -361,7 +370,7 @@ translateProps spec = do
 
 callPrism :: Int -> Maybe LSpecification -> ProFeat [S.Text]
 callPrism numModels prismProps = do
-    ps <- modelPaths
+    ps <- modelPaths numModels
 
     propsArg <- if isJust prismProps
                     then (:[]) <$> lookupPath "out.props" prismPropsPath
@@ -386,13 +395,13 @@ callPrism numModels prismProps = do
             exitWith exitCode
 
         return std
-  where
-    modelPaths :: ProFeat [FilePath]
-    modelPaths = do
-        path <- lookupPath "out.prism" prismModelPath
-        return $ if numModels == 1
-            then [path]
-            else fmap (path `addFileIndex`) [0..numModels - 1]
+
+modelPaths :: Int -> ProFeat [FilePath]
+modelPaths numModels = do
+    path <- lookupPath "out.prism" prismModelPath
+    return $ if numModels == 1
+        then [path]
+        else fmap (path `addFileIndex`) [0..numModels - 1]
 
 writeProFeatOutput :: LSpecification -> [S.Text] -> ProFeat ()
 writeProFeatOutput spec prismOutputs = do
@@ -428,6 +437,23 @@ postprocessPrismOutput spec rcs = do
     applyRounding rcs' = asks roundResults <&> \case
         Just precision -> fmap (roundStateResults precision) rcs'
         Nothing        -> rcs'
+
+writePrismCallsFile :: Int -> Maybe LSpecification -> ProFeat ()
+writePrismCallsFile numModels prismProps = asks prismCallsPath >>= \case
+    Nothing -> return ()
+    Just path -> withFile path WriteMode $ \hOut -> do
+        propsArg <- if isJust prismProps
+                        then (:[]) <$> lookupPath "out.props" prismPropsPath
+                        else return []
+        prismPath <- asks prismExecPath
+        prismArgs <- maybe [] words <$> asks prismArguments
+
+        ps <- modelPaths numModels
+
+        for_ (zip [0 ..] ps) $ \(i, modelPath) -> do
+            let logArg = "-mainlog " ++ ("out.log" `addFileIndex` i)
+                args = (modelPath:propsArg) ++ prismArgs ++ [logArg]
+            liftIO $ hPutStrLn hOut (unwords (prismPath:args))
 
 writeFeatureDiagramFile :: FilePath -> ProFeat ()
 writeFeatureDiagramFile path = do
