@@ -26,7 +26,7 @@ module ProFeat
 import Control.Concurrent
 import Control.Exception
 import Control.Exception.Lens
-import Control.Lens hiding ( argument )
+import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.State
 
@@ -105,7 +105,7 @@ helpReorderMtbdd = "Try to reduce the size of the diagram exported by the export
 --    --prism-log
 helpPrismLog = "Show PRISM log messages"
 --    --import-results
-helpImportResults = "Import the PRISM results from <file> for postprocessing"
+helpImportResults = "Import the PRISM results from <path> for postprocessing"
 --    --round-results
 helpRoundResults = "Round results to <precision> digits"
 -- -t --translate
@@ -231,7 +231,7 @@ proFeatOptions = ProFeatOptions
                                <> hidden
                                <> help helpPrismLog )
   <*> optional (strOption       ( long "import-results"
-                               <> metavar "<file>"
+                               <> metavar "<path>"
                                <> hidden
                                <> help helpImportResults ))
   <*> optional (option auto      ( long "round-results"
@@ -267,12 +267,17 @@ proFeat = withProFeatModel $ \model -> withProFeatProps $ \proFeatProps ->
             Nothing -> liftIO $ do
                 hPutStrLn stderr "Could not postprocess PRISM results, no ProFeat properties list given"
                 exitWith $ ExitFailure 4
-            Just props -> withFile resultsPath ReadMode $ \hIn -> do
-                InstanceInfo symTbl _ _ <- liftEither' (infoAllInOne model)
-                put symTbl
-
-                prismOutput <- liftIO $ SIO.hGetContents hIn
-                writeProFeatOutput props [prismOutput]
+            Just props -> do
+                infos <- instanceInfos model
+                case infos of
+                    [] -> return ()
+                    [_] -> withFile resultsPath ReadMode $ \hIn -> do
+                        prismOutput <- liftIO $ SIO.hGetContents hIn
+                        writeProFeatOutput props [prismOutput]
+                    _ -> do
+                        prismOutputs <- for (zip infos [0..]) $ \(_, k) ->
+                            liftIO $ SIO.readFile (resultsPath `addFileIndex` k)
+                        writeProFeatOutput props prismOutputs
         Nothing -> do
             vPutStr "Translating..."
             infos <- instanceInfos model
