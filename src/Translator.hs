@@ -1,7 +1,6 @@
 {-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE RankNTypes        #-}
 
 module Translator
   ( translateModel
@@ -140,23 +139,23 @@ infosOneByOne (Model modelT defs) = do
             let ident = activeIdent ctx
             in Set.size (Set.fromList (mapMaybe (Map.lookup (ident, 0)) vals)) == 2
 
-        mkVals = fmap Map.fromList . sequence . fmap mkVal
+        mkVals = fmap Map.fromList . traverse mkVal
 
         mkVal ctx = let ident = activeIdent ctx
                     in zip (repeat (ident, 0)) [IntVal 0, IntVal 1]
 
-translateModel :: InstanceInfo -> Either Error LModel
-translateModel (InstanceInfo symTbl initExprs invs) =
+translateModel :: Bool -> InstanceInfo -> Either Error LModel
+translateModel foldConsts (InstanceInfo symTbl initExprs invs) =
     flip runReaderT (trnsInfo symTbl invs) $ do
         (controllerDef, lss) <- trnsControllerDef initExprs
         local (labelSets .~ lss) $ do
             modelT      <- view modelType
             constDefs   <- trnsConsts
-            globalDefs  <- trnsGlobals
-            moduleDefs  <- trnsModules
+            globalDefs  <- reduce _GlobalDef =<< trnsGlobals
+            moduleDefs  <- reduce _ModuleDef =<< trnsModules
             labelDefs   <- fmap LabelDef <$>
                                trnsLabels (symTbl^..labels.traverse)
-            rewardsDefs <- trnsRewards
+            rewardsDefs <- reduce _RewardsDef =<< trnsRewards
 
             let orderDependentDefs =
                     sortBy (comparing defAnnot) $ concat
@@ -171,6 +170,15 @@ translateModel (InstanceInfo symTbl initExprs invs) =
                 , orderDependentDefs
                 , rewardsDefs
                 ]
+  where
+    reduce ::
+           HasExprs a
+        => Prism' LDefinition (a SrcLoc)
+        -> [LDefinition]
+        -> Trans [LDefinition]
+    reduce p
+        | foldConsts = (traverse.p) partialEvalExprs
+        | otherwise  = return
 
 translateSpec :: SymbolTable
               -> LSpecification
@@ -183,8 +191,7 @@ translateSpec symTbl (Specification defs) = do
         -- constDefs <- trnsConsts
         let constDefs = []
         labelDefs <- trnsLabelDefs defs
-        propDefs  <- for (defs^..traverse._PropertyDef) $ \prop ->
-                         PropertyDef <$> trnsProperty prop
+        propDefs  <- traverse (fmap PropertyDef . trnsProperty) (defs^..traverse._PropertyDef)
 
         return . Specification $ concat [constDefs, labelDefs, propDefs]
 

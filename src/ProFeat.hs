@@ -84,6 +84,8 @@ helpPropsFile = "The ProFeat property list"
 -- Options
 --    --one-by-one
 helpOneByOne = "Check (or export) all configurations one by one"
+--    --constant-folding
+helpConstantFolding = "Evaluate constant subexpressions"
 -- -o --export-model
 helpExportModel = "Export the translated model to <file>"
 -- -p --export-properties
@@ -143,6 +145,7 @@ data ProFeatOptions = ProFeatOptions
   { proFeatModelPath      :: FilePath
   , proFeatPropsPath      :: Maybe FilePath
   , oneByOne              :: !Bool
+  , constantFolding       :: !Bool
   , prismModelPath        :: Maybe FilePath
   , prismPropsPath        :: Maybe FilePath
   , featureDiagramPath    :: Maybe FilePath
@@ -170,6 +173,7 @@ defaultOptions = ProFeatOptions
   { proFeatModelPath      = "-"
   , proFeatPropsPath      = Nothing
   , oneByOne              = False
+  , constantFolding       = False
   , prismModelPath        = Nothing
   , prismPropsPath        = Nothing
   , featureDiagramPath    = Nothing
@@ -198,6 +202,8 @@ proFeatOptions = ProFeatOptions
                                <> help helpPropsFile ))
   <*> switch                    ( long "one-by-one"
                                <> help helpOneByOne )
+  <*> switch                    ( long "constant-folding"
+                               <> help helpConstantFolding )
   <*> optional (strOption       ( long "export-model" <> short 'o'
                                <> metavar "<file>"
                                <> help helpExportModel ))
@@ -289,14 +295,15 @@ proFeat = withProFeatModel $ \model -> withProFeatProps $ \proFeatProps ->
         Nothing -> do
             vPutStr "Translating..."
             infos <- instanceInfos model
+            cf <- asks constantFolding
 
             withDefault "out.prism" prismModelPath $ \p -> case infos of
                 [] -> return ()
                 [i] -> do
-                    model' <- liftEither' (translateModel i)
+                    model' <- liftEither' (translateModel cf i)
                     renderToFile p model'
                 _ -> for_ (zip infos [0..]) $ \(i, k) -> do
-                    model' <- liftEither' (translateModel i)
+                    model' <- liftEither' (translateModel cf i)
                     renderToFile (p `addFileIndex` k) model'
 
             prismProps <- _Just translateProps proFeatProps
@@ -360,7 +367,7 @@ withTranslatedModel :: (LModel -> ProFeat a) -> ProFeat a
 withTranslatedModel m = withProFeatModel $ \model -> do
     i <- liftEither' (infoAllInOne model)
     put (infoSymbolTable i)
-    model' <- liftEither' (translateModel i)
+    model' <- liftEither' (translateModel False i)
     m model'
 
 translateProps :: LSpecification -> ProFeat LSpecification

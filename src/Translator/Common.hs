@@ -26,6 +26,7 @@ module Translator.Common
   , activeExpr
 
   , partialEval
+  , partialEvalExprs
 
   , labelSetToAction
   , labelSetName
@@ -245,6 +246,12 @@ partialEval e = do
                 v <- eval' val e'
                 return (valueExpr v)
             else return e'
+
+partialEvalExprs ::
+       (MonadReader r m, MonadError Error m, HasSymbolTable r, HasExprs a)
+    => a SrcLoc
+    -> m (a SrcLoc)
+partialEvalExprs = exprs partialEval
 
 substituteParams :: (MonadReader r m, HasSymbolTable r) => LExpr -> m LExpr
 substituteParams e = do

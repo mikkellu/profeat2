@@ -27,6 +27,7 @@ module Syntax
   , _FormulaDef
   , _LabelDef
   , _InitDef
+  , _RewardsDef
   , _InvariantDef
   , _PropertyDef
 
