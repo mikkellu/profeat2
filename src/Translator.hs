@@ -150,7 +150,7 @@ translateModel foldConsts (InstanceInfo symTbl initExprs invs) =
         (controllerDef, lss) <- trnsControllerDef initExprs
         local (labelSets .~ lss) $ do
             modelT      <- view modelType
-            constDefs   <- trnsConsts
+            constDefs   <- reduce _ConstDef =<< trnsConsts
             globalDefs  <- reduce _GlobalDef =<< trnsGlobals
             moduleDefs  <- reduce _ModuleDef =<< trnsModules
             labelDefs   <- fmap LabelDef <$>

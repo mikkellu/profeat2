@@ -3,7 +3,6 @@
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ViewPatterns #-}
 
 module Typechecker
@@ -36,7 +35,7 @@ module Typechecker
   ) where
 
 import Control.Applicative
-import Control.Lens hiding ( contains, lookupOf )
+import Control.Lens hiding ( lookupOf )
 import Control.Monad.Reader
 
 import Data.Array
@@ -228,6 +227,10 @@ typeOf (CallExpr (FuncExpr function _) args l) = case function of
         checkArgCount 1
         void $ traverse checkIfFeature args
         return boolType
+    FuncIActive -> do
+        checkArgCount 1
+        void $ traverse checkIfFeature args
+        return intType
     FuncBinom  -> do
         checkArgCount 2
         let [p, n] = args

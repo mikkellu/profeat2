@@ -109,11 +109,11 @@ reservedNames =
     , "endfeature", "root", "global", "const", "formula", "label", "modules"
     , "all", "one", "some", "of", "optional", "as", "constraint", "initial"
     , "rewards", "endrewards", "controller", "endcontroller", "module"
-    , "endmodule", "this", "active", "activate", "deactivate", "array", "bool"
-    , "int", "double", "init", "endinit", "invariant", "endinvariant", "for"
-    , "endfor", "in", "id", "block", "filter", "min", "max", "quantile"
-    , "sample", "reward", "true", "false", "P", "R", "S", "E", "A", "U", "W"
-    , "R", "X", "F", "G", "C", "I"
+    , "endmodule", "this", "active", "iactive", "activate", "deactivate"
+    , "array", "bool", "int", "double", "init", "endinit", "invariant"
+    , "endinvariant", "for", "endfor", "in", "id", "block", "filter", "min"
+    , "max", "quantile", "sample", "reward", "true", "false", "P", "R", "S", "E"
+    , "A", "U", "W", "R", "X", "F", "G", "C", "I"
     ]
 reservedOpNames =
     [ "/", "*", "-", "+", "=", "!=", ">", "<", ">=", "<=", "&", "|", "!"
@@ -567,15 +567,16 @@ filterOp = choice
 
 function :: Parser Function
 function = choice
-    [ "min"    --> FuncMin
-    , "max"    --> FuncMax
-    , "floor"  --> FuncFloor
-    , "ceil"   --> FuncCeil
-    , "pow"    --> FuncPow
-    , "mod"    --> FuncMod
-    , "log"    --> FuncLog
-    , "active" --> FuncActive
-    , "binom"  --> FuncBinom
+    [ "min"     --> FuncMin
+    , "max"     --> FuncMax
+    , "floor"   --> FuncFloor
+    , "ceil"    --> FuncCeil
+    , "pow"     --> FuncPow
+    , "mod"     --> FuncMod
+    , "log"     --> FuncLog
+    , "active"  --> FuncActive
+    , "iactive" --> FuncIActive
+    , "binom"   --> FuncBinom
     ] <?> "function call"
   where
     s --> func = func <$ reserved s

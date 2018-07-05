@@ -150,6 +150,8 @@ trnsExpr p e = checkIfType_ p e *> go e
         trnsIndex (siSymbolType si) ident' (siIndex si) l
     go (CallExpr (FuncExpr FuncActive _) [NameExpr name _] _) =
         activeGuard <$> getFeature name
+    go (CallExpr (FuncExpr FuncIActive _) [NameExpr name _] _) =
+        iactiveExpr <$> getFeature name
     go e' = plate go e'
 
 trnsIndex :: (MonadReader TrnsInfo m, MonadError Error m)
@@ -229,6 +231,13 @@ activeExpr ctx =
     in view conjunction $ fmap isActive ctxs
   where
     isActive ctx' = let ident = activeIdent ctx' in identExpr ident noLoc `eq` 1
+
+iactiveExpr :: FeatureContext -> LExpr
+iactiveExpr ctx =
+    let ctxs = filter (not . _fsMandatory . thisFeature) $ parentContexts ctx
+    in product (fmap iactive ctxs)
+  where
+    iactive ctx' = identExpr (activeIdent ctx') noLoc
 
 partialEval :: (MonadReader r m, MonadError Error m, HasSymbolTable r)
             => LExpr

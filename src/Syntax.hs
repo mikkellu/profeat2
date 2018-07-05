@@ -143,7 +143,7 @@ class HasExprs n where
 
 data Model a = Model !ModelType [Definition a] deriving (Eq, Functor, Show)
 
-data Specification a = Specification [Definition a] deriving (Eq, Functor, Show)
+newtype Specification a = Specification [Definition a] deriving (Eq, Functor, Show)
 
 data Definition a
   = FamilyDef     (Family a)
@@ -291,7 +291,7 @@ data Invariant a = Invariant
 instance HasExprs Invariant where
     exprs f (Invariant e a) = Invariant <$> f e <*> pure a
 
-data Controller a = Controller (ModuleBody a) deriving (Eq, Functor, Show)
+newtype Controller a = Controller (ModuleBody a) deriving (Eq, Functor, Show)
 
 instance HasExprs Controller where
     exprs f (Controller body) = Controller <$> exprs f body
@@ -607,6 +607,7 @@ data Function
   | FuncMod
   | FuncLog
   | FuncActive
+  | FuncIActive
   | FuncBinom
   deriving (Eq, Show)
 
@@ -1024,15 +1025,16 @@ prettyLoop pp inline (ForLoop v range body _) =
 
 instance Pretty Function where
     pretty func = case func of
-        FuncMin    -> "min"
-        FuncMax    -> "max"
-        FuncFloor  -> "floor"
-        FuncCeil   -> "ceil"
-        FuncPow    -> "pow"
-        FuncMod    -> "mod"
-        FuncLog    -> "log"
-        FuncActive -> "active"
-        FuncBinom  -> "binom"
+        FuncMin     -> "min"
+        FuncMax     -> "max"
+        FuncFloor   -> "floor"
+        FuncCeil    -> "ceil"
+        FuncPow     -> "pow"
+        FuncMod     -> "mod"
+        FuncLog     -> "log"
+        FuncActive  -> "active"
+        FuncIActive -> "iactive"
+        FuncBinom   -> "binom"
 
 instance Pretty (Name a) where
     pretty (Name name _) = hcat . punctuate dot . fmap qualifier . toList $ name
