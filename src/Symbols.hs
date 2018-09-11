@@ -361,8 +361,7 @@ parentContext = fmap FeatureContext . L.nonEmpty . L.tail . getFeatureSymbols
 
 parentContexts :: FeatureContext -> [FeatureContext]
 parentContexts = fmap FeatureContext .
-                 catMaybes .
-                 fmap L.nonEmpty .
+                 mapMaybe L.nonEmpty .
                  tails .
                  toList .
                  getFeatureSymbols

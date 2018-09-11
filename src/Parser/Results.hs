@@ -197,8 +197,7 @@ float' = choice
 signedFloat :: Parser Double
 signedFloat = do
     f <- lexeme sign
-    x <- float
-    return (f x)
+    f <$> float
 
 sign :: Num a => Parser (a -> a)
 sign =

@@ -30,9 +30,8 @@ module Syntax.Util
 
 import Control.Lens
 
-import Data.List          ( foldl', sortBy )
+import Data.List          ( foldl', sortOn )
 import Data.List.NonEmpty ( NonEmpty(..) )
-import Data.Ord           ( comparing )
 
 import Syntax
 import Types
@@ -146,5 +145,5 @@ viewSimpleName name = case name of
     _                           -> Nothing
 
 sortVarDeclsByLoc :: [LVarDecl] -> [LVarDecl]
-sortVarDeclsByLoc = sortBy (comparing declAnnot)
+sortVarDeclsByLoc = sortOn declAnnot
 

@@ -39,6 +39,7 @@ import Control.Lens hiding ( lookupOf )
 import Control.Monad.Reader
 
 import Data.Array
+import Data.Foldable
 import Data.List ( genericLength )
 import Data.List.NonEmpty ( NonEmpty(..), nonEmpty )
 import Data.Map ( member )
@@ -225,11 +226,11 @@ typeOf (CallExpr (FuncExpr function _) args l) = case function of
     FuncLog    -> checkArgCount 2 >> return doubleType
     FuncActive -> do
         checkArgCount 1
-        void $ traverse checkIfFeature args
+        traverse_ checkIfFeature args
         return boolType
     FuncIActive -> do
         checkArgCount 1
-        void $ traverse checkIfFeature args
+        traverse_ checkIfFeature args
         return intType
     FuncBinom  -> do
         checkArgCount 2

@@ -17,14 +17,12 @@ import Control.Monad.Reader
 
 import Data.Array
 import Data.Foldable ( toList )
-import Data.List ( genericLength, sortBy )
+import Data.List ( genericLength, sortOn )
 import Data.List.NonEmpty ( fromList )
 import Data.Map ( Map, union, unions )
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Maybe
-import Data.Monoid
-import Data.Ord ( comparing )
 import Data.Traversable
 
 import Analysis.InitialState
@@ -158,7 +156,7 @@ translateModel foldConsts (InstanceInfo symTbl initExprs invs) =
             rewardsDefs <- reduce _RewardsDef =<< trnsRewards
 
             let orderDependentDefs =
-                    sortBy (comparing defAnnot) $ concat
+                    sortOn defAnnot $ concat
                         [ globalDefs
                         , moduleDefs
                         , toList controllerDef

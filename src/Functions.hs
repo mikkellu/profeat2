@@ -1,5 +1,3 @@
-{-# LANGUAGE ViewPatterns #-}
-
 module Functions
   ( binomialDist
   ) where

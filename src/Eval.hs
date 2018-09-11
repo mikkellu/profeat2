@@ -156,8 +156,8 @@ evalImpl CallExpr {}       = typeError
 evalImpl (NameExpr (viewSimpleName -> Just (ident, idx, _)) _) = case idx of
     Just e  -> do
         IntVal i <- evalImpl e
-        (! (ident, i)) <$> ask
-    Nothing -> (! (ident, 0)) <$> ask
+        asks (! (ident, i))
+    Nothing -> asks (! (ident, 0))
 evalImpl NameExpr {}        = error "Eval.eval: illegal name"
 evalImpl (FuncExpr _ _)     = typeError
 evalImpl SampleExpr {}      = error "Eval.eval: SampleExpr"

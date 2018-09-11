@@ -20,8 +20,6 @@ module Translator.Names
   , seedVarIdent
   ) where
 
-import Data.Monoid
-
 import Control.Lens
 
 import Symbols

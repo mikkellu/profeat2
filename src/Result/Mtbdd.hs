@@ -25,7 +25,7 @@ import Data.Strict.Tuple ( (:!:), Pair(..) )
 import Data.Text.Lazy ( pack )
 import Data.Vector.Generic ( Vector, toList )
 
-import Text.PrettyPrint.Leijen.Text ( Doc, (<>), int )
+import Text.PrettyPrint.Leijen.Text ( Doc, int )
 
 import System.FilePath ( dropExtension )
 

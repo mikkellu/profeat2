@@ -49,7 +49,6 @@ import Data.Maybe                   ( fromMaybe, mapMaybe )
 import Data.Ord                     ( comparing )
 import Data.Sequence                ( Seq, ViewL(..), viewl )
 import qualified Data.Sequence as Seq
-import Data.Semigroup
 import Data.Strict.Tuple            ( (:!:), Pair(..) )
 import Data.Strict.Tuple.Lens       ()
 import qualified Data.Strict.Tuple as ST
@@ -61,8 +60,7 @@ import Data.Vector.Generic          ( Vector, (!) )
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Unboxed as UV
 
-import Text.PrettyPrint.Leijen.Text hiding ((<>))
-import qualified Text.PrettyPrint.Leijen.Text as PP
+import Text.PrettyPrint.Leijen.Text
 
 import Syntax hiding ( Range )
 import VarOrder
@@ -90,7 +88,7 @@ instance Pretty Result where
         ResultBool True         -> "true"
         ResultDouble d          -> double d
         ResultRange lower upper ->
-            brackets (double lower PP.<> comma PP.<> double upper)
+            brackets (double lower <> comma <> double upper)
 
 type StateVec = UV.Vector Int
 
@@ -219,17 +217,17 @@ prettyResultCollections vm includeLog (Specification defs) rcs =
     let props = defs^..traverse._PropertyDef
     in vsep . punctuate separator . fmap p $ zip props rcs
   where
-    p (def, rc) = pretty def PP.<> line PP.<> line PP.<>
+    p (def, rc) = pretty def <> line <> line <>
                   prettyResultCollection vm includeLog rc
-    separator = line PP.<> line PP.<> text (L.replicate 80 "-") PP.<> line
+    separator = line <> line <> text (L.replicate 80 "-") <> line
 
 prettyResultCollection :: VarMap -> Bool -> ResultCollection -> Doc
 prettyResultCollection vm includeLog ResultCollection{..} =
-    (if includeLog then prettyLog _rcLog PP.<> line PP.<> line else empty) PP.<>
+    (if includeLog then prettyLog _rcLog <> line <> line else empty) <>
     maybe empty (("Final result:" <+>) . pretty) _rcFinalResult <$>
     stateResults <$>
     prettyTrace <$>
-    line PP.<>
+    line <>
     prettyTrnsNodes <$>
     "Time for model construction:" <+> pretty _rcBuildingTime <$>
     "Time for model checking:" <+> pretty _rcCheckingTime
@@ -264,7 +262,7 @@ prettyStateResults vo = vsep . fmap (prettyStateResult vo) . toList
 
 prettyStateResult :: VarOrder -> StateResult -> Doc
 prettyStateResult vo (StateResult i sv r) = int i <> colon <>
-    parens (prettyStateVec vo sv) PP.<> char '=' PP.<> pretty r
+    parens (prettyStateVec vo sv) <> char '=' <> pretty r
 
 prettyStateVecs :: Vector v Int => VarOrder -> Seq (v Int) -> Doc
 prettyStateVecs vo = vsep . fmap (parens . prettyStateVec vo) . toList
@@ -285,4 +283,4 @@ prettyVal (ident, r) v = case r of
       | otherwise -> error "Result.prettyVal: illegal value for boolean variable"
     Range _ _     -> identDef (int v)
   where
-    identDef doc = Just $ ident PP.<> char '=' PP.<> doc
+    identDef doc = Just $ ident <> char '=' <> doc

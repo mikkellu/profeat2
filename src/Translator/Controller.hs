@@ -1,6 +1,5 @@
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies      #-}
 
 module Translator.Controller
@@ -121,7 +120,7 @@ trnsStmt (Stmt action grd (Repeatable ss) l) = do
   where
     cardGuards reconf =
         let parentCtxs = toList . Set.fromList .
-                         catMaybes . fmap parentContext $ keys reconf
+                         mapMaybe parentContext $ keys reconf
         in view conjunction $ fmap (cardGuard reconf) parentCtxs
 
     cardGuard reconf parentCtx =

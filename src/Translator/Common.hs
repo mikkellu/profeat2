@@ -39,7 +39,6 @@ import Control.Monad.Reader
 
 import Data.Foldable ( toList )
 import Data.Map ( (!), member, keysSet )
-import Data.Monoid
 import Data.Set ( Set )
 import qualified Data.Set as Set
 import qualified Data.Text.Lazy as T

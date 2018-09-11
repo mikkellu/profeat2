@@ -1,5 +1,4 @@
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE LambdaCase       #-}
 
 module Translator.Initial
   ( InitExprs(..)
@@ -9,7 +8,6 @@ module Translator.Initial
 import Control.Lens
 
 import Data.List
-import Data.Monoid
 
 import Symbols
 import Syntax
@@ -21,9 +19,11 @@ import Translator.Names
 
 newtype InitExprs = InitExprs [LExpr]
 
+instance Semigroup InitExprs where
+    InitExprs x <> InitExprs y = InitExprs (x <> y)
+
 instance Monoid InitExprs where
     mempty = InitExprs []
-    mappend (InitExprs x) (InitExprs y) = InitExprs (x <> y)
 
 genInit :: InitExprs -> Invariants -> FeatureSymbol -> LDefinition
 genInit (InitExprs initExprs) (Invariants invs) root =

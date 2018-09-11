@@ -1,5 +1,5 @@
 name:                profeat
-version:             0.125.0.0
+version:             0.126.0.0
 synopsis:            A feature modelling framework
 author:              Philipp Chrszon
 maintainer:          Philipp.Chrszon@tu-dresden.de
@@ -46,30 +46,30 @@ library
   other-modules:       Data.Strict.Tuple.Lens,
                        Paths_profeat
   hs-source-dirs:      src
-  build-depends:       base ==4.9.*,
-                       array >=0.5.1,
-                       containers >=0.5.7,
-                       filepath >=1.4,
-                       lens >=4.15,
-                       mtbdd >=0.23,
-                       mtl >=2.2,
-                       optparse-applicative >=0.13,
-                       parsec >=3.1,
-                       process >=1.4.3,
-                       qm >=0.1,
-                       semigroups >=0.18,
-                       strict >=0.3,
-                       transformers >=0.5.2,
-                       text >=1.2,
-                       vector >=0.12,
-                       wl-pprint-text >=1.1
+  build-depends:       base,
+                       array,
+                       containers,
+                       filepath,
+                       lens,
+                       mtbdd,
+                       mtl,
+                       optparse-applicative,
+                       parsec,
+                       process,
+                       qm,
+                       semigroups,
+                       strict,
+                       transformers,
+                       text,
+                       vector,
+                       wl-pprint-text
   ghc-options:         -Wall
 
 executable profeat
   main-is:             Main.hs
-  build-depends:       base ==4.9.*,
-                       text >=1.2,
-                       wl-pprint-text >=1.1,
+  build-depends:       base,
+                       text,
+                       wl-pprint-text,
                        profeat
   ghc-options:         -Wall
 
@@ -78,12 +78,12 @@ test-suite profeat-tests
   main-is:             Tests.hs
   -- other-modules:
   hs-source-dirs:      tests
-  build-depends:       base ==4.9.*,
-                       directory >=1.2.6,
-                       filepath >=1.4,
-                       tasty >=0.11,
-                       tasty-hunit >=0.9,
-                       text >=1.2,
-                       transformers >=0.4,
-                       wl-pprint-text >=1.1,
+  build-depends:       base,
+                       directory,
+                       filepath,
+                       tasty,
+                       tasty-hunit,
+                       text,
+                       transformers,
+                       wl-pprint-text,
                        profeat

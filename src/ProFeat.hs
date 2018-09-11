@@ -32,7 +32,6 @@ import Control.Monad.State
 
 import Data.Foldable ( for_ )
 import Data.Maybe
-import Data.Monoid
 import qualified Data.Text as S
 import qualified Data.Text.IO as SIO
 import qualified Data.Text.Lazy as L
@@ -430,7 +429,7 @@ postprocessPrismOutput spec rcs = do
     writeCsvFiles spec rcs''
     writeMtbddFiles rcs''
 
-    vm <- varMap <$> get
+    vm <- gets varMap
     showLog <- asks showPrismLog
     let doc = if null filteredRcs
                   then prettyResultCollections vm (not showLog) spec rcs -- only show PRISM log in case it hasn't been shown beforehand
@@ -474,7 +473,7 @@ writeCsvFiles (Specification defs) rcs = asks proFeatResultsPath >>= \case
         let props = defs^..traverse._PropertyDef
         let (name, ext) = splitExtension path
 
-        vm <- varMap <$> get
+        vm <- gets varMap
         root <- use rootFeature
 
         for_ (zip3 rcs props [1 :: Integer ..]) $ \(rc, prop, idx) -> do
@@ -494,7 +493,7 @@ showThresholdConstraints :: [ResultCollection] -> ProFeat ()
 showThresholdConstraints rcs = asks resultsAboveThreshold >>= \case
     Nothing -> return ()
     Just threshold -> do
-        vm <- varMap <$> get
+        vm <- gets varMap
         for_ rcs $ \rc -> do
             let vo = toVarOrder vm $ rc^.rcVariables
             liftIO . putStrLn $ "Constraint for threshold >= " ++ show threshold
@@ -510,7 +509,7 @@ writeMtbddFiles rcs = asks resultMtbddPath >>= \case
     Just path -> do
         let (name, ext) = splitExtension path
 
-        vm <- varMap <$> get
+        vm <- gets varMap
 
         tPred <- flip fmap (asks resultsAboveThreshold) $ \case
             Just threshold -> thresholdFunc threshold
@@ -569,9 +568,6 @@ withFile file mode m = do
 
 liftEither' :: Either Error a -> ProFeat a
 liftEither' = lift . liftEither
-
-liftEither :: (Monad m) => Either e a -> ExceptT e m a
-liftEither = ExceptT . return
 
 -- | Like putStrLn, but only prints when 'Verbosity' is 'Verbose'.
 vPutStrLn :: String -> ProFeat ()
