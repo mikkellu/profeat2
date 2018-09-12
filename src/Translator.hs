@@ -24,6 +24,9 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Maybe
 import Data.Traversable
+import Data.Text.Lazy ( toStrict )
+
+import Text.PrettyPrint.Leijen.Text ( text )
 
 import Analysis.InitialState
 import Error
@@ -45,11 +48,14 @@ import Translator.Names
 import Translator.Properties
 import Translator.Rewards
 
+import VarOrder
+
 
 data InstanceInfo = InstanceInfo
-    { infoSymbolTable :: SymbolTable
-    , infoInitExprs   :: InitExprs
-    , infoInvariants  :: Invariants
+    { infoSymbolTable    :: SymbolTable
+    , infoInitExprs      :: InitExprs
+    , infoInvariants     :: Invariants
+    , infoParamValuation :: Valuation
     }
 
 infoAllInOne :: LModel -> Either Error InstanceInfo
@@ -68,7 +74,7 @@ infoAllInOne (Model modelT defs) = do
     symTbl'' <- updateSymbolTable symTbl' defs'
 
     (initExprs, invs) <- extractInitsAndInvariants symTbl''
-    return (InstanceInfo symTbl'' initExprs invs)
+    return (InstanceInfo symTbl'' initExprs invs Map.empty)
   where
     genInitDef [] = []
     genInitDef cs = (:[]) . InitDef . flip Init noLoc $ foldr1 lAnd cs
@@ -86,15 +92,17 @@ infoAllInOne (Model modelT defs) = do
                     Map.singleton (ident, idx) (IntVal upper)
                 _ -> Map.empty
 
-infosOneByOne :: LModel -> Either Error [InstanceInfo]
+
+infosOneByOne :: LModel -> Either Error ([InstanceInfo], VarMap)
 infosOneByOne (Model modelT defs) = do
     symTbl <- extendSymbolTable (emptySymbolTable modelT) defs
 
     case symTbl^.familySym of
         Just fams -> do
             vals <- paramValuations (symTbl^.constValues) fams
+            let vm = paramVarMap fams
 
-            fmap concat . for vals $ \val -> do
+            infos <- fmap concat . for vals $ \val -> do
                 let constTbl = valuationToConstSymbols (fams^.famsParameters) val
                     symTbl' = symTbl & constants   %~ union constTbl
                                      & constValues %~ union val
@@ -107,15 +115,19 @@ infosOneByOne (Model modelT defs) = do
 
                 for featVals $ \featVal -> do
                     let initExprs' = InitExprs initExprs <> valInitExprs featVal
-                    return (InstanceInfo symTbl'' initExprs' invs)
+                    return (InstanceInfo symTbl'' initExprs' invs val)
+
+            return (infos, vm)
         Nothing -> do
             symTbl' <- updateSymbolTable symTbl defs
             (InitExprs initExprs, invs) <- extractInitsAndInvariants symTbl'
             vals <- getInitialValuations symTbl'
 
-            for vals $ \val -> do
+            infos <- for vals $ \val -> do
                 let initExprs' = InitExprs initExprs <> valInitExprs val
-                return (InstanceInfo symTbl' initExprs' invs)
+                return (InstanceInfo symTbl' initExprs' invs Map.empty)
+
+            return (infos, Map.empty)
   where
     familyFeatureContexts symTbl fams = runReaderT
         (traverse getFeature (fams^.famsFeatures)) (Env Global symTbl)
@@ -143,7 +155,7 @@ infosOneByOne (Model modelT defs) = do
                     in zip (repeat (ident, 0)) [IntVal 0, IntVal 1]
 
 translateModel :: Bool -> InstanceInfo -> Either Error LModel
-translateModel foldConsts (InstanceInfo symTbl initExprs invs) =
+translateModel foldConsts (InstanceInfo symTbl initExprs invs _) =
     flip runReaderT (trnsInfo symTbl invs) $ do
         (controllerDef, lss) <- trnsControllerDef initExprs
         local (labelSets .~ lss) $ do
@@ -201,6 +213,20 @@ paramValuations constVal (FamilySymbol params constrs _) = do
         checkIfConst' val' c
         BoolVal b <- eval' val' c
         return b
+
+paramVarMap :: FamilySymbol -> VarMap
+paramVarMap (FamilySymbol params _ _) =
+    Map.fromList (fmap toVar (Map.assocs params))
+  where
+    toVar (ident, ParamSymbol (SimpleType st) _) =
+        let r = case st of
+                BoolType                      -> RangeBool
+                IntType (Just (lower, upper)) -> Range (fromInteger lower)
+                                                       (fromInteger upper)
+                IntType _                     -> error "paramVarMap: integer without range"
+                DoubleType                    -> error "paramVarMap: illegal double type"
+        in (toStrict ident, (text ident, r))
+    toVar _ = error "paramVarMap: illegal parameter type"
 
 valuationToConstSymbols :: Table ParamSymbol -> Valuation -> Table ConstSymbol
 valuationToConstSymbols paramTbl val = Map.mapWithKey mkConstSymbol paramTbl

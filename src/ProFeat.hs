@@ -31,6 +31,7 @@ import Control.Monad.Reader
 import Control.Monad.State
 
 import Data.Foldable ( for_ )
+import qualified Data.Map as Map
 import Data.Maybe
 import qualified Data.Text as S
 import qualified Data.Text.IO as SIO
@@ -281,19 +282,20 @@ proFeat = withProFeatModel $ \model -> withProFeatProps $ \proFeatProps ->
                 hPutStrLn stderr "Could not postprocess PRISM results, no ProFeat properties list given"
                 exitWith $ ExitFailure 4
             Just props -> do
-                infos <- instanceInfos model
+                (infos, paramVarMap) <- instanceInfos model
+                let vals = fmap infoParamValuation infos
                 case infos of
                     [] -> return ()
                     [_] -> withFile resultsPath ReadMode $ \hIn -> do
                         prismOutput <- liftIO $ SIO.hGetContents hIn
-                        writeProFeatOutput props [prismOutput]
+                        writeProFeatOutput paramVarMap props vals [prismOutput]
                     _ -> do
                         prismOutputs <- for (zip infos [0..]) $ \(_, k) ->
                             liftIO $ SIO.readFile (resultsPath `addFileIndex` k)
-                        writeProFeatOutput props prismOutputs
+                        writeProFeatOutput paramVarMap props vals prismOutputs
         Nothing -> do
             vPutStr "Translating..."
-            infos <- instanceInfos model
+            (infos, paramVarMap) <- instanceInfos model
             cf <- asks constantFolding
 
             withDefault "out.prism" prismModelPath $ \p -> case infos of
@@ -322,7 +324,9 @@ proFeat = withProFeatModel $ \model -> withProFeatProps $ \proFeatProps ->
             when' (asks modelCheckOnly) $ liftIO exitSuccess
 
             case proFeatProps of
-                Just props -> writeProFeatOutput props prismOutputs
+                Just props ->
+                    let vals = fmap infoParamValuation infos
+                    in writeProFeatOutput paramVarMap props vals prismOutputs
                 Nothing    -> return ()
 
 withProFeatModel :: (LModel -> ProFeat a) -> ProFeat a
@@ -332,20 +336,20 @@ withProFeatModel m = do
         modelContents <- liftIO $ LIO.hGetContents hIn
         m =<< liftEither' (parseModel path modelContents)
 
-instanceInfos :: LModel -> ProFeat [InstanceInfo]
+instanceInfos :: LModel -> ProFeat ([InstanceInfo], VarMap)
 instanceInfos model = do
     genInstances <- asks oneByOne
     if genInstances
         then do
-            infos <- liftEither' (infosOneByOne model)
+            (infos, paramVarMap) <- liftEither' (infosOneByOne model)
             unless (null infos) $ do
-                let InstanceInfo symTbl' _ _ = last infos
+                let InstanceInfo symTbl' _ _ _ = last infos
                 put symTbl'
-            return infos
+            return (infos, paramVarMap)
         else do
             i <- liftEither' (infoAllInOne model)
             put (infoSymbolTable i)
-            return [i]
+            return ([i], Map.empty)
 
 withProFeatProps :: (Maybe LSpecification -> ProFeat a) -> ProFeat a
 withProFeatProps m = asks proFeatPropsPath >>= \case
@@ -409,19 +413,27 @@ modelPaths numModels = do
         then [path]
         else fmap (path `addFileIndex`) [0..numModels - 1]
 
-writeProFeatOutput :: LSpecification -> [S.Text] -> ProFeat ()
-writeProFeatOutput spec prismOutputs = do
+writeProFeatOutput
+    :: VarMap -> LSpecification -> [Valuation] -> [S.Text] -> ProFeat ()
+writeProFeatOutput paramVarMap spec vals prismOutputs = do
     vPutStr "Processing results..."
-    postprocessPrismOutput spec (parsePrismOutputs prismOutputs)
+    postprocessPrismOutput paramVarMap
+                           spec
+                           (parsePrismOutputs vals prismOutputs)
 
-parsePrismOutputs :: [S.Text] -> [ResultCollection]
-parsePrismOutputs []      = []
-parsePrismOutputs outputs =
-    let rcs = fmap parseResultCollections outputs
-    in foldr1 (zipWith appendResultCollection) rcs
+parsePrismOutputs :: [Valuation] -> [S.Text] -> [ResultCollection]
+parsePrismOutputs _ [] = []
+parsePrismOutputs vals outputs =
+    let rcs = fmap
+            (\(output, val) -> fmap (addParameterValues val)
+                                    (parseResultCollections output)
+            )
+            (zip outputs vals)
+    in  foldr1 (zipWith appendResultCollection) rcs
 
-postprocessPrismOutput :: LSpecification -> [ResultCollection] -> ProFeat ()
-postprocessPrismOutput spec rcs = do
+postprocessPrismOutput
+    :: VarMap -> LSpecification -> [ResultCollection] -> ProFeat ()
+postprocessPrismOutput paramVarMap spec rcs = do
     let filteredRcs = filter (isJust . _rcFinalResult) rcs
         rcs'        = fmap (sortStateResults . removeNonConfVars) filteredRcs
     rcs'' <- applyRounding rcs'
@@ -430,10 +442,12 @@ postprocessPrismOutput spec rcs = do
     writeMtbddFiles rcs''
 
     vm <- gets varMap
+    let vm' = Map.union vm paramVarMap
+
     showLog <- asks showPrismLog
     let doc = if null filteredRcs
-                  then prettyResultCollections vm (not showLog) spec rcs -- only show PRISM log in case it hasn't been shown beforehand
-                  else prettyResultCollections vm False spec rcs''
+                  then prettyResultCollections vm' (not showLog) spec rcs -- only show PRISM log in case it hasn't been shown beforehand
+                  else prettyResultCollections vm' False spec rcs''
         proFeatOutput = displayT (renderPretty 1.0 300 doc)
 
     liftIO (LIO.putStrLn proFeatOutput)

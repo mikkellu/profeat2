@@ -28,6 +28,7 @@ module Result
   , rcCheckingTime
   , emptyResultCollection
   , appendResultCollection
+  , addParameterValues
 
   , sortStateResults
   , removeNonConfVars
@@ -63,6 +64,7 @@ import qualified Data.Vector.Unboxed as UV
 import Text.PrettyPrint.Leijen.Text
 
 import Syntax hiding ( Range )
+import Types
 import VarOrder
 
 data Result
@@ -138,6 +140,24 @@ appendResultCollection (ResultCollection xVars xSrs xR xTr xL xNs xBt xCt)
         r = liftA2 (<>) xR yR <|> xR <|> yR
     in ResultCollection xVars (xSrs <> ySrs') r (xTr <> yTr') (xL <> yL)
           (xNs <> yNs) (xBt + yBt) (xCt + yCt)
+
+addParameterValues :: Valuation -> ResultCollection -> ResultCollection
+addParameterValues val rc = rc
+    & rcVariables %~ (varsRaw <>)
+    & rcStateResults %~ fmap extendStateResult
+  where
+    varsRaw = fmap (L.toStrict . fst . fst) val'
+    val' = Map.assocs val
+
+    stateVec = UV.fromList (fmap (fromInteger . fromValue . snd) val')
+
+    fromValue = \case
+        BoolVal True  -> 1
+        BoolVal False -> 0
+        IntVal i      -> i
+        DblVal _      -> error "addParameterValues: double value"
+
+    extendStateResult = over srStateVec (stateVec <>)
 
 type IndexMap = UV.Vector Int
 
