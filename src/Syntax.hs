@@ -950,9 +950,11 @@ prettyExpr prec e = case e of
     FuncExpr func _       -> pretty func
     SampleExpr es _       ->
         "sample" <> parens (hcat . punctuate comma . fmap pretty $ es)
-    FilterExpr fOp p s _  -> "filter" <> parens (pretty fOp <> comma <+>
-                                                 pretty p <> comma <+>
-                                                 pretty s)
+    FilterExpr fOp p ms _  ->
+        "filter" <> parens (
+            pretty fOp <> comma <+>
+            pretty p <>
+            maybe empty (\s -> comma <+> pretty s) ms)
     ArrayExpr es _ -> braces . hcat . punctuate comma . fmap pretty $ toList es
     ProbExpr bound e' _ ->
         "P" <> pretty bound <+> brackets (pretty e')
