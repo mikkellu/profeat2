@@ -603,6 +603,7 @@ data Function
   | FuncMax
   | FuncFloor
   | FuncCeil
+  | FuncRound
   | FuncPow
   | FuncMod
   | FuncLog
@@ -1031,6 +1032,7 @@ instance Pretty Function where
         FuncMax     -> "max"
         FuncFloor   -> "floor"
         FuncCeil    -> "ceil"
+        FuncRound   -> "round"
         FuncPow     -> "pow"
         FuncMod     -> "mod"
         FuncLog     -> "log"

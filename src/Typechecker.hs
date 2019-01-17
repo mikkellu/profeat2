@@ -213,8 +213,9 @@ typeOf (CallExpr (FuncExpr function _) args l) = case function of
     FuncMax    -> do
         ts <- for args $ checkIfType isNumericType
         funcMinMax ts
-    FuncFloor  -> funcFloorCeil
-    FuncCeil   -> funcFloorCeil
+    FuncFloor  -> funcFloorCeilRound
+    FuncCeil   -> funcFloorCeilRound
+    FuncRound  -> funcFloorCeilRound
     FuncPow    -> do
         checkArgCount 2
         ts <- for args $ checkIfType isNumericType
@@ -242,7 +243,7 @@ typeOf (CallExpr (FuncExpr function _) args l) = case function of
     funcMinMax ts
       | doubleType `elem` ts = return doubleType
       | otherwise            = return intType
-    funcFloorCeil = checkArgCount 1 >> return intType
+    funcFloorCeilRound = checkArgCount 1 >> return intType
 
     numArgs = length args
     checkArgCount n

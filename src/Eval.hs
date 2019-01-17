@@ -133,6 +133,7 @@ evalImpl (CallExpr (FuncExpr function _) args _) = do
           | otherwise       -> IntVal . maximum $ map toInt vs
         FuncFloor -> IntVal . floor   $ toDouble v
         FuncCeil  -> IntVal . ceiling $ toDouble v
+        FuncRound -> IntVal . round   $ toDouble v
         FuncPow ->
           let r = toDouble v ** toDouble (head vs')
           in if any isDblVal vs then DblVal r else IntVal $ truncate r

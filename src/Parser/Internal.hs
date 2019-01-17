@@ -571,6 +571,7 @@ function = choice
     , "max"     --> FuncMax
     , "floor"   --> FuncFloor
     , "ceil"    --> FuncCeil
+    , "round"   --> FuncRound
     , "pow"     --> FuncPow
     , "mod"     --> FuncMod
     , "log"     --> FuncLog
