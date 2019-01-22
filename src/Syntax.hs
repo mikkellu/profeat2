@@ -939,7 +939,7 @@ prettyExpr prec e = case e of
         prettyExpr 1 te <+> colon <+> prettyExpr 1 ee
     UnaryExpr (TempUnOp Exists) e' _ -> "E" <+> brackets (pretty e')
     UnaryExpr (TempUnOp Forall) e' _ -> "A" <+> brackets (pretty e')
-    UnaryExpr (TempUnOp o)      e' _ -> parens (pretty o <+> pretty e')
+    UnaryExpr (TempUnOp o)      e' _ -> pretty o <+> pretty e'
     UnaryExpr unOpT e' _ ->
         let prec' = unOpPrec unOpT
         in parens' (prec >= prec') $ pretty unOpT <> prettyExpr prec' e'
