@@ -294,6 +294,8 @@ proFeat = withProFeatModel $ \model -> withProFeatProps $ \proFeatProps ->
                             liftIO $ SIO.readFile (resultsPath `addFileIndex` k)
                         writeProFeatOutput paramVarMap props vals prismOutputs
         Nothing -> do
+            liftIO $ hSetBuffering stdout LineBuffering
+
             vPutStr "Translating..."
             (infos, paramVarMap) <- instanceInfos model
             cf <- asks constantFolding
