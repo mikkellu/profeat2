@@ -110,6 +110,8 @@ helpPrismLog = "Show PRISM log messages"
 helpImportResults = "Import the PRISM results from <path> for postprocessing"
 --    --round-results
 helpRoundResults = "Round results to <precision> digits"
+--    --sort-results
+helpSortResults = "Sort configurations by their result (descending)"
 -- -t --translate
 helpTranslate = "Translate only, do not model check"
 -- -m --model-checking
@@ -158,6 +160,7 @@ data ProFeatOptions = ProFeatOptions
   , showPrismLog          :: !Bool
   , prismResultsPath      :: Maybe FilePath
   , roundResults          :: Maybe Int
+  , sortResults           :: !Bool
   , translateOnly         :: !Bool
   , modelCheckOnly        :: !Bool
   , prismExecPath         :: FilePath
@@ -186,6 +189,7 @@ defaultOptions = ProFeatOptions
   , showPrismLog          = False
   , prismResultsPath      = Nothing
   , roundResults          = Nothing
+  , sortResults           = False
   , translateOnly         = False
   , modelCheckOnly        = False
   , prismExecPath         = defaultPrismPath
@@ -248,6 +252,10 @@ proFeatOptions = ProFeatOptions
                                <> metavar "<precision>"
                                <> hidden
                                <> help helpRoundResults ))
+  <*> switch                    ( long "sort-results"
+                               <> hidden
+                               <> help helpSortResults
+                                )
   <*> switch                    ( long "translate" <> short 't'
                                <> hidden
                                <> help helpTranslate )
@@ -436,8 +444,11 @@ parsePrismOutputs vals outputs =
 postprocessPrismOutput
     :: VarMap -> LSpecification -> [ResultCollection] -> ProFeat ()
 postprocessPrismOutput paramVarMap spec rcs = do
+    bsort <- asks sortResults
+    let fsort = if bsort then sortStateResults else id
+
     let filteredRcs = filter (isJust . _rcFinalResult) rcs
-        rcs'        = fmap (sortStateResults . removeNonConfVars) filteredRcs
+        rcs'        = fmap (fsort . removeNonConfVars) filteredRcs
     rcs'' <- applyRounding rcs'
 
     writeCsvFiles spec rcs''
