@@ -1,18 +1,13 @@
 {-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE RecordWildCards #-}
 
 module Syntax.Util
-  ( isQuery
-
-  , identExpr
+  ( identExpr
   , valueExpr
 
   , neutralElement
 
   , normalizeExpr
   , conjunction
-
-  , containsLabelExpr
 
   , _One
   , ones
@@ -35,9 +30,6 @@ import Data.List.NonEmpty ( NonEmpty(..) )
 
 import Syntax
 import Types
-
-isQuery :: Bound a -> Bool
-isQuery Bound{..} = null boundExprs
 
 -- | Generates a 'NameExpr' with the given identifier.
 identExpr :: Ident -> SrcLoc -> LExpr
@@ -85,13 +77,6 @@ conjunction = iso f g where
     g (BinaryExpr (LogicBinOp LAnd) l r _) = g l ++ g r
     g (BoolExpr True _)                    = []
     g e                                    = [e]
-
--- | Returns True if the given expression contains labels.
-containsLabelExpr :: Expr a -> Bool
-containsLabelExpr = any isLabel . universe
-  where
-    isLabel (LabelExpr _ _) = True
-    isLabel _               = False
 
 _One :: Prism' (Some b a) (b a)
 _One = prism' One f where

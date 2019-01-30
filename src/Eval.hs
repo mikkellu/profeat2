@@ -111,7 +111,6 @@ evalImpl (UnaryExpr (LogicUnOp LNot) e' _) = do
     case v of
         BoolVal b -> return . BoolVal $ not b
         _         -> typeError
-evalImpl UnaryExpr {} = error "Eval.eval: illegal operator"
 
 evalImpl (CondExpr c t e _) = do
     cv <- evalImpl c
@@ -162,13 +161,6 @@ evalImpl (NameExpr (viewSimpleName -> Just (ident, idx, _)) _) = case idx of
 evalImpl NameExpr {}        = error "Eval.eval: illegal name"
 evalImpl (FuncExpr _ _)     = typeError
 evalImpl SampleExpr {}      = error "Eval.eval: SampleExpr"
-evalImpl FilterExpr {}      = error "Eval.eval: FilterExpr"
-evalImpl ProbExpr {}        = error "Eval.eval: ProbExpr"
-evalImpl SteadyExpr {}      = error "Eval.eval: SteadyExpr"
-evalImpl RewardExpr {}      = error "Eval.eval: RewardExpr"
-evalImpl ConditionalExpr {} = error "Eval.eval: ConditionalExpr"
-evalImpl QuantileExpr {}    = error "Eval.eval: QuantileExpr"
-evalImpl LabelExpr {}       = error "Eval.eval: LabelExpr"
 evalImpl ArrayExpr {}       = typeError
 evalImpl (DecimalExpr d _)  = return $ DblVal d
 evalImpl (IntegerExpr i _)  = return $ IntVal i

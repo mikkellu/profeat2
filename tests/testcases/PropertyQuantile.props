@@ -1,2 +1,0 @@
-filter(printall, quantile(min s, Pmax>{0, 0.01, 0.5} [ F{reward{"steps"}<=s} "stable" ]), "init");
-

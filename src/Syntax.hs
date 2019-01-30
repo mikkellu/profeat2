@@ -54,15 +54,13 @@ module Syntax
   , Formula(..)
   , Label(..)
   , Property(..)
+  , PropertyElem(..)
   , Stmt(..)
   , ActionLabel(..)
   , Update(..)
   , Assign(..)
   , Expr(..)
   , SampleArg(..)
-  , RewardProp(..)
-  , Bound(..)
-  , MinMax(..)
   , Repeatable(..)
   , Some(..)
   , ForLoop(..)
@@ -108,14 +106,13 @@ module Syntax
   , LFormula
   , LLabel
   , LProperty
+  , LPropertyElem
   , LStmt
   , LActionLabel
   , LUpdate
   , LAssign
   , LExpr
   , LSampleArg
-  , LRewardProp
-  , LBound
   , LRepeatable
   , LSome
   , LForLoop
@@ -395,13 +392,24 @@ initConfLabelIdent :: Ident
 initConfLabelIdent = "initconf"
 
 data Property a = Property
-  { propIdent :: Maybe Ident
-  , propExpr  :: Expr a
-  , propAnnot :: !a
-  } deriving (Eq, Functor, Show)
+    { propIdent :: Maybe Ident
+    , propElems :: [PropertyElem a]
+    , propAnnot :: !a
+    } deriving (Eq, Functor, Show)
 
 instance HasExprs Property where
-    exprs f (Property ident e a) = Property ident <$> f e <*> pure a
+    exprs f (Property ident es a) =
+        Property ident <$> traverse (exprs f) es <*> pure a
+
+data PropertyElem a
+  = PropElemString !Text
+  | PropElemExpr (Expr a)
+  deriving (Eq, Functor, Show)
+
+instance HasExprs PropertyElem where
+    exprs f = \case
+        PropElemString s -> pure (PropElemString s)
+        PropElemExpr e -> PropElemExpr <$> f e
 
 data Stmt a = Stmt
   { stmtAction :: ActionLabel a
@@ -457,13 +465,6 @@ data Expr a
   | NameExpr (Name a) !a
   | FuncExpr !Function !a
   | SampleExpr [SampleArg a] !a
-  | FilterExpr !FilterOp (Expr a) (Maybe (Expr a)) !a
-  | ProbExpr (Bound a) (Expr a) !a
-  | SteadyExpr (Bound a) (Expr a) !a
-  | RewardExpr (Maybe (Expr a)) (Bound a) (RewardProp a) !a
-  | ConditionalExpr (Expr a) (Expr a) !a
-  | QuantileExpr !MinMax !Ident (Expr a) !a
-  | LabelExpr !Ident !a
   | ArrayExpr (NonEmpty (Expr a)) !a
   | DecimalExpr !Double !a
   | IntegerExpr !Integer !a
@@ -516,20 +517,9 @@ instance Plated (Expr a) where
         NameExpr name a -> NameExpr <$> exprs f name <*> pure a
         FuncExpr _ _ -> pure e
         SampleExpr args a -> SampleExpr <$> traverse (exprs f) args <*> pure a
-        FilterExpr fOp prop grd a  ->
-            FilterExpr fOp <$> f prop <*> traverse f grd <*> pure a
         ArrayExpr es a             ->
             ArrayExpr <$> traverse f es <*> pure a
-        ProbExpr bound e' a -> ProbExpr <$> exprs f bound <*> f e' <*> pure a
-        SteadyExpr bound e' a ->
-            SteadyExpr <$> exprs f bound <*> f e' <*> pure a
-        RewardExpr struct bound prop a ->
-            RewardExpr struct <$> exprs f bound <*> exprs f prop <*> pure a
-        ConditionalExpr prop cond a ->
-            ConditionalExpr <$> f prop <*> f cond <*> pure a
-        QuantileExpr minMax v e' a -> QuantileExpr minMax v <$> f e' <*> pure a
-        LabelExpr _ _   -> pure e -- list leaf nodes to get a warning if some
-        DecimalExpr _ _ -> pure e -- (newly added) constructor is missing
+        DecimalExpr _ _ -> pure e
         IntegerExpr _ _ -> pure e
         BoolExpr _ _    -> pure e
         MissingExpr _   -> pure e
@@ -546,32 +536,6 @@ instance HasExprs SampleArg where
     exprs f sa = case sa of
         ArgExpr e -> ArgExpr <$> f e
         _         -> pure sa
-
-data RewardProp a
-  = Reachability (Expr a)
-  | Cumulative !Text
-  | Instant !Text
-  | Steady
-  deriving (Eq, Functor, Show)
-
-instance HasExprs RewardProp where
-    exprs f prop = case prop of
-        Reachability prop' -> Reachability <$> f prop'
-        _                  -> pure prop
-
-data Bound a = Bound
-  { boundMinMax :: Maybe MinMax
-  , boundOp     :: !BoundOp
-  , boundExprs  :: [Expr a]
-  } deriving (Eq, Functor, Show)
-
-instance HasExprs Bound where
-    exprs f Bound{..} = Bound boundMinMax boundOp <$> traverse f boundExprs
-
-data MinMax
-  = Min
-  | Max
-  deriving (Eq, Show)
 
 newtype Repeatable b a = Repeatable [Some b a] deriving (Eq, Functor, Show)
 
@@ -637,26 +601,19 @@ defAnnot = \case
 
 exprAnnot :: Expr a -> a
 exprAnnot e = case e of
-    BinaryExpr _ _ _ a    -> a
-    UnaryExpr _ _ a       -> a
-    CondExpr _ _ _ a      -> a
-    LoopExpr _ a          -> a
-    CallExpr _ _ a        -> a
-    NameExpr _ a          -> a
-    FuncExpr _ a          -> a
-    SampleExpr _ a        -> a
-    FilterExpr _ _ _ a    -> a
-    ProbExpr _ _ a        -> a
-    SteadyExpr _ _ a      -> a
-    RewardExpr _ _ _ a    -> a
-    ConditionalExpr _ _ a -> a
-    QuantileExpr _ _ _ a  -> a
-    LabelExpr _ a         -> a
-    ArrayExpr _ a         -> a
-    DecimalExpr _ a       -> a
-    IntegerExpr _ a       -> a
-    BoolExpr _ a          -> a
-    MissingExpr a         -> a
+    BinaryExpr _ _ _ a -> a
+    UnaryExpr _ _ a    -> a
+    CondExpr _ _ _ a   -> a
+    LoopExpr _ a       -> a
+    CallExpr _ _ a     -> a
+    NameExpr _ a       -> a
+    FuncExpr _ a       -> a
+    SampleExpr _ a     -> a
+    ArrayExpr _ a      -> a
+    DecimalExpr _ a    -> a
+    IntegerExpr _ a    -> a
+    BoolExpr _ a       -> a
+    MissingExpr a      -> a
 
 -- | Smart constructor for 'BinaryExpr' which attaches the annotation of
 -- the left inner expression @l@ to the newly created expression.
@@ -721,10 +678,9 @@ type LActionLabel     = ActionLabel SrcLoc
 type LUpdate          = Update SrcLoc
 type LAssign          = Assign SrcLoc
 type LProperty        = Property SrcLoc
+type LPropertyElem    = PropertyElem SrcLoc
 type LExpr            = Expr SrcLoc
 type LSampleArg       = SampleArg SrcLoc
-type LRewardProp      = RewardProp SrcLoc
-type LBound           = Bound SrcLoc
 type LRepeatable b    = Repeatable b SrcLoc
 type LSome b          = Some b SrcLoc
 type LForLoop b       = ForLoop b SrcLoc
@@ -895,9 +851,16 @@ instance Pretty (Label a) where
         "label" <+> dquotes (text ident) <+> equals <+> pretty e <> semi
 
 instance Pretty (Property a) where
-    pretty (Property (Just ident) e _) =
-        dquotes (text ident) <> colon <+> pretty e <> semi
-    pretty (Property Nothing e _) = pretty e <> semi
+    pretty (Property mIdent es _) = prettyIdent <> hcat (fmap pretty es)
+      where
+        prettyIdent = case mIdent of
+            Just ident -> dquotes (text ident) <> colon <> space
+            Nothing    -> empty
+
+instance Pretty (PropertyElem a) where
+    pretty = \case
+        PropElemString s -> text s
+        PropElemExpr e   -> pretty e
 
 instance Pretty (Stmt a) where
     pretty (Stmt action grd upds _) =
@@ -937,9 +900,6 @@ prettyExpr prec e = case e of
     CondExpr cond te ee _ -> parens' (prec > 0) $
         prettyExpr 1 cond <+> char '?' <+>
         prettyExpr 1 te <+> colon <+> prettyExpr 1 ee
-    UnaryExpr (TempUnOp Exists) e' _ -> "E" <+> brackets (pretty e')
-    UnaryExpr (TempUnOp Forall) e' _ -> "A" <+> brackets (pretty e')
-    UnaryExpr (TempUnOp o)      e' _ -> pretty o <+> pretty e'
     UnaryExpr unOpT e' _ ->
         let prec' = unOpPrec unOpT
         in parens' (prec >= prec') $ pretty unOpT <> prettyExpr prec' e'
@@ -951,56 +911,19 @@ prettyExpr prec e = case e of
     FuncExpr func _       -> pretty func
     SampleExpr es _       ->
         "sample" <> parens (hcat . punctuate comma . fmap pretty $ es)
-    FilterExpr fOp p ms _  ->
-        "filter" <> parens (
-            pretty fOp <> comma <+>
-            pretty p <>
-            maybe empty (\s -> comma <+> pretty s) ms)
-    ArrayExpr es _ -> braces . hcat . punctuate comma . fmap pretty $ toList es
-    ProbExpr bound e' _ ->
-        "P" <> pretty bound <+> brackets (pretty e')
-    SteadyExpr bound e' _ ->
-        "S" <> pretty bound <+> brackets (pretty e')
-    RewardExpr struct bound prop _ ->
-        "R" <> maybe empty (braces . pretty) struct <> pretty bound <+>
-        brackets (pretty prop)
-    ConditionalExpr prop cond _ -> pretty prop <> brackets (pretty cond)
-    QuantileExpr minMax v e' _ -> "quantile" <>
-        parens (pretty minMax <+> text v <> comma <+> pretty e')
-    LabelExpr ident _ -> dquotes $ text ident
-    DecimalExpr d _   -> double d
-    IntegerExpr i _   -> integer i
-    BoolExpr True _   -> "true"
-    BoolExpr False _  -> "false"
-    MissingExpr _     -> "..."
+    ArrayExpr es _   -> braces . hcat . punctuate comma . fmap pretty $ toList es
+    DecimalExpr d _  -> double d
+    IntegerExpr i _  -> integer i
+    BoolExpr True _  -> "true"
+    BoolExpr False _ -> "false"
+    MissingExpr _    -> "..."
   where
     parens' True  = parens
     parens' False = id
 
-instance Pretty (RewardProp a) where
-    pretty rOp = case rOp of
-        Reachability prop -> "F" <+> pretty prop
-        Cumulative t      -> "C<=" <> text t
-        Instant t         -> "I=" <> text t
-        Steady            -> "S"
-
 instance Pretty (SampleArg a) where
     pretty (ArgExpr e)   = pretty e
     pretty (ArgString s) = dquotes (text s)
-
-instance Pretty (Bound a) where
-    pretty Bound{..} =
-        pretty boundMinMax <> pretty boundOp <> prettyBounds boundExprs
-      where
-        prettyBounds = \case
-            []  -> "?"
-            [e] -> pretty e
-            es  -> braces (hcat . punctuate comma $ fmap pretty es)
-
-instance Pretty MinMax where
-    pretty = \case
-        Min -> "min"
-        Max -> "max"
 
 data LoopInline = Inline | NoInline
 
