@@ -106,6 +106,8 @@ helpFullMtbdd = "Export the full decision diagram. The full diagram also encodes
 helpReorderMtbdd = "Try to reduce the size of the diagram exported by the export-mtbdd option"
 --    --prism-log
 helpPrismLog = "Show PRISM log messages"
+--    --export-log
+helpExportLog = "Export the PRISM log to <file>"
 --    --import-results
 helpImportResults = "Import the PRISM results from <path> for postprocessing"
 --    --round-results
@@ -156,6 +158,7 @@ data ProFeatOptions = ProFeatOptions
   , fullMtbdd             :: !ReduceOpts
   , reorderMtbdd          :: !ReorderOpts
   , showPrismLog          :: !Bool
+  , prismLogPath          :: Maybe FilePath
   , prismResultsPath      :: Maybe FilePath
   , roundResults          :: Maybe Int
   , translateOnly         :: !Bool
@@ -184,6 +187,7 @@ defaultOptions = ProFeatOptions
   , fullMtbdd             = ReducedMtbdd
   , reorderMtbdd          = NoReordering
   , showPrismLog          = False
+  , prismLogPath          = Nothing
   , prismResultsPath      = Nothing
   , roundResults          = Nothing
   , translateOnly         = False
@@ -240,6 +244,11 @@ proFeatOptions = ProFeatOptions
   <*> switch                    ( long "prism-log"
                                <> hidden
                                <> help helpPrismLog )
+  <*> optional (strOption       ( long "export-log"
+                               <> metavar "<file>"
+                               <> hidden
+                               <> help helpExportLog
+                                ))
   <*> optional (strOption       ( long "import-results"
                                <> metavar "<path>"
                                <> hidden
@@ -389,12 +398,13 @@ callPrism numModels prismProps = do
                     else return []
     prismPath <- asks prismExecPath
     prismArgs <- maybe [] words <$> asks prismArguments
+    showLog   <- asks showPrismLog
+    mLogPath  <- asks prismLogPath
 
-    for (zip [1 :: Integer ..] ps) $ \(i, modelPath) -> do
+    for (zip [1 :: Int ..] ps) $ \(i, modelPath) -> do
         vPutStr $ "Model Checking (" ++ show i ++ "/" ++ show numModels ++ ") "
 
         let args = (modelPath:propsArg) ++ prismArgs
-        showLog <- asks showPrismLog
 
         (exitCode, std, err) <- liftIO $
             readProcessWithExitCode showLog prismPath args
@@ -405,6 +415,14 @@ callPrism numModels prismProps = do
             SIO.hPutStrLn stdout std
             SIO.hPutStrLn stderr err
             exitWith exitCode
+
+        case mLogPath of
+            Just logPath -> do
+                let logPath' = if numModels > 1
+                                   then logPath `addFileIndex` i
+                                   else logPath
+                liftIO $ SIO.writeFile logPath' std
+            Nothing -> return ()
 
         return std
 
