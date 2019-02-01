@@ -18,7 +18,7 @@ module Eval
 
 import Control.Monad.Reader
 
-import Data.Map ( (!) )
+import qualified Data.Map as Map
 
 import Error
 import Syntax
@@ -157,8 +157,11 @@ evalImpl CallExpr {}       = typeError
 evalImpl (NameExpr (viewSimpleName -> Just (ident, idx, _)) _) = case idx of
     Just e  -> do
         IntVal i <- evalImpl e
-        asks (! (ident, i))
-    Nothing -> asks (! (ident, 0))
+        val <- ask
+        case Map.lookup (ident, i) val of
+            Just v -> return v
+            Nothing -> error ("index out of bounds: " ++ show ident ++ "[" ++ show i ++ "]")
+    Nothing -> asks (Map.! (ident, 0))
 evalImpl NameExpr {}        = error "Eval.eval: illegal name"
 evalImpl (FuncExpr _ _)     = typeError
 evalImpl SampleExpr {}      = error "Eval.eval: SampleExpr"
