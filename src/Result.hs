@@ -24,8 +24,7 @@ module Result
   , rcTrace
   , rcLog
   , rcDdNodes
-  , rcBuildingTime
-  , rcCheckingTime
+  , rcTime
   , emptyResultCollection
   , appendResultCollection
   , addParameterValues
@@ -45,6 +44,7 @@ import Control.Applicative          ( (<|>), liftA2 )
 
 import Data.Foldable                ( toList )
 import Data.List                    ( elemIndex )
+import Data.Map                     ( Map )
 import qualified Data.Map as Map
 import Data.Maybe                   ( fromMaybe, mapMaybe )
 import Data.Ord                     ( comparing )
@@ -111,8 +111,7 @@ data ResultCollection = ResultCollection
   , _rcTrace               :: !(Seq StateVec)
   , _rcLog                 :: !(Seq Text)
   , _rcDdNodes             :: !(Seq (Int :!: Int))
-  , _rcBuildingTime        :: !Double
-  , _rcCheckingTime        :: !Double
+  , _rcTime                :: Map Text Double
   } deriving (Show)
 
 makeLenses ''ResultCollection
@@ -125,21 +124,20 @@ emptyResultCollection vars = ResultCollection
   , _rcTrace               = Seq.empty
   , _rcLog                 = Seq.empty
   , _rcDdNodes             = Seq.empty
-  , _rcBuildingTime        = 0.0
-  , _rcCheckingTime        = 0.0
+  , _rcTime                = Map.empty
   }
 
 appendResultCollection :: ResultCollection
                        -> ResultCollection
                        -> ResultCollection
-appendResultCollection (ResultCollection xVars xSrs xR xTr xL xNs xBt xCt)
-                       (ResultCollection yVars ySrs yR yTr yL yNs yBt yCt) =
+appendResultCollection (ResultCollection xVars xSrs xR xTr xL xNs xTs)
+                       (ResultCollection yVars ySrs yR yTr yL yNs yTs) =
     let idxm  = indexMap xVars yVars
         ySrs' = over (traverse.srStateVec) (reorderStateVec idxm) ySrs
         yTr'  = over traverse (reorderStateVec idxm) yTr
         r = liftA2 (<>) xR yR <|> xR <|> yR
     in ResultCollection xVars (xSrs <> ySrs') r (xTr <> yTr') (xL <> yL)
-          (xNs <> yNs) (xBt + yBt) (xCt + yCt)
+          (xNs <> yNs) (Map.unionWith (+) xTs yTs)
 
 addParameterValues :: Valuation -> ResultCollection -> ResultCollection
 addParameterValues val rc = rc
@@ -249,8 +247,7 @@ prettyResultCollection vm includeLog ResultCollection{..} =
     prettyTrace <$>
     line <>
     prettyTrnsNodes <$>
-    "Time for model construction:" <+> pretty _rcBuildingTime <$>
-    "Time for model checking:" <+> pretty _rcCheckingTime
+    prettyTimes _rcTime
   where
     stateResults
       | Seq.null _rcStateResults = empty
@@ -273,6 +270,10 @@ prettyResultCollection vm includeLog ResultCollection{..} =
     prettyNumDdNodes (n :!: nt) =
         int n <+> "nodes" <+> parens (int nt <+> "terminal")
     varOrder = toVarOrder vm _rcVariables
+
+    prettyTimes = vsep . fmap prettyTime . Map.assocs
+    prettyTime (name, time) =
+        "Time for" <+> text (fromStrict name) <> colon <+> pretty time
 
 prettyLog :: Seq Text -> Doc
 prettyLog = vsep . fmap (text . L.fromStrict) . toList
