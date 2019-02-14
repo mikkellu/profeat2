@@ -419,7 +419,7 @@ callPrism numModels prismProps = do
         case mLogPath of
             Just logPath -> do
                 let logPath' = if numModels > 1
-                                   then logPath `addFileIndex` i
+                                   then logPath `addFileIndex` (i - 1)
                                    else logPath
                 liftIO $ SIO.writeFile logPath' std
             Nothing -> return ()
