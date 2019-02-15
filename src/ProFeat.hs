@@ -60,6 +60,7 @@ import Result
 import Result.Constraint
 import Result.Csv
 import Result.Mtbdd
+import Result.Time
 import SymbolTable
 import Syntax
 import Translator
@@ -96,6 +97,8 @@ helpExportFeatureDiagram = "Export a feature diagram to <file> (in dot format)"
 helpExportVars = "Export the mapping of feature names to feature variables as CSV to <file>"
 -- -r --export-results
 helpExportResults = "Export the results of model checking as CSV to <file>"
+--    --export-time
+helpExportTime = "Export the time counters as CSV to <file>"
 --    --above-threshold
 helpAboveThreshold = "Compute a constraint such that the result is above the given threshold for all products"
 --    --export-mtbdd
@@ -153,6 +156,7 @@ data ProFeatOptions = ProFeatOptions
   , featureDiagramPath    :: Maybe FilePath
   , featureVarsPath       :: Maybe FilePath
   , proFeatResultsPath    :: Maybe FilePath
+  , timePath              :: Maybe FilePath
   , resultsAboveThreshold :: Maybe Double
   , resultMtbddPath       :: Maybe FilePath
   , fullMtbdd             :: !ReduceOpts
@@ -182,6 +186,7 @@ defaultOptions = ProFeatOptions
   , featureDiagramPath    = Nothing
   , featureVarsPath       = Nothing
   , proFeatResultsPath    = Nothing
+  , timePath              = Nothing
   , resultsAboveThreshold = Nothing
   , resultMtbddPath       = Nothing
   , fullMtbdd             = ReducedMtbdd
@@ -226,6 +231,10 @@ proFeatOptions = ProFeatOptions
                                <> metavar "<file>"
                                <> hidden
                                <> help helpExportResults ))
+  <*> optional (strOption       ( long "export-time"
+                               <> metavar "<file>"
+                               <> hidden
+                               <> help helpExportTime ))
   <*> optional (option auto     ( long "above-threshold"
                                <> metavar "<threshold>"
                                <> hidden
@@ -459,6 +468,7 @@ postprocessPrismOutput paramVarMap spec rcs = do
     rcs'' <- applyRounding rcs'
 
     writeCsvFiles spec rcs''
+    writeTimeCsvFiles rcs''
     writeMtbddFiles rcs''
 
     vm <- gets varMap
@@ -513,6 +523,15 @@ writeCsvFiles (Specification defs) rcs = asks proFeatResultsPath >>= \case
         for_ (zip3 rcs props [1 :: Integer ..]) $ \(rc, prop, idx) -> do
             let path' = addExtension (name ++ "_" ++ show idx) ext
                 csv   = displayT (renderPretty 1.0 300 (toCsv root vm prop rc))
+            liftIO $ LIO.writeFile path' csv
+
+writeTimeCsvFiles :: [ResultCollection] -> ProFeat ()
+writeTimeCsvFiles rcs = asks timePath >>= \case
+    Nothing   -> return ()
+    Just path ->
+        for_ (zip [0 ..] rcs) $ \(idx, rc) -> do
+            let path' = if length rcs > 1 then path `addFileIndex` idx else path
+                csv   = displayT (renderPretty 1.0 300 (timeToCsv rc))
             liftIO $ LIO.writeFile path' csv
 
 writeFeatureVarsFile :: ProFeat ()
