@@ -55,11 +55,13 @@ import Data.Strict.Tuple.Lens       ()
 import qualified Data.Strict.Tuple as ST
 
 import Data.Text                    ( Text )
-import Data.Text.Lazy               ( fromStrict )
+import Data.Text.Lazy               ( fromStrict, pack )
 import qualified Data.Text.Lazy as L
 import Data.Vector.Generic          ( Vector, (!) )
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Unboxed as UV
+
+import Numeric
 
 import Text.PrettyPrint.Leijen.Text
 
@@ -111,7 +113,7 @@ data ResultCollection = ResultCollection
   , _rcTrace               :: !(Seq StateVec)
   , _rcLog                 :: !(Seq Text)
   , _rcDdNodes             :: !(Seq (Int :!: Int))
-  , _rcTime                :: Map Text Double
+  , _rcTime                :: Map Text [Double]
   } deriving (Show)
 
 makeLenses ''ResultCollection
@@ -137,7 +139,7 @@ appendResultCollection (ResultCollection xVars xSrs xR xTr xL xNs xTs)
         yTr'  = over traverse (reorderStateVec idxm) yTr
         r = liftA2 (<>) xR yR <|> xR <|> yR
     in ResultCollection xVars (xSrs <> ySrs') r (xTr <> yTr') (xL <> yL)
-          (xNs <> yNs) (Map.unionWith (+) xTs yTs)
+          (xNs <> yNs) (Map.unionWith (++) xTs yTs)
 
 addParameterValues :: Valuation -> ResultCollection -> ResultCollection
 addParameterValues val rc = rc
@@ -272,8 +274,11 @@ prettyResultCollection vm includeLog ResultCollection{..} =
     varOrder = toVarOrder vm _rcVariables
 
     prettyTimes = vsep . fmap prettyTime . Map.assocs
-    prettyTime (name, time) =
-        "Time for" <+> text (fromStrict name) <> colon <+> pretty time
+    prettyTime (name, ts) =
+        "Time for" <+> text (fromStrict name) <> colon <+> case ts of
+            [t] -> time t
+            _ -> time (sum ts) <+> "(sum)" <$>
+                indent 4 (hsep (punctuate comma (fmap time ts)))
 
 prettyLog :: Seq Text -> Doc
 prettyLog = vsep . fmap (text . L.fromStrict) . toList
@@ -305,3 +310,6 @@ prettyVal (ident, r) v = case r of
     Range _ _     -> identDef (int v)
   where
     identDef doc = Just $ ident <> char '=' <> doc
+
+time :: Double -> Doc
+time = text . pack . ($ "") . showFFloat Nothing

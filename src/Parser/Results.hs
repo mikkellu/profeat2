@@ -69,7 +69,7 @@ resultCollection vars ls =
         LogFinalResult  r   -> rcFinalResult  .= Just r
         LogTrace        svs -> rcTrace        .= svs
         LogDdNodes      n   -> rcDdNodes      .= singleton n
-        LogTime         n t -> rcTime         %= Map.insertWith (+) n t
+        LogTime         n t -> rcTime         %= Map.insertWith (zipWith (+)) n [t]
         Log             t   -> rcLog          %= (|> t)
 
 languageDef :: Monad m => P.GenLanguageDef Text u m
