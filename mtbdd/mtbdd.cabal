@@ -13,14 +13,14 @@ cabal-version: >=1.10
 
 library
   build-depends:
-    base >= 4.9 && < 5,
-    containers >= 0.5.7 && < 0.6,
-    hashable >= 1.2.4 && < 2,
-    mtl >= 2.2.1 && < 3,
-    text >= 1.2.2 && < 2,
-    unordered-containers >= 0.2.7 && < 0.3,
-    vector >= 0.12.0 && < 0.13,
-    wl-pprint-text >=1.1
+    base,
+    containers,
+    hashable,
+    mtl,
+    text,
+    unordered-containers,
+    vector,
+    wl-pprint-text
   exposed-modules:
     Data.Mtbdd
     Data.Mtbdd.Builder
@@ -38,11 +38,11 @@ test-suite mtbdd-test
   build-depends:
     base,
     mtbdd,
-    containers >= 0.5.6 && < 0.6,
-    hashable >= 1.2.4 && < 2,
-    hspec >= 2.2.3 && < 3,
-    QuickCheck >= 2.8.2 && < 3,
-    vector >= 0.12.0 && < 0.13
+    containers,
+    hashable,
+    hspec,
+    QuickCheck,
+    vector
   main-is: Spec.hs
   other-modules:
     Data.Mtbdd.BuilderSpec

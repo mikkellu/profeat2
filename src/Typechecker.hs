@@ -93,9 +93,10 @@ evalInteger e = do
     checkIfType_ isIntType e >> checkIfConst e
 
     val <- view constValues
-    IntVal v <- eval' val e
-
-    return v
+    r <- eval' val e
+    case r of
+        IntVal v -> return v
+        _ -> error "evalInteger: type error"
 
 checkInitialization :: ( MonadReader r m
                        , MonadError Error m
