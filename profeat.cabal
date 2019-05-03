@@ -4,6 +4,8 @@ synopsis:            A feature modelling framework
 author:              Philipp Chrszon
 maintainer:          Philipp.Chrszon@tu-dresden.de
 category:            Language
+license:             BSD3
+license-file:        LICENSE
 build-type:          Simple
 cabal-version:       >=1.8
 
