@@ -6,14 +6,6 @@ Prerequisites
 
 Download and install the [Stack](https://www.haskellstack.org) tool.
 
-If you do not have a recent version of GHC on your system (at least version
-8.0), run
-
-    stack setup
-
-in the project directory (containing the `stack.yaml` file) to install the
-compiler.
-
 Building ProFeat
 ----------------
 
