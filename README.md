@@ -17,7 +17,7 @@ For building ProFeat from source, the tool `stack` must be installed. For
 installation instructions, visit the
 [stack website](https://www.haskellstack.org).
 
-To generate the user documentation, [Sphinx](www.sphinx-doc.org) must be
+To generate the user documentation, [Sphinx](https://www.sphinx-doc.org) must be
 installed.
 
 ### Building from source
