@@ -60,6 +60,7 @@ import Result
 import Result.Constraint
 import Result.Csv
 import Result.Mtbdd
+import Result.Time
 import SymbolTable
 import Syntax
 import Translator
@@ -96,6 +97,8 @@ helpExportFeatureDiagram = "Export a feature diagram to <file> (in dot format)"
 helpExportVars = "Export the mapping of feature names to feature variables as CSV to <file>"
 -- -r --export-results
 helpExportResults = "Export the results of model checking as CSV to <file>"
+--    --export-time
+helpExportTime = "Export the time counters as CSV to <file>"
 --    --above-threshold
 helpAboveThreshold = "Compute a constraint such that the result is above the given threshold for all products"
 --    --export-mtbdd
@@ -106,6 +109,8 @@ helpFullMtbdd = "Export the full decision diagram. The full diagram also encodes
 helpReorderMtbdd = "Try to reduce the size of the diagram exported by the export-mtbdd option"
 --    --prism-log
 helpPrismLog = "Show PRISM log messages"
+--    --export-log
+helpExportLog = "Export the PRISM log to <file>"
 --    --import-results
 helpImportResults = "Import the PRISM results from <path> for postprocessing"
 --    --round-results
@@ -153,11 +158,13 @@ data ProFeatOptions = ProFeatOptions
   , featureDiagramPath    :: Maybe FilePath
   , featureVarsPath       :: Maybe FilePath
   , proFeatResultsPath    :: Maybe FilePath
+  , timePath              :: Maybe FilePath
   , resultsAboveThreshold :: Maybe Double
   , resultMtbddPath       :: Maybe FilePath
   , fullMtbdd             :: !ReduceOpts
   , reorderMtbdd          :: !ReorderOpts
   , showPrismLog          :: !Bool
+  , prismLogPath          :: Maybe FilePath
   , prismResultsPath      :: Maybe FilePath
   , roundResults          :: Maybe Int
   , sortResults           :: !Bool
@@ -182,11 +189,13 @@ defaultOptions = ProFeatOptions
   , featureDiagramPath    = Nothing
   , featureVarsPath       = Nothing
   , proFeatResultsPath    = Nothing
+  , timePath              = Nothing
   , resultsAboveThreshold = Nothing
   , resultMtbddPath       = Nothing
   , fullMtbdd             = ReducedMtbdd
   , reorderMtbdd          = NoReordering
   , showPrismLog          = False
+  , prismLogPath          = Nothing
   , prismResultsPath      = Nothing
   , roundResults          = Nothing
   , sortResults           = False
@@ -226,6 +235,10 @@ proFeatOptions = ProFeatOptions
                                <> metavar "<file>"
                                <> hidden
                                <> help helpExportResults ))
+  <*> optional (strOption       ( long "export-time"
+                               <> metavar "<file>"
+                               <> hidden
+                               <> help helpExportTime ))
   <*> optional (option auto     ( long "above-threshold"
                                <> metavar "<threshold>"
                                <> hidden
@@ -244,6 +257,11 @@ proFeatOptions = ProFeatOptions
   <*> switch                    ( long "prism-log"
                                <> hidden
                                <> help helpPrismLog )
+  <*> optional (strOption       ( long "export-log"
+                               <> metavar "<file>"
+                               <> hidden
+                               <> help helpExportLog
+                                ))
   <*> optional (strOption       ( long "import-results"
                                <> metavar "<path>"
                                <> hidden
@@ -397,12 +415,13 @@ callPrism numModels prismProps = do
                     else return []
     prismPath <- asks prismExecPath
     prismArgs <- maybe [] words <$> asks prismArguments
+    showLog   <- asks showPrismLog
+    mLogPath  <- asks prismLogPath
 
-    for (zip [1 :: Integer ..] ps) $ \(i, modelPath) -> do
+    for (zip [1 :: Int ..] ps) $ \(i, modelPath) -> do
         vPutStr $ "Model Checking (" ++ show i ++ "/" ++ show numModels ++ ") "
 
         let args = (modelPath:propsArg) ++ prismArgs
-        showLog <- asks showPrismLog
 
         (exitCode, std, err) <- liftIO $
             readProcessWithExitCode showLog prismPath args
@@ -413,6 +432,14 @@ callPrism numModels prismProps = do
             SIO.hPutStrLn stdout std
             SIO.hPutStrLn stderr err
             exitWith exitCode
+
+        case mLogPath of
+            Just logPath -> do
+                let logPath' = if numModels > 1
+                                   then logPath `addFileIndex` (i - 1)
+                                   else logPath
+                liftIO $ SIO.writeFile logPath' std
+            Nothing -> return ()
 
         return std
 
@@ -452,6 +479,7 @@ postprocessPrismOutput paramVarMap spec rcs = do
     rcs'' <- applyRounding rcs'
 
     writeCsvFiles spec rcs''
+    writeTimeCsvFiles rcs''
     writeMtbddFiles rcs''
 
     vm <- gets varMap
@@ -506,6 +534,15 @@ writeCsvFiles (Specification defs) rcs = asks proFeatResultsPath >>= \case
         for_ (zip3 rcs props [1 :: Integer ..]) $ \(rc, prop, idx) -> do
             let path' = addExtension (name ++ "_" ++ show idx) ext
                 csv   = displayT (renderPretty 1.0 300 (toCsv root vm prop rc))
+            liftIO $ LIO.writeFile path' csv
+
+writeTimeCsvFiles :: [ResultCollection] -> ProFeat ()
+writeTimeCsvFiles rcs = asks timePath >>= \case
+    Nothing   -> return ()
+    Just path ->
+        for_ (zip [0 ..] rcs) $ \(idx, rc) -> do
+            let path' = if length rcs > 1 then path `addFileIndex` idx else path
+                csv   = displayT (renderPretty 1.0 300 (timeToCsv rc))
             liftIO $ LIO.writeFile path' csv
 
 writeFeatureVarsFile :: ProFeat ()

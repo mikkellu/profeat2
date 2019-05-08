@@ -43,7 +43,6 @@ module Parser.Internal
   , label
 
   , propertyDef
-  , property
 
   , stmt
   , update
@@ -56,7 +55,6 @@ import Control.Lens hiding ( assign )
 import Control.Monad.Identity
 
 import Data.List.NonEmpty
-import Data.Monoid
 import Data.Text.Lazy ( Text, pack )
 import Data.Text.Lens
 
@@ -111,9 +109,8 @@ reservedNames =
     , "rewards", "endrewards", "controller", "endcontroller", "module"
     , "endmodule", "this", "active", "iactive", "activate", "deactivate"
     , "array", "bool", "int", "double", "init", "endinit", "invariant"
-    , "endinvariant", "for", "endfor", "in", "id", "block", "filter", "min"
-    , "max", "quantile", "sample", "reward", "true", "false", "P", "R", "S", "E"
-    , "A", "U", "W", "R", "X", "F", "G", "C", "I"
+    , "endinvariant", "for", "endfor", "in", "id", "block", "min"
+    , "max", "sample", "true", "false"
     ]
 reservedOpNames =
     [ "/", "*", "-", "+", "=", "!=", ">", "<", ">=", "<=", "&", "|", "!"
@@ -367,10 +364,28 @@ invariant :: Parser LInvariant
 invariant = loc (Invariant <$> (reserved "invariant" *> block "invariant" expr))
 
 propertyDef :: Parser LDefinition
-propertyDef = PropertyDef <$>
-    loc (Property <$> propertyIdent <*> property <* semi) <?> "property"
-  where
-    propertyIdent = option Nothing (Just <$> doubleQuotes identifier' <* colon)
+propertyDef = PropertyDef
+    <$> loc (Property
+        <$> optionMaybe (doubleQuotes identifier' <* colon)
+        <*> property)
+    <?> "property"
+
+
+property :: Parser [LPropertyElem]
+property = do
+    (s, isEnd) <- anyChar `manyTill'` choice
+        [ False <$ try (string "${")
+        , True  <$ endOfLine
+        , True  <$ semi
+        ]
+    let elemString = PropElemString (pack s)
+
+    if isEnd
+        then return [elemString]
+        else do
+            e <- whiteSpace *> expr <* whiteSpace <* char '}'
+            elems <- property
+            return (elemString : PropElemExpr e : elems)
 
 stmt :: Parser LStmt
 stmt =  loc (Stmt <$> brackets actionLabel
@@ -408,104 +423,41 @@ assign = loc (choice
     , parens $ Assign <$> name <* symbol "'" <* reservedOp "=" <*> expr
     ]) <?> "assignment"
 
-expr :: Parser LExpr
-expr = expr' False
-
-property :: Parser LExpr
-property = expr' True
-
 -- | Creates the expression parser. If @allowPctl@ is 'True' the parser
 -- will accept temporal and probabilistic operators.
-expr' :: Bool -> Parser LExpr
-expr' allowPctl = simpleExpr >>= condExpr
+expr :: Parser LExpr
+expr = simpleExpr >>= condExpr
   where
     simpleExpr =
-        normalizeExpr <$> buildExpressionParser opTable (term allowPctl)
+        normalizeExpr <$> buildExpressionParser exprOpTable term
                       <?> "expression"
-    condExpr e = option e $ CondExpr e <$> (reservedOp "?" *> expr' allowPctl)
-                                       <*> (colon *> expr' allowPctl)
+    condExpr e = option e $ CondExpr e <$> (reservedOp "?" *> expr)
+                                       <*> (colon *> expr)
                                        <*> pure (exprAnnot e)
-    opTable
-      | allowPctl = exprOpTable ++ pctlOpTable -- order is important here, PCTL operators have lower precedence
-      | otherwise = exprOpTable
 
-term :: Bool -> Parser LExpr
-term allowPctl = atom allowPctl >>= callExpr
+term :: Parser LExpr
+term = atom >>= callExpr
   where
-    callExpr e = option e $ CallExpr e <$> args (expr' allowPctl)
+    callExpr e = option e $ CallExpr e <$> args expr
                                        <*> pure (exprAnnot e)
 
-atom :: Bool -> Parser LExpr
-atom allowPctl
-    = parens (expr' allowPctl)
-   <|> loc (choice $ pctlExpr ++
-                   [ MissingExpr     <$  reservedOp "..."
-                   , idExpr          <$  reserved "id"
-                   , BoolExpr        <$> bool
-                   , DecimalExpr     <$> try float
-                   , IntegerExpr     <$> integer
-                   , LoopExpr        <$> forLoop (expr' allowPctl)
-                   , filterExpr allowPctl
-                   , labelExpr allowPctl
-                   , arrayExpr
-                   , sampleExpr
-                   , FuncExpr        <$> function
-                   , NameExpr        <$> name
-                   ])
+atom :: Parser LExpr
+atom = parens expr
+   <|> loc (choice
+        [ MissingExpr<$  reservedOp "..."
+        , idExpr     <$  reserved "id"
+        , BoolExpr   <$> bool
+        , DecimalExpr<$> try float
+        , IntegerExpr<$> integer
+        , LoopExpr   <$> forLoop expr
+        , arrayExpr
+        , sampleExpr
+        , FuncExpr   <$> function
+        , NameExpr   <$> name
+        ])
    <?> "literal, variable or expression"
   where
     idExpr l = NameExpr (_Ident # ("id", l)) l
-    pctlExpr
-      | allowPctl = [ UnaryExpr <$> stateOp <*> brackets (expr' allowPctl)
-                    , quantileExpr
-                    , conditionalExpr
-                    ]
-      | otherwise = []
-    stateOp = choice
-        [ TempUnOp Exists <$ reserved "E"
-        , TempUnOp Forall <$ reserved "A"
-        ]
-
-conditionalExpr :: Parser (SrcLoc -> LExpr)
-conditionalExpr = do
-    prop <- loc (probExpr <|> rewardExpr <|> steadyExpr)
-    option (const prop) (ConditionalExpr prop <$> brackets property)
-
-probExpr :: Parser (SrcLoc -> LExpr)
-probExpr = symbol "P" *> (ProbExpr <$> bound <*> brackets property)
-
-rewardExpr :: Parser (SrcLoc -> LExpr)
-rewardExpr = RewardExpr
-    <$> (symbol "R" *> optionMaybe (braces struct))
-    <*> bound
-    <*> brackets rewardProp
-  where
-    struct = loc (labelExpr True) <|> expr
-
-rewardProp :: Parser LRewardProp
-rewardProp = choice
-  [ Reachability <$> (reserved "F" *> expr' True)
-  , Cumulative   <$> (reserved "C" *> reservedOp "<=" *> decimal')
-  , Instant      <$> (reserved "I" *> reservedOp "="  *> decimal')
-  , Steady       <$   reserved "S"
-  ]
-
-steadyExpr :: Parser (SrcLoc -> LExpr)
-steadyExpr = symbol "S" *> (SteadyExpr <$> bound <*> brackets property)
-
-quantileExpr :: Parser (SrcLoc -> LExpr)
-quantileExpr = reserved "quantile" *>
-    parens (QuantileExpr <$> minMax <*> identifier' <*> (comma *> property))
-
-bound :: Parser LBound
-bound = Bound <$> optionMaybe minMax <*> boundOp' <*> choice
-    [ [] <$ reservedOp "?"
-    , braces (commaSep1 expr)
-    , (:[]) <$> expr
-    ]
-
-minMax :: Parser MinMax
-minMax = choice [Min <$ reserved "min", Max <$ reserved "max"]
 
 repeatable :: Parser (b SrcLoc)
            -> (Parser (Some b SrcLoc) -> Parser [Some b SrcLoc])
@@ -528,42 +480,8 @@ sampleExpr = SampleExpr <$> (reserved "sample" *> parens (commaSep sampleArg))
         (ArgString <$> doubleQuotes identifier') <|>
         (ArgExpr <$> expr)
 
-filterExpr :: Bool -> Parser (SrcLoc -> LExpr)
-filterExpr False = parserZero
-filterExpr True  = reserved "filter" *> parens
-    (FilterExpr <$> filterOp
-                <*> (comma *> property)
-                <*> optionMaybe (comma *> property))
-
-labelExpr :: Bool -> Parser (SrcLoc -> LExpr)
-labelExpr False = parserZero
-labelExpr True  = LabelExpr <$> doubleQuotes labelIdent <?> "label"
-  where
-    labelIdent =  "init" <$ reserved "init"
-              <|> identifier'
-
 arrayExpr :: Parser (SrcLoc -> LExpr)
 arrayExpr = ArrayExpr . fromList <$> braces (commaSep1 expr)
-
-filterOp :: Parser FilterOp
-filterOp = choice
-    [ "min"      --> FilterMin
-    , "max"      --> FilterMax
-    , "argmin"   --> FilterArgmin
-    , "argmax"   --> FilterArgmax
-    , "count"    --> FilterCount
-    , "sum"      --> FilterSum
-    , "avg"      --> FilterAvg
-    , "first"    --> FilterFirst
-    , "range"    --> FilterRange
-    , "forall"   --> FilterForall
-    , "exists"   --> FilterExists
-    , "print"    --> FilterPrint
-    , "printall" --> FilterPrintall
-    , "state"    --> FilterState
-    ] <?> "filter operator"
-  where
-    s --> fOp = fOp <$ reserved s
 
 function :: Parser Function
 function = choice
@@ -581,27 +499,6 @@ function = choice
     ] <?> "function call"
   where
     s --> func = func <$ reserved s
-
-stepBound :: Parser (Maybe StepBound)
-stepBound = optionMaybe $ choice
-  [ StepBound <$> boundOp' <*> decimal'
-  , brackets (BoundInterval <$> decimal' <*> (comma *> decimal'))
-  , braces (RewardBound
-        <$> (reserved "reward" *> braces (doubleQuotes identifier'))
-        <*> boundOp'
-        <*> (identifier' <|> decimal'))
-  ]
-
-boundOp' :: Parser BoundOp
-boundOp' = choice
-    [ ">=" --> BGte
-    , "<=" --> BLte
-    , ">"  --> BGt
-    , "<"  --> BLt
-    , "="  --> BEq
-    ]
-  where
-    s --> bOp = bOp <$ try (symbol s)
 
 name :: Parser LName
 name =  loc (toName <$> (this <|> qualifier)
@@ -652,36 +549,22 @@ exprOpTable = -- operators listed in descending precedence, operators in same gr
     unaryOp s     = unary $ reservedOp s
     (-->) s = binary AssocLeft $ reservedOp s
 
-pctlOpTable :: OperatorTable Text UserState Identity LExpr
-pctlOpTable =
-    [ [ Prefix tempUnOps ]
-    , [ "U" --> Until
-      , "W" --> WeakUntil
-      , "R" --> Release
-      ]
-    ]
-  where
-    tempUnOps = appEndo . foldMap (Endo . unaryExpr) <$> many1 tempUnOp -- Note [unary temporal operators] (see below)
-    tempUnOp = TempUnOp <$> choice
-        [ Next <$ reserved "X"
-        , reserved "F" *> (Finally  <$> stepBound)
-        , reserved "G" *> (Globally <$> stepBound)
-        ]
-    s --> binOp = Infix
-        (reserved s *> (binaryExpr . TempBinOp . binOp <$> stepBound))
-        AssocNone
-
-{- Note [unary temporal operators]
-- Prefix operators of the same precedence (like X, F and G) can only occur once
-- (see Parsec doc for details) and thus would require superfluous
-- parentheses. To overcome this limitation a sequence of X, F and
-- G operators is folded to appear as a single operator. Using the same
-- approach one could allow sequencing of the ! operator.
--}
-
 unary :: ParsecT s u m a -> UnOp -> Operator s u m (Expr b)
 unary p unOp = Prefix (unaryExpr unOp <$ p)
 
 binary :: Assoc -> ParsecT s u m a -> BinOp -> Operator s u m (Expr b)
 binary assoc p binOp = Infix (binaryExpr binOp <$ p) assoc
 
+manyTill'
+    :: Stream s m t
+    => ParsecT s u m a -> ParsecT s u m end -> ParsecT s u m ([a], end)
+manyTill' p end = scan
+  where
+    scan = end' <|> p'
+    end' = do
+        e <- end
+        return ([], e)
+    p' = do
+        x <- p
+        (xs, e) <- scan
+        return (x:xs, e)

@@ -93,9 +93,10 @@ evalInteger e = do
     checkIfType_ isIntType e >> checkIfConst e
 
     val <- view constValues
-    IntVal v <- eval' val e
-
-    return v
+    r <- eval' val e
+    case r of
+        IntVal v -> return v
+        _ -> error "evalInteger: type error"
 
 checkInitialization :: ( MonadReader r m
                        , MonadError Error m
@@ -115,15 +116,12 @@ checkIfConst e = do
     checkIfConst' val e
 
 checkIfConst' :: (MonadError Error m) => Valuation -> LExpr -> m ()
-checkIfConst' val e
-  | containsLabelExpr e = throw (exprAnnot e) $ NonConstExpr e
-  | otherwise           = case unknownValues val e of
-        []    -> return ()
-        names -> throw (exprAnnot e) $ UnknownValues e names
+checkIfConst' val e = case unknownValues val e of
+    []    -> return ()
+    names -> throw (exprAnnot e) $ UnknownValues e names
 
 isConstExpr :: (MonadReader r m, HasSymbolTable r) => LExpr -> m Bool
-isConstExpr e = (||) (containsLabelExpr e) <$>
-                     (null . flip unknownValues e <$> view constValues)
+isConstExpr e = null . flip unknownValues e <$> view constValues
 
 unknownValues :: Valuation -> Expr a -> [Name a]
 unknownValues val = go where
@@ -189,12 +187,10 @@ typeOf (BinaryExpr binOpT lhs rhs loc) = case binOpT of
             throw loc $ NotApplicable binOpT tl tr
         return boolType
     LogicBinOp _ -> checkIfType_ isBoolType lhs >> checkIfType isBoolType rhs
-    TempBinOp _  -> checkIfType_ isBoolType lhs >> checkIfType isBoolType rhs
 
 typeOf (UnaryExpr unOpT e _) = case unOpT of
     ArithUnOp _                 -> checkIfType isNumericType e
     LogicUnOp _                 -> checkIfType isBoolType e
-    TempUnOp _                  -> checkIfType isBoolType e
 
 typeOf (CondExpr cond te ee _) = do
     checkIfType_ isBoolType cond
@@ -251,43 +247,9 @@ typeOf (CallExpr (FuncExpr function _) args l) = case function of
         ArityError (prettyText function) n numArgs
       | otherwise    = return ()
 
-typeOf (CallExpr e _ l) = throw l $ NotAFunction e
-
-typeOf (FilterExpr fOp prop grd _) = do
-    t <- typeOf prop
-    _ <- _Just (checkIfType_ isBoolType) grd
-    if | fOp `elem` [FilterForall, FilterExists, FilterArgmin, FilterArgmax] ->
-             return boolType
-       | fOp == FilterCount -> return intType
-       | otherwise          -> return t
-
-typeOf (ProbExpr bound e _) = do
-    checkIfType_ isBoolType e
-    return (boundReturnType bound)
-
-typeOf (SteadyExpr bound e _) = do
-    checkIfType_ isBoolType e
-    return (boundReturnType bound)
-
-typeOf (RewardExpr _ bound prop _) = do
-    case prop of
-        Reachability e -> checkIfType_ isBoolType e
-        _              -> return ()
-    return (boundReturnType bound)
-
-typeOf (ConditionalExpr prop cond _) = do
-    _ <- typeOf prop
-    typeOf cond
-
-typeOf (QuantileExpr _ _ e _) = do
-    checkIfType_ isBoolType e
-    return doubleType
-
-typeOf (LabelExpr ident l)
-  | ident == "init" || ident == "deadlock" = return boolType
-  | otherwise = lookupLabel ident l >> return boolType
-typeOf (NameExpr name _)   = getSymbolInfo name >>= siType
-typeOf (FuncExpr f l)      = throw l $ StandaloneFuntion f
+typeOf (CallExpr e _ l)  = throw l $ NotAFunction e
+typeOf (NameExpr name _) = getSymbolInfo name >>= siType
+typeOf (FuncExpr f l)    = throw l $ StandaloneFuntion f
 
 typeOf (ArrayExpr (e :| es) _) = do
     te  <- typeOf e
@@ -302,11 +264,6 @@ typeOf (DecimalExpr _ _)   = return doubleType
 typeOf (IntegerExpr _ _)   = return intType
 typeOf (BoolExpr _ _)      = return boolType
 typeOf (MissingExpr l)     = throw l StandaloneMissingExpr
-
-boundReturnType :: Bound a -> Type
-boundReturnType bound
-  | isQuery bound = doubleType
-  | otherwise     = boolType
 
 checkIfFeature :: ( MonadReader r m
                   , MonadError Error m

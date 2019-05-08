@@ -1,30 +1,46 @@
-Building ProFeat from source
-============================
+ProFeat
+=======
 
-Prerequisites
--------------
+ProFeat is a tool for the analysis of stochastic system families.
+It provides a modeling language that extends the input language of the
+probabilistic model checker [PRISM](http://www.prismmodelchecker.org) by
+feature-oriented concepts, including support for dynamic feature switches,
+multi-features and feature attributes.
 
-Download and install the [Stack](https://www.haskellstack.org) tool.
 
-If you do not have a recent version of GHC on your system (at least version
-8.0), run
+Installation
+------------
 
-    stack setup
+### Prerequisites
 
-in the project directory (containing the `stack.yaml` file) to install the
-compiler.
+For building ProFeat from source, the tool `stack` must be installed. For
+installation instructions, visit the
+[stack website](https://www.haskellstack.org).
 
-Building ProFeat
-----------------
+To generate the user documentation, [Sphinx](www.sphinx-doc.org) must be
+installed.
 
-To build ProFeat, run the following command in the project's root directory
-(containing the `stack.yaml` file):
+### Building from source
+
+In the projects root directory, which contains the `profeat.cabal` file, run
+the following command to build the tool:
 
     stack build
 
-Optionally, you may run
+The tools needed for building and all required dependencies will be downloaded
+automatically.
+
+Optionally, the `profeat` binary can be copied to the local bin path by using
+the command:
 
     stack install
 
-to copy the `profeat` binary to ~/.local/bin.
+### Generating the documentation
 
+To build the user documentation, go to the `doc` directory and run the following
+command:
+
+    make html
+
+For other documentation formats, consult the Makefile or the Sphinx
+documentation.

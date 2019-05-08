@@ -205,8 +205,12 @@ evalConstValue ident = do
                         e's <- case e' of
                             ArrayExpr es _ -> return (toList es)
                             CallExpr (FuncExpr FuncBinom _) [ep, en] _ -> do
-                                DblVal p <- eval' val' ep
-                                IntVal n <- eval' val' en
+                                p <- eval' val' ep >>= \case
+                                    DblVal p' -> return p'
+                                    _ -> error "evalConstValue: type error"
+                                n <- eval' val' en >>= \case
+                                    IntVal n' -> return n'
+                                    _ -> error "evalConstValue: type error"
                                 return . fmap (flip DecimalExpr noLoc) $
                                     binomialDist p n
                             _ -> return [e']

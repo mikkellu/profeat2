@@ -1,4 +1,0 @@
-filter(printall, R>0 [ C<=1.5 ], "init");
-filter(printall, R{"test"}<=0.5 [ I=5 ], "init");
-filter(printall, R{"test"}=? [ F true ], "init");
-filter(printall, R{1}max=? [ S ], "init");

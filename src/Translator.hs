@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
 
@@ -211,8 +212,9 @@ paramValuations constVal (FamilySymbol params constrs _) = do
     flip filterM vals $ \val -> fmap and . for constrs $ \c -> do
         let val' = val `union` constVal
         checkIfConst' val' c
-        BoolVal b <- eval' val' c
-        return b
+        eval' val' c >>= \case
+            BoolVal b -> return b
+            _ -> error "paramValuations: type error"
 
 paramVarMap :: FamilySymbol -> VarMap
 paramVarMap (FamilySymbol params _ _) =
@@ -335,8 +337,9 @@ satisfies :: (MonadReader r m, MonadError Error m, HasSymbolTable r)
           -> m Bool
 satisfies val e = do
     constVal  <- view constValues
-    BoolVal b <- eval' (val `union` constVal) e
-    return b
+    eval' (val `union` constVal) e >>= \case
+        BoolVal b -> return b
+        _ -> error "satisfies: type error"
 
 valInitExprs :: Valuation -> InitExprs
 valInitExprs =

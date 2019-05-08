@@ -31,7 +31,10 @@ trnsModules =
 
 trnsModule :: Ident -> LModuleBody -> Trans LModule
 trnsModule ident body = do
-    Local ctx <- view scope
+    sc <- view scope
+    let ctx = case sc of
+                  Local ctx' -> ctx'
+                  _ -> error "trnsModule: invalid scope"
     Module (moduleIdent ctx ident) [] <$> trnsModuleBody body
 
 trnsModuleBody :: Translator LModuleBody
@@ -46,15 +49,22 @@ trnsModuleBody (ModuleBody decls (Repeatable ss) l) = do
 
 trnsLocalVars :: Translator [LVarDecl]
 trnsLocalVars decls = do
-    Local ctx <- view scope
+    sc <- view scope
+    let ctx = case sc of
+                  Local ctx' -> ctx'
+                  _ -> error "trnsLocalVars: invalid scope"
+
     fmap (sortVarDeclsByLoc . concat) . for decls $ \decl ->
         let t = ctx^?!this.fsVars.at (declIdent decl)._Just.vsType
         in trnsVarDecl t decl
 
 trnsStmt :: LStmt -> Trans [LStmt]
 trnsStmt (Stmt action grd upds l) = do
-    Local ctx <- view scope
-    invs      <- view invariants
+    sc <- view scope
+    let ctx = case sc of
+                  Local ctx' -> ctx'
+                  _ -> error "trnsStmt: invalid scope"
+    invs <- view invariants
 
     upds' <- ones (trnsUpdate trnsAssign) upds
 

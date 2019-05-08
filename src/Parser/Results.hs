@@ -17,6 +17,7 @@ import Control.Lens hiding ( noneOf )
 import Control.Monad.State
 
 import Data.Maybe
+import qualified Data.Map as Map
 import Data.Monoid
 import Data.Sequence ( Seq, fromList, singleton )
 import Data.Strict.Tuple
@@ -36,8 +37,7 @@ data Log
   | LogFinalResult  !Result
   | LogTrace        !(Seq StateVec)
   | LogDdNodes      !(Int :!: Int)
-  | LogBuildingTime !Double
-  | LogCheckingTime !Double
+  | LogTime         !Text !Double
   | Log             !Text
   deriving (Show)
 
@@ -69,8 +69,7 @@ resultCollection vars ls =
         LogFinalResult  r   -> rcFinalResult  .= Just r
         LogTrace        svs -> rcTrace        .= svs
         LogDdNodes      n   -> rcDdNodes      .= singleton n
-        LogBuildingTime t   -> rcBuildingTime .= t
-        LogCheckingTime t   -> rcCheckingTime .= t
+        LogTime         n t -> rcTime         %= Map.insertWith (zipWith (+)) n [t]
         Log             t   -> rcLog          %= (|> t)
 
 languageDef :: Monad m => P.GenLanguageDef Text u m
@@ -118,8 +117,7 @@ logs = many . choice $
   , logFinalResult
   , logTrace
   , logDdNodes
-  , logBuildingTime
-  , logCheckingTime
+  , logTime
   , logAny
   ]
 
@@ -156,15 +154,11 @@ logDdNodes = LogDdNodes <$>
   where
     start = trySymbol "Transition matrix:"
 
-logBuildingTime :: Parser Log
-logBuildingTime = LogBuildingTime <$> (start *> float <* skipLine)
+logTime :: Parser Log
+logTime = LogTime <$> (start *> name) <*> (whiteSpace *> float <* skipLine)
   where
-    start = trySymbol "Time for model construction:"
-
-logCheckingTime :: Parser Log
-logCheckingTime = LogCheckingTime <$> (start *> float <* skipLine)
-  where
-    start = trySymbol "Time for model checking:"
+    start = trySymbol "Time for "
+    name  = pack <$> (anyChar `manyTill` colon)
 
 logAny :: Parser Log
 logAny = Log . pack <$> line

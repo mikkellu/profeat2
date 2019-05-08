@@ -1,9 +1,11 @@
 name:                profeat
-version:             0.127.2.0
+version:             1.0.0.0
 synopsis:            A feature modelling framework
 author:              Philipp Chrszon
 maintainer:          Philipp.Chrszon@tu-dresden.de
 category:            Language
+license:             BSD3
+license-file:        LICENSE
 build-type:          Simple
 cabal-version:       >=1.8
 
@@ -23,6 +25,7 @@ library
                        Result.Constraint,
                        Result.Csv,
                        Result.Mtbdd,
+                       Result.Time,
                        SrcLoc,
                        Symbols,
                        SymbolTable,
