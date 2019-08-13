@@ -1,14 +1,8 @@
-resolver: lts-13.19
+resolver: lts-14.0
 
-packages:
-- '.'
-- location: 'mtbdd'
-  extra-dep: true
-- location: 'qm'
-  extra-dep: true
-
-
-extra-deps: []
+extra-deps:
+- mtbdd/
+- qm/
 
 flags: {}
 
