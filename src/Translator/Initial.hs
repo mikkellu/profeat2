@@ -52,5 +52,7 @@ featureExpr ctx =
            else l `lAnd` u
 
 activeExpr :: FeatureContext -> LExpr
-activeExpr ctx = NameExpr (activeName ctx) noLoc
+activeExpr ctx
+  | ctx^.this.fsMandatory = 1
+  | otherwise = NameExpr (activeName ctx) noLoc
 
