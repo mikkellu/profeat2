@@ -8,14 +8,13 @@ module VarOrder
 
 import Control.Lens
 
-import Data.List.NonEmpty ( NonEmpty(..) )
 import Data.Map ( Map )
 import qualified Data.Map as Map
 import Data.Maybe ( mapMaybe )
 import Data.Text ( Text )
 import Data.Text.Lazy ( toStrict )
 
-import Text.PrettyPrint.Leijen.Text ( Pretty(..), Doc )
+import Text.PrettyPrint.Leijen.Text ( Pretty(..), Doc, dot, integer, brackets )
 
 import Symbols
 import Syntax hiding ( Range )
@@ -105,7 +104,9 @@ varToVarMap sc ident t = case t of
 
 
 prettyName :: Scope -> Ident -> Maybe Integer -> Doc
-prettyName sc ident idx = pretty (toName sc ident idx)
-
-toName :: Scope -> Ident -> Maybe Integer -> LName
-toName _ ident idx = Name ((ident, fmap intExpr idx) :| []) noLoc
+prettyName sc ident idx = case sc of
+    Local ctx  -> pretty ctx <> dot <> ident'
+    LocalCtrlr -> ident'
+    Global     -> ident'
+  where
+    ident' = pretty ident <> maybe mempty (brackets . integer) idx
