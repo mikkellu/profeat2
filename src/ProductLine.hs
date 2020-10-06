@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TupleSections     #-}
 
@@ -39,7 +40,8 @@ rootFeatureSymbol symTbl = flip runReaderT (Env Global symTbl) $
         syms <- for roots $ \ident -> (ident,) <$> toFeatureSymbol' True ident
 
         let card = genericLength syms
-            root = emptyFeatureSymbol & fsGroupCard .~ (card, card)
+            root = emptyFeatureSymbol & fsIdent     .~ "root"
+                                      & fsGroupCard .~ (card, card)
                                       & fsChildren  .~ fromList syms
                                       & fsModules   .~ mods'
                                       & fsVars      .~ varSyms
