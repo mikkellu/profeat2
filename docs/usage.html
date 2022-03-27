@@ -1,0 +1,338 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Running ProFeat &mdash; ProFeat 1.0.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="The ProFeat language" href="language.html" />
+    <link rel="prev" title="Installation" href="installation.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home"> ProFeat
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Running ProFeat</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#basic-usage">Basic usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#options">Options</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="language.html">The ProFeat language</a></li>
+<li class="toctree-l1"><a class="reference internal" href="properties.html">Property specification</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">ProFeat</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html">Docs</a> &raquo;</li>
+        
+      <li>Running ProFeat</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/usage.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="running-profeat">
+<h1>Running ProFeat<a class="headerlink" href="#running-profeat" title="Permalink to this headline">¶</a></h1>
+<p>This section describes ProFeat’s command line interface and the various options
+to configure the translation, analysis and post-processing steps.</p>
+<div class="section" id="basic-usage">
+<h2>Basic usage<a class="headerlink" href="#basic-usage" title="Permalink to this headline">¶</a></h2>
+<p>ProFeat can be run from the command line and must be invoked with a file
+containing a ProFeat model and a properties file:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>profeat my_model.profeat my_props.fprops
+</pre></div>
+</div>
+<p>This will translate the model, invoke PRISM and show a table with the analysis
+results. If ProFeat is invoked without a properties file, the model will only
+be translated and then built using PRISM, but no analysis is performed.</p>
+<p>To perform only the translation, but not the analysis using PRISM, the <code class="docutils literal notranslate"><span class="pre">-t</span></code>
+option can be used:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>profeat my_model.profeat my_model.fprops -t
+</pre></div>
+</div>
+<p>This command will produce the output files <code class="docutils literal notranslate"><span class="pre">out.prism</span></code>  and <code class="docutils literal notranslate"><span class="pre">out.props</span></code>
+containing the translated model and properties, respectively. To specify a
+different name for the PRISM model file, the <code class="docutils literal notranslate"><span class="pre">-o</span></code> option is used:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>profeat -t my_model.profeat -o my_model.prism
+</pre></div>
+</div>
+<p>The above command will write the translated model to <code class="docutils literal notranslate"><span class="pre">my_model.prism</span></code>.
+Similarly, the <code class="docutils literal notranslate"><span class="pre">-p</span></code> option is used to specify a path for the translated
+properties file.</p>
+</div>
+<div class="section" id="options">
+<span id="sec-options"></span><h2>Options<a class="headerlink" href="#options" title="Permalink to this headline">¶</a></h2>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">--one-by-one</span></code></dt><dd><p>By default, ProFeat encodes the whole system family into a single PRISM
+model. Alternatively, all family members can be analyzed one-by-one, i.e.,
+PRISM is invoked for each instance of the system family separately.</p>
+<p>If the <code class="docutils literal notranslate"><span class="pre">--one-by-one</span></code> option is used in combination with any other
+option that produces output files, e.g., the <code class="docutils literal notranslate"><span class="pre">-o</span></code> option, an index is
+automatically appended to the file names. For example, ProFeat may be invoked
+using the following options:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>profeat my_model.profeat -o my_model.prism --one-by-one
+</pre></div>
+</div>
+<p>This will produce the files <code class="docutils literal notranslate"><span class="pre">my_model_0.prism</span></code>, <code class="docutils literal notranslate"><span class="pre">my_model_1.prism</span></code>,
+<code class="docutils literal notranslate"><span class="pre">my_model_2.prism</span></code> and so on for each family instance.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">--constant-folding</span></code></dt><dd><p>Evaluates all constant subexpressions in the translated model as far as
+possible.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">-o</span> <span class="pre">&lt;FILE&gt;</span></code> or <code class="docutils literal notranslate"><span class="pre">--export-model</span> <span class="pre">&lt;FILE&gt;</span></code></dt><dd><p>Exports the translated model to the specified file.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">-p</span> <span class="pre">&lt;FILE&gt;</span></code> or <code class="docutils literal notranslate"><span class="pre">--export-properties</span> <span class="pre">&lt;FILE&gt;</span></code></dt><dd><p>Exports the translated properties to the specified file.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">--export-fd</span> <span class="pre">&lt;FILE&gt;</span></code></dt><dd><p>Exports a feature diagram for the feature model defined in the ProFeat model.
+The exported diagram is exported in the Graphviz DOT format.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">--export-vars</span> <span class="pre">&lt;FILE&gt;</span></code></dt><dd><p>Exports the mapping of fully qualified feature names in the ProFeat model
+to the variable names used in the PRISM model. The mapping is exported in
+the CSV format.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">-r</span> <span class="pre">&lt;FILE&gt;</span></code> or <code class="docutils literal notranslate"><span class="pre">--export-results</span> <span class="pre">&lt;FILE&gt;</span></code></dt><dd><p>Exports the analysis results in CSV format.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">--export-time</span> <span class="pre">&lt;FILE&gt;</span></code></dt><dd><p>Exports build time, model checking time and other time counters reported by
+PRISM in CSV format.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">--above-threshold</span> <span class="pre">&lt;NUMBER&gt;</span></code></dt><dd><p>Computes a propositional logic constraint over the features in the model.
+The constraint evaluates to <code class="docutils literal notranslate"><span class="pre">true</span></code> for all feature combinations whose
+analysis result is above the given threshold.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">--export-mtbdd</span> <span class="pre">&lt;FILE&gt;</span></code></dt><dd><p>Exports a multi-terminal binary decision diagram representing the analysis
+results in the Graphviz DOT format.</p>
+<p>The rounded nodes in the diagram represent features and the rectangular
+nodes represent the analysis results. The diagram is read from top to
+bottom. A solid line means the feature is selected, a dashed line means it is
+not selected. A path from the root node to a leaf node provides the analysis
+result for a single feature combination.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">--full-mtbdd</span></code></dt><dd><p>By default, the MTBDD exported by the <code class="docutils literal notranslate"><span class="pre">--export-mtbdd</span></code> option does not
+include the constraints for the initial configurations. Using this option,
+the full MTBDD can be exported. It contains an additional (empty) leaf node,
+which stands for an invalid feature combination.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">--reorder-mtbdd</span></code></dt><dd><p>Tries to reduce the size of the MTBDD exported by the <code class="docutils literal notranslate"><span class="pre">--export-mtbdd</span></code>
+option via reordering.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">--round-results</span> <span class="pre">&lt;NUMBER&gt;</span></code></dt><dd><p>Rounds the analysis results to the specified precision (number of fractional
+digits).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">--prism-log</span></code></dt><dd><p>Prints the log messages of PRISM to stdout.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">--export-log</span> <span class="pre">&lt;FILE&gt;</span></code></dt><dd><p>Exports the PRISM log to the specified file.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">--import-results</span> <span class="pre">&lt;FILE&gt;</span></code></dt><dd><p>Imports a PRISM log (from an all-in-one analysis) or multiple PRISM logs
+(from a one-by-one analysis) for post-processing.</p>
+<p>Using this option, the three steps performed by ProFeat (translation,
+invoking PRISM, post-processing) can be performed stepwise:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>profeat -t my_model.profeat my_model.fprops
+prism out.prism out.props &gt; out.log
+profeat my_model.profeat my_model.fprops --import-results out.log
+</pre></div>
+</div>
+<p>Note that the same model file and properties file must be used on the second
+invocation of ProFeat. The three commands above are equivalent to:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>profeat my_model.profeat my_model.fprops
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">--import-results</span></code> option can also be used with a one-by-one analysis:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>profeat -t my_model.profeat my_model.fprops --one-by-one
+for i in $(seq 0 N); do prism out_${i}.prism out.props &gt; out_${i}.log; done
+profeat my_model.profeat my_model.fprops --import-results out.log
+</pre></div>
+</div>
+<p>Note that ProFeat automatically inserts the indices in the <code class="docutils literal notranslate"><span class="pre">out.log</span></code> file
+name upon importing the PRISM log files.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">-t</span></code> or <code class="docutils literal notranslate"><span class="pre">--translate</span></code></dt><dd><p>Only translates the model, but performs no analysis.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">-m</span></code> or <code class="docutils literal notranslate"><span class="pre">--model-checking</span></code></dt><dd><p>Performs the translation and the analysis, but not the post-processing step.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">--prism-path</span></code></dt><dd><p>Set the path to the PRISM startup script that should be used to invoke
+PRISM. Default: <code class="docutils literal notranslate"><span class="pre">prism</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">--prism-args</span> <span class="pre">&lt;ARGS&gt;</span></code></dt><dd><p>Additional arguments that should be passed to PRISM. Note that the arguments
+should be quoted, so that they do not interfere with ProFeat’s arguments,
+for example:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>profeat my_model.profeat my_model.fprops --prism-args &quot;-m -cuddmaxmem 2g&quot;
+</pre></div>
+</div>
+</dd>
+</dl>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="language.html" class="btn btn-neutral float-right" title="The ProFeat language" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="installation.html" class="btn btn-neutral float-left" title="Installation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Philipp Chrszon
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

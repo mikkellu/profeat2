@@ -1,0 +1,258 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Family definition &mdash; ProFeat 1.0.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Feature modules" href="modules.html" />
+    <link rel="prev" title="Feature model" href="features.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> ProFeat
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Running ProFeat</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../language.html">The ProFeat language</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="features.html">Feature model</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Family definition</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules.html">Feature modules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="controller.html">Dynamic feature switches</a></li>
+<li class="toctree-l2"><a class="reference internal" href="constants.html">Constants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="globals.html">Global variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="formulas.html">Formulas</a></li>
+<li class="toctree-l2"><a class="reference internal" href="expressions.html">Expressions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rewards.html">Costs and rewards</a></li>
+<li class="toctree-l2"><a class="reference internal" href="labels.html">Labels</a></li>
+<li class="toctree-l2"><a class="reference internal" href="init.html">Multiple initial states</a></li>
+<li class="toctree-l2"><a class="reference internal" href="invariants.html">Invariants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="blocks.html">Block syntax</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../properties.html">Property specification</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">ProFeat</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../language.html">The ProFeat language</a> &raquo;</li>
+        
+      <li>Family definition</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/language/family.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="family-definition">
+<span id="sec-family"></span><h1>Family definition<a class="headerlink" href="#family-definition" title="Permalink to this headline">¶</a></h1>
+<p>A family of systems is implicitly defined by the set of allowed (or valid)
+<a class="reference internal" href="features.html#sec-feature-model"><span class="std std-ref">feature combinations</span></a>. However, a family can also
+be defined using an explicit family definition:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>family
+    n : [0..3];
+    b : bool;
+    initial constraint b =&gt; n != 1;
+endfamily
+</pre></div>
+</div>
+<p>A <code class="docutils literal notranslate"><span class="pre">family</span></code> block contains one or more <em>parameters</em> and optionally some
+initial constraints on these parameters. The difference between parameters and
+feature attributes is that parameters are assumed to be constant. As such, they
+can be used anywhere in the model, including array sizes, number of
+multi-feature instances and loop bounds. This means a family definition can be
+used to parametrize the structure of a system.</p>
+<p>If a <code class="docutils literal notranslate"><span class="pre">family</span></code> block is present and the <code class="docutils literal notranslate"><span class="pre">--one-by-one</span></code> <a class="reference internal" href="../usage.html#sec-options"><span class="std std-ref">option</span></a> is used, the generated instances are solely defined by the
+parameters in the <code class="docutils literal notranslate"><span class="pre">family</span></code> block. This means that the set of initial states
+(of each instance) is the set of valid configurations of the feature model.
+However, features can also be used as family parameters by referencing them in
+the <code class="docutils literal notranslate"><span class="pre">family</span></code> block:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>family
+    n : [1..2];
+    features my_feat;
+endfamily
+
+root feature
+    [0..1] of my_feat;
+endfeature
+
+feature my_feat endfeature
+</pre></div>
+</div>
+<p>Here, the feature <code class="docutils literal notranslate"><span class="pre">my_feat</span></code> is used as a family parameter. Thus, the family
+shown above has 4 members.</p>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="modules.html" class="btn btn-neutral float-right" title="Feature modules" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="features.html" class="btn btn-neutral float-left" title="Feature model" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Philipp Chrszon
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

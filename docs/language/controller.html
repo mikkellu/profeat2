@@ -1,0 +1,294 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Dynamic feature switches &mdash; ProFeat 1.0.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Constants" href="constants.html" />
+    <link rel="prev" title="Feature modules" href="modules.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> ProFeat
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Running ProFeat</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../language.html">The ProFeat language</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="features.html">Feature model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="family.html">Family definition</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules.html">Feature modules</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Dynamic feature switches</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#feature-controller">Feature controller</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#synchronization">Synchronization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="constants.html">Constants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="globals.html">Global variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="formulas.html">Formulas</a></li>
+<li class="toctree-l2"><a class="reference internal" href="expressions.html">Expressions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rewards.html">Costs and rewards</a></li>
+<li class="toctree-l2"><a class="reference internal" href="labels.html">Labels</a></li>
+<li class="toctree-l2"><a class="reference internal" href="init.html">Multiple initial states</a></li>
+<li class="toctree-l2"><a class="reference internal" href="invariants.html">Invariants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="blocks.html">Block syntax</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../properties.html">Property specification</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">ProFeat</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../language.html">The ProFeat language</a> &raquo;</li>
+        
+      <li>Dynamic feature switches</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/language/controller.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="dynamic-feature-switches">
+<span id="sec-controller"></span><h1>Dynamic feature switches<a class="headerlink" href="#dynamic-feature-switches" title="Permalink to this headline">¶</a></h1>
+<p>A ProFeat model describes a family of systems where each member of the family
+corresponds to a feature combination. These feature combinations are static,
+i.e., once a feature combination has been selected it remains fixed. However,
+ProFeat also supports dynamic switches between feature combinations. This is
+especially useful for modeling adaptive systems or dynamic software product
+lines.</p>
+<div class="section" id="feature-controller">
+<h2>Feature controller<a class="headerlink" href="#feature-controller" title="Permalink to this headline">¶</a></h2>
+<p>The rules for switching between different configurations are specified by a
+<em>feature controller</em>, which is an automata-based component and defined similarly
+to <a class="reference internal" href="modules.html#sec-module-definitions"><span class="std std-ref">feature modules</span></a>. A controller is defined
+using a <code class="docutils literal notranslate"><span class="pre">controller</span></code> block and may contain variables and commands. Consider
+the following example:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>root feature
+    all of Producer, Consumers, Buffer;
+endfeature
+
+feature Consumers
+    some of Consumer[3];
+endfeature
+
+feature Consumer
+    // ...
+endfeature
+
+controller
+    [] buffer_full &amp; !active(Consumer[2]) -&gt; activate(Consumer[2]);
+    [] buffer_low &amp; active(Consumer[2]) -&gt; deactivate(Consumer[2]);
+endcontroller
+</pre></div>
+</div>
+<p>Here, the controller activates an additional <code class="docutils literal notranslate"><span class="pre">Consumer</span></code> in case
+the buffer is full. Once the buffer is almost empty again, the additional
+<code class="docutils literal notranslate"><span class="pre">Consumer</span></code> is deactivated.</p>
+<p>Inside a <code class="docutils literal notranslate"><span class="pre">controller</span></code> block, the special <code class="docutils literal notranslate"><span class="pre">activate</span></code> and <code class="docutils literal notranslate"><span class="pre">deactivate</span></code>
+updates can be used to activate or deactivate a feature, respectively. There
+may be multiple <code class="docutils literal notranslate"><span class="pre">activate</span></code> and <code class="docutils literal notranslate"><span class="pre">deactivate</span></code> updates in a single command.
+However, <code class="docutils literal notranslate"><span class="pre">activate</span></code> and <code class="docutils literal notranslate"><span class="pre">deactivate</span></code> cannot be used in stochastic updates.
+Furthermore, command containing updates to the feature combination can only be
+executed if it does not violate any of the constraints imposed by the
+<a class="reference internal" href="features.html#sec-feature-model"><span class="std std-ref">feature model</span></a>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The feature controller is optional, but there can be at most one
+feature controller in a ProFeat model.</p>
+</div>
+</div>
+<div class="section" id="synchronization">
+<h2>Synchronization<a class="headerlink" href="#synchronization" title="Permalink to this headline">¶</a></h2>
+<p>A feature module can synchronize with the feature controller on the <code class="docutils literal notranslate"><span class="pre">active</span></code>
+and <code class="docutils literal notranslate"><span class="pre">deactivate</span></code> updates using the special <code class="docutils literal notranslate"><span class="pre">activate</span></code> and <code class="docutils literal notranslate"><span class="pre">deactivate</span></code>
+actions. In the following example, the feature module implementing the
+<code class="docutils literal notranslate"><span class="pre">Consumer</span></code> feature uses the <code class="docutils literal notranslate"><span class="pre">deactivate</span></code> action to block the controller
+from deactivating it if it is not idle:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>module consumer_impl
+    work : [0..MAX_WORK] init 0;
+
+    // ...
+    [deactivate] work = 0 -&gt; true;
+endmodule
+</pre></div>
+</div>
+<p>The module will only synchronize with the feature controller if no further work
+must be processed.</p>
+<p>Synchronization with the <code class="docutils literal notranslate"><span class="pre">activate</span></code> action can, for example, be used to
+initialize the module’s state upon activation.</p>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="constants.html" class="btn btn-neutral float-right" title="Constants" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="modules.html" class="btn btn-neutral float-left" title="Feature modules" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Philipp Chrszon
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

@@ -1,0 +1,443 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Feature modules &mdash; ProFeat 1.0.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Dynamic feature switches" href="controller.html" />
+    <link rel="prev" title="Family definition" href="family.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> ProFeat
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Running ProFeat</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../language.html">The ProFeat language</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="features.html">Feature model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="family.html">Family definition</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Feature modules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#linking-features-and-modules">Linking features and modules</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#module-definitions">Module definitions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#synchronization">Synchronization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#parametrization">Parametrization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#meta-programming">Meta-programming</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="controller.html">Dynamic feature switches</a></li>
+<li class="toctree-l2"><a class="reference internal" href="constants.html">Constants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="globals.html">Global variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="formulas.html">Formulas</a></li>
+<li class="toctree-l2"><a class="reference internal" href="expressions.html">Expressions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rewards.html">Costs and rewards</a></li>
+<li class="toctree-l2"><a class="reference internal" href="labels.html">Labels</a></li>
+<li class="toctree-l2"><a class="reference internal" href="init.html">Multiple initial states</a></li>
+<li class="toctree-l2"><a class="reference internal" href="invariants.html">Invariants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="blocks.html">Block syntax</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../properties.html">Property specification</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">ProFeat</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../language.html">The ProFeat language</a> &raquo;</li>
+        
+      <li>Feature modules</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/language/modules.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="feature-modules">
+<span id="sec-modules"></span><h1>Feature modules<a class="headerlink" href="#feature-modules" title="Permalink to this headline">¶</a></h1>
+<p>A <em>feature module</em> defines the behavior (or part of the behavior) of a feature.</p>
+<div class="section" id="linking-features-and-modules">
+<h2>Linking features and modules<a class="headerlink" href="#linking-features-and-modules" title="Permalink to this headline">¶</a></h2>
+<p>A feature is implemented by referencing one or more modules after the
+<code class="docutils literal notranslate"><span class="pre">modules</span></code> keyword inside the <code class="docutils literal notranslate"><span class="pre">feature</span></code> block:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>feature Consumer
+    modules consumer_impl;
+endfeature
+
+module consumer_impl
+    // ...
+endmodule
+</pre></div>
+</div>
+<p>In this example, the <code class="docutils literal notranslate"><span class="pre">Consumer</span></code> is implemented by the <code class="docutils literal notranslate"><span class="pre">consumer_impl</span></code>
+module. Multiple modules can be listed after the <code class="docutils literal notranslate"><span class="pre">modules</span></code> keyword (separated
+by comma).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>A module can be referenced by multiple features. In this case, the
+module is instantiated multiple times.</p>
+</div>
+</div>
+<div class="section" id="module-definitions">
+<span id="sec-module-definitions"></span><h2>Module definitions<a class="headerlink" href="#module-definitions" title="Permalink to this headline">¶</a></h2>
+<p>A module consists of two parts. The <em>variables</em> define its possible states and
+<em>commands</em> specify the behavior by transitions between these states.</p>
+<p>For example, the consumer may have a variable that stores the amount of
+remaining work to be processed:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>module consumer_impl
+    work : [0 .. 3] init 0;
+endmodule
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If no initial value is defined, the initial value for the variable is
+chosen nondeterministically and the model has
+<a class="reference internal" href="init.html#sec-init"><span class="std std-ref">multiple initial states</span></a>.</p>
+</div>
+<p>A variable can have one of the following types.</p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">[&lt;n&gt;</span> <span class="pre">..</span> <span class="pre">&lt;m&gt;]</span></code></dt><dd><p>A bounded integer with minimum value <code class="docutils literal notranslate"><span class="pre">n</span></code> and maximum value <code class="docutils literal notranslate"><span class="pre">m</span></code> (the
+upper bound is inclusive).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bool</span></code></dt><dd><p>A Boolean variable which can be either <code class="docutils literal notranslate"><span class="pre">true</span></code> or <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">array</span> <span class="pre">[&lt;n&gt;</span> <span class="pre">..</span> <span class="pre">&lt;m&gt;]</span> <span class="pre">of</span> <span class="pre">&lt;type&gt;</span></code></dt><dd><p>An array with indices ranging from <code class="docutils literal notranslate"><span class="pre">n</span></code> to <code class="docutils literal notranslate"><span class="pre">m</span></code> (inclusive). The element
+type must be either <code class="docutils literal notranslate"><span class="pre">bool</span></code> or a bounded integer. An array can be
+initialized using an array literal:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>x : array [0..2] of bool init {true, false, true};
+</pre></div>
+</div>
+<p>For initializing all elements with the same value, the following short-hand
+notation can be used:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>x : array [0..2] of bool init false;
+</pre></div>
+</div>
+</dd>
+</dl>
+<p>A command comprises a <em>guard</em> and an <em>update</em>. If the guard evaluates to
+<code class="docutils literal notranslate"><span class="pre">true</span></code> in the current state the command may be executed, which updates the
+local variables of the module. In the following example, the command processes
+the remaining work by decreasing the <code class="docutils literal notranslate"><span class="pre">work</span></code> variable:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>module consumer_impl
+    work : [0 .. 3] init 0;
+
+    [] work &gt; 0 -&gt; (work&#39; = work - 1);
+endmodule
+</pre></div>
+</div>
+<p>Module variables are defined in the scope of its feature. Thus, other modules
+can refer to the <code class="docutils literal notranslate"><span class="pre">work</span></code> variable of the <code class="docutils literal notranslate"><span class="pre">Consumer</span></code> feature by
+<code class="docutils literal notranslate"><span class="pre">Consumer.work</span></code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>In contrast to the PRISM language, module variables in ProFeat do not
+have to be globally unique. They only must be unique within the module
+definition. However, the variables of two modules that implement the same
+feature must be distinct, since the scope is defined by the feature, not the
+module.</p>
+</div>
+<p>Each time a feature is instantiated, its associated feature modules are
+instantiated with it. In case the feature module implements a multi-feature,
+the <code class="docutils literal notranslate"><span class="pre">id</span></code> keyword refers to the index of the corresponding feature instance.
+Consider the following example:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>feature A
+    all of X[2];
+endfeature
+
+feature X
+    module X_impl;
+endfeature
+
+module X_impl
+    y : [0 .. 1] init id;
+endmodule
+</pre></div>
+</div>
+<p>The variable <code class="docutils literal notranslate"><span class="pre">y</span></code> is initialized with the index of the <code class="docutils literal notranslate"><span class="pre">X</span></code> feature instance,
+i.e., <code class="docutils literal notranslate"><span class="pre">X[0].y</span></code> is initialized with 0 and <code class="docutils literal notranslate"><span class="pre">X[1].y</span></code> is initialized with 1.</p>
+</div>
+<div class="section" id="synchronization">
+<h2>Synchronization<a class="headerlink" href="#synchronization" title="Permalink to this headline">¶</a></h2>
+<p>Commands can be labeled with <em>actions</em>. Actions can be used to force two or
+more modules to take their transitions simultaneously, i.e., to <em>synchronize</em>.
+Actions are placed in the square brackets before a command:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>module consumer_impl
+    work : [0 .. 3] init 0;
+
+    [dequeue] work = 0 -&gt; (work&#39; = 3);
+endmodule
+</pre></div>
+</div>
+<p>In the above example, the <code class="docutils literal notranslate"><span class="pre">Consumer</span></code> feature synchronizes with the buffer over
+the <code class="docutils literal notranslate"><span class="pre">dequeue</span></code> action to fetch the next work package.</p>
+<p>Actions can be indexed similar to arrays using the index operator <code class="docutils literal notranslate"><span class="pre">[</span> <span class="pre">]</span></code>. For
+instance, the above module definition can be changed such that each instance
+of a <code class="docutils literal notranslate"><span class="pre">Consumer</span></code> multi-feature has its own <code class="docutils literal notranslate"><span class="pre">dequeue</span></code> action by using the
+<code class="docutils literal notranslate"><span class="pre">id</span></code> as the index:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>module consumer_impl
+    work : [0 .. 3] init 0;
+
+    [dequeue[id]] work = 0 -&gt; (work&#39; = 3);
+endmodule
+</pre></div>
+</div>
+<p>If a feature is not part of a feature combination, then its modules are not
+included in the model instance for this feature combination. This means that an
+inactive feature (or rather, its modules) will not block any of its actions.
+However, sometimes it is desired that deactivating a feature blocks some or all
+of its actions. For example, the <code class="docutils literal notranslate"><span class="pre">dequeue</span></code> action of the <code class="docutils literal notranslate"><span class="pre">Consumer</span></code> feature
+should block if the <code class="docutils literal notranslate"><span class="pre">Consumer</span></code> feature is not in the feature combination.
+Otherwise, the buffer could execute this action on its own, which effectively
+drops the work package. Actions that should block are listed after the <code class="docutils literal notranslate"><span class="pre">block</span></code>
+keyword in the <code class="docutils literal notranslate"><span class="pre">feature</span></code> block:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>feature Consumer
+    block dequeue[id];
+
+    modules consumer_impl;
+endfeature
+</pre></div>
+</div>
+</div>
+<div class="section" id="parametrization">
+<h2>Parametrization<a class="headerlink" href="#parametrization" title="Permalink to this headline">¶</a></h2>
+<p>Similar to <a class="reference internal" href="features.html#sec-parametrization-feature"><span class="std std-ref">features</span></a>, modules can be
+parametrized. For example, a buffer implementation can be parametrized by the
+buffer size:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>module buffer(capacity)
+    cell : array [0..capacity - 1] of bool init false;
+
+    // ...
+endmodule
+</pre></div>
+</div>
+<p>Arguments are provided upon instantiation of the module in a <code class="docutils literal notranslate"><span class="pre">feature</span></code> block:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>feature SmallBuffer
+    modules buffer(2);
+endfeature
+</pre></div>
+</div>
+<p>A features’ parameters can be used as arguments as well:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>feature Buffer(capacity)
+    modules buffer(capacity);
+endfeature
+</pre></div>
+</div>
+</div>
+<div class="section" id="meta-programming">
+<span id="sec-meta-programming"></span><h2>Meta-programming<a class="headerlink" href="#meta-programming" title="Permalink to this headline">¶</a></h2>
+<p>ProFeat provides the <code class="docutils literal notranslate"><span class="pre">for</span></code> loop construct to generate sequences of commands,
+stochastic updates, variable assignments and expressions. Consider the following
+example of the <code class="docutils literal notranslate"><span class="pre">buffer</span></code> module, which implements a FIFO buffer with
+parametrized capacity:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>module buffer(capacity)
+    cell : array [0..capacity - 1] of [-1..MAX_WORK] init -1;
+
+    for c in [0..2]
+        [dequeue[c]] cell[0] != -1 -&gt;
+            (cell[capacity-1]&#39; = -1) &amp;
+            for i in [0..capacity-2]
+                (cell[i]&#39; = cell[i+1])
+            endfor;
+    endfor
+endmodule
+</pre></div>
+</div>
+<p>The outer <code class="docutils literal notranslate"><span class="pre">for</span></code> loop generates a command for each instance of the <code class="docutils literal notranslate"><span class="pre">Consumer</span></code>
+<a class="reference internal" href="features.html#sec-multi-features"><span class="std std-ref">multi-feature</span></a>. The inner loop then shifts the work
+items in the buffer upon dequeuing an item.</p>
+<p>If the <code class="docutils literal notranslate"><span class="pre">for</span></code> construct is used in an expression, the loop body must contain
+exactly one <code class="docutils literal notranslate"><span class="pre">...</span></code> placeholder. Intuitively, the placeholder is the position
+where the expression generated by the remaining iterations is inserted. Consider
+the following expression containing a <code class="docutils literal notranslate"><span class="pre">for</span></code> loop:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>for i in [1..4] i + ... endfor
+</pre></div>
+</div>
+<p>In the first iteration, this expression is expanded to:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>1 + for i in [2..4] i + ... endfor
+</pre></div>
+</div>
+<p>Unfolding the loop completely yields the expression:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>1 + (2 + (3 + 4))
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The placeholder <code class="docutils literal notranslate"><span class="pre">...</span></code> can only be used with the operators
+<code class="docutils literal notranslate"><span class="pre">+</span></code>, <code class="docutils literal notranslate"><span class="pre">-</span></code>, <code class="docutils literal notranslate"><span class="pre">*</span></code>, <code class="docutils literal notranslate"><span class="pre">&amp;</span></code> and <code class="docutils literal notranslate"><span class="pre">|</span></code> as well as the functions <code class="docutils literal notranslate"><span class="pre">min</span></code> and
+<code class="docutils literal notranslate"><span class="pre">max</span></code>.</p>
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="controller.html" class="btn btn-neutral float-right" title="Dynamic feature switches" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="family.html" class="btn btn-neutral float-left" title="Family definition" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Philipp Chrszon
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
