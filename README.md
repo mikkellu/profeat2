@@ -8,6 +8,13 @@ feature-oriented concepts, including support for dynamic feature switches,
 multi-features and feature attributes.
 
 
+Documentation
+-------------
+
+The feature-oriented modeling language and the usage of the tool are described
+in the [documentation](https://pchrszon.github.io/profeat).
+
+
 Installation
 ------------
 
