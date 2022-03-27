@@ -51,7 +51,6 @@ import Data.Ord                     ( comparing )
 import Data.Sequence                ( Seq, ViewL(..), viewl )
 import qualified Data.Sequence as Seq
 import Data.Strict.Tuple            ( (:!:), Pair(..) )
-import Data.Strict.Tuple.Lens       ()
 import qualified Data.Strict.Tuple as ST
 
 import Data.Text                    ( Text )

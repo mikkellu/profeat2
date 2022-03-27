@@ -18,7 +18,7 @@
 # -- Project information -----------------------------------------------------
 
 project = 'ProFeat'
-copyright = '2019, Philipp Chrszon'
+copyright = '2022, Philipp Chrszon'
 author = 'Philipp Chrszon'
 
 # The full version, including alpha/beta/rc tags
