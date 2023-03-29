@@ -140,7 +140,7 @@ logStateResults =
                    (ResultDouble <$> (reservedOp "=" *> float'))
 
 logFinalResult :: Parser Log
-logFinalResult = LogFinalResult <$> (start *> result <* skipLine) where
+logFinalResult = LogFinalResult <$> (start *> result) where
     start = trySymbol "Result:"
 
 logTrace :: Parser Log
