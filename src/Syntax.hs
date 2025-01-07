@@ -436,13 +436,23 @@ instance HasExprs ActionLabel where
 
 data Update a = Update
   { updProb   :: Maybe (Expr a)
+  , updProbLow :: Maybe (Expr a)
+  , updProbHigh :: Maybe (Expr a)
   , updAssign :: Repeatable Assign a
   , updAnnot  :: !a
   } deriving (Eq, Functor, Show)
 
+-- instance HasExprs Update where
+--     exprs f (Update prob asgns a) =
+--         Update <$> traverse f prob <*> exprs f asgns <*> pure a
 instance HasExprs Update where
-    exprs f (Update prob asgns a) =
-        Update <$> traverse f prob <*> exprs f asgns <*> pure a
+    exprs f (Update prob probLow propHigh asgns a) =
+        Update
+        <$> traverse f prob
+        <*> traverse f probLow
+        <*> traverse f propHigh
+        <*> exprs f asgns
+        <*> pure a
 
 data Assign a
   = Assign (Name a) (Expr a) !a
@@ -874,11 +884,23 @@ instance Pretty (ActionLabel a) where
         Action n _      -> pretty n
         NoAction        -> empty
 
+-- instance Pretty (Update a) where
+--     pretty (Update e asgns _) = prob e <>
+--         prettyRepeatable Inline (\l r -> l <+> "&" <+> r) "true" asgns
+--       where
+--         prob = maybe empty ((<> colon) . pretty)
+
 instance Pretty (Update a) where
-    pretty (Update e asgns _) = prob e <>
-        prettyRepeatable Inline (\l r -> l <+> "&" <+> r) "true" asgns
+    pretty (Update e el eh asgns _) =
+        case (e, el, eh) of
+            (Just _, Nothing, Nothing) -> prob e
+            (Nothing, Just _, Just _) -> "[" <> probLow el <> ", " <> probHigh eh <> "]" <> colon
+            _                     -> empty
+        <> prettyRepeatable Inline (\l r -> l <+> "&" <+> r) "true" asgns
       where
         prob = maybe empty ((<> colon) . pretty)
+        probLow = maybe empty pretty
+        probHigh = maybe empty pretty
 
 instance Pretty (Assign a) where
     pretty (Assign name e _) =

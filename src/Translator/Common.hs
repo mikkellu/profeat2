@@ -107,10 +107,16 @@ trnsUpdate :: (MonadReader TrnsInfo m, MonadError Error m)
            => (LAssign -> m LAssign)
            -> LUpdate
            -> m LUpdate
-trnsUpdate trns (Update e asgns l) =
+trnsUpdate trns (Update e el eh asgns l) =
     Update <$> _Just (trnsExpr isNumericType) e
+           <*> _Just (trnsExpr isNumericType) el
+           <*> _Just (trnsExpr isNumericType) eh
            <*> ones trns asgns
            <*> pure l
+-- trnsUpdate trns (Update e asgns l) =
+--     Update <$> _Just (trnsExpr isNumericType) e
+--            <*> ones trns asgns
+--            <*> pure l
 
 trnsVarAssign :: (MonadReader TrnsInfo m, MonadError Error m)
               => LName

@@ -1,8 +1,8 @@
 name:                profeat
-version:             1.0.3.0
-synopsis:            A feature modelling framework
-author:              Philipp Chrszon
-maintainer:          Philipp.Chrszon@tu-dresden.de
+version:             1.0.3.0.1
+synopsis:            ProFeat with support for uncertain models
+author:              Philipp Chrszon, Mikkel Lundli
+maintainer:          Philipp.Chrszon@tu-dresden.de, mikkellu@uio.no
 category:            Language
 license:             BSD3
 license-file:        LICENSE
@@ -67,7 +67,7 @@ library
                        wl-pprint-text
   ghc-options:         -Wall
 
-executable profeat
+executable profeat2
   main-is:             Main.hs
   build-depends:       base,
                        text,
@@ -75,7 +75,7 @@ executable profeat
                        profeat
   ghc-options:         -Wall
 
-test-suite profeat-tests
+test-suite profeat2-tests
   type:                exitcode-stdio-1.0
   main-is:             Tests.hs
   -- other-modules:

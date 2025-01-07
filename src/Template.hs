@@ -75,8 +75,14 @@ prepUpdate :: ( MonadReader r m
               )
            => LUpdate
            -> m LUpdate
-prepUpdate (Update e asgns a) =
+-- prepUpdate (Update e asgns a) =
+--     Update <$> traverse prepExpr e
+--            <*> prepRepeatable prepExprs asgns
+--            <*> pure a
+prepUpdate (Update e el eh asgns a) =
     Update <$> traverse prepExpr e
+           <*> traverse prepExpr el
+           <*> traverse prepExpr eh
            <*> prepRepeatable prepExprs asgns
            <*> pure a
 

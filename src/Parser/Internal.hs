@@ -397,7 +397,8 @@ stmt =  loc (Stmt <$> brackets actionLabel
            <|> try (singleUpdate <* semi)
            <|> repeatable update (`sepBy1` reservedOp "+") <* semi
     singleUpdate = fmap (Repeatable . (:[]) . One) . loc $
-        Update Nothing <$> assigns
+        -- Update Nothing <$> assigns
+        Update Nothing Nothing Nothing <$> assigns
 
 actionLabel :: Parser LActionLabel
 actionLabel = option NoAction . loc . choice $
@@ -406,10 +407,25 @@ actionLabel = option NoAction . loc . choice $
     , Action        <$> name
     ]
 
+-- update :: Parser LUpdate
+-- update = loc (Update <$> probability <*> assignmentList) <?> "stochastic update"
+--   where
+--     probability    = Just <$> (expr <* colon)
+--     assignmentList =  Repeatable [] <$ reserved "true"
+--                   <|> assigns
+
 update :: Parser LUpdate
-update = loc (Update <$> probability <*> assignmentList) <?> "stochastic update"
+update = loc (makeUpdate <$> updateProb <*> assignmentList) <?> "stochastic update"
   where
-    probability    = Just <$> (expr <* colon)
+    makeUpdate prob assigns = case prob of
+      Left single -> Update (Just single) Nothing Nothing assigns
+      Right (low, high) -> Update Nothing (Just low) (Just high) assigns
+    updateProb = (Left <$> (expr <* colon)) 
+              <|> (Right <$> (brackets (do
+                    low <- expr
+                    comma
+                    high <- expr
+                    return (low, high))) <* colon)
     assignmentList =  Repeatable [] <$ reserved "true"
                   <|> assigns
 

@@ -1,5 +1,9 @@
-ProFeat
-=======
+## Note
+
+This is a fork of the original ProFeat tool (version 1.0.3.0). This fork adds support for [uncertain models](https://www.prismmodelchecker.org/manual/ThePRISMLanguage/UncertainModels), i.e., models where the transition probabilities are not known exactly, but are given as interval probabilities.  
+The original ProFeat tool can be found [here](https://github.com/pchrszon/profeat/tree/master).
+
+# ProFeat
 
 ProFeat is a tool for the analysis of stochastic system families.
 It provides a modeling language that extends the input language of the
@@ -7,16 +11,12 @@ probabilistic model checker [PRISM](http://www.prismmodelchecker.org) by
 feature-oriented concepts, including support for dynamic feature switches,
 multi-features and feature attributes.
 
-
-Documentation
--------------
+## Documentation
 
 The feature-oriented modeling language and the usage of the tool are described
 in the [documentation](https://pchrszon.github.io/profeat).
 
-
-Installation
-------------
+## Installation
 
 ### Prerequisites
 
