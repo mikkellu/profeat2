@@ -37,7 +37,7 @@ the following command to build the tool:
 The tools needed for building and all required dependencies will be downloaded
 automatically.
 
-Optionally, the `profeat` binary can be copied to the local bin path by using
+Optionally, the `profeat2` binary can be copied to the local bin path by using
 the command:
 
     stack install
